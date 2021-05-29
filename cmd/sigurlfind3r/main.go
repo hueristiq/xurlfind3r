@@ -67,7 +67,7 @@ func init() {
 		h += "  -s,  --silent            silent mode: output urls only\n"
 		h += "  -us, --use-sources       comma(,) separated list of sources to use\n\n"
 
-		fmt.Fprintf(os.Stderr, h)
+		fmt.Println(h)
 	}
 
 	flag.Parse()
@@ -131,7 +131,7 @@ func main() {
 		if co.silent {
 			fmt.Println(URL.Value)
 		} else {
-			fmt.Println(fmt.Sprintf("[%s] %s", au.BrightBlue(URL.Source), URL.Value))
+			fmt.Printf("[%s] %s", au.BrightBlue(URL.Source), URL.Value)
 		}
 	}
 }
