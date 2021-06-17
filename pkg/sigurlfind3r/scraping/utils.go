@@ -1,9 +1,9 @@
-package sources
+package scraping
 
 import (
 	"strings"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/session"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 
 	"github.com/enenumxela/urlx/pkg/urlx"
 )

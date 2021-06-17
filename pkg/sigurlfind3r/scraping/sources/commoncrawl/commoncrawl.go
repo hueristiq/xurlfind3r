@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/session"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sources"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
 type Source struct{}
@@ -57,8 +57,8 @@ func getPagination(domain string, ses *session.Session, includeSubs bool) (*Comm
 	return &paginationResult, nil
 }
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan sources.URLs {
-	URLs := make(chan sources.URLs)
+func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan scraping.URL {
+	URLs := make(chan scraping.URL)
 
 	go func() {
 		defer close(URLs)
@@ -108,7 +108,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 					return
 				}
 
-				URLs <- sources.URLs{Source: source.Name(), Value: result.URL}
+				URLs <- scraping.URL{Source: source.Name(), Value: result.URL}
 			}
 		}
 	}()

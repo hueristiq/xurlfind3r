@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/session"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sources"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
 type Source struct{}
@@ -25,8 +25,8 @@ type response struct {
 	} `json:"url_list"`
 }
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan sources.URLs {
-	URLs := make(chan sources.URLs)
+func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) (URLs chan scraping.URL) {
+	URLs = make(chan scraping.URL)
 
 	go func() {
 		defer close(URLs)
@@ -49,8 +49,8 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			}
 
 			for _, i := range results.URLList {
-				if URL, ok := sources.NormalizeURL(i.URL, ses.Scope); ok {
-					URLs <- sources.URLs{Source: source.Name(), Value: URL}
+				if URL, ok := scraping.NormalizeURL(i.URL, ses.Scope); ok {
+					URLs <- scraping.URL{Source: source.Name(), Value: URL}
 				}
 			}
 
@@ -60,7 +60,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 		}
 	}()
 
-	return URLs
+	return
 }
 
 func (source *Source) Name() string {

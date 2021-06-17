@@ -6,8 +6,8 @@ import (
 	"io/ioutil"
 
 	"github.com/enenumxela/urlx/pkg/urlx"
-	"github.com/signedsecurity/sigurlfind3r/pkg/session"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sources"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
 type response struct {
@@ -20,8 +20,8 @@ type response struct {
 
 type Source struct{}
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan sources.URLs {
-	URLs := make(chan sources.URLs)
+func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan scraping.URL {
+	URLs := make(chan scraping.URL)
 
 	go func() {
 		defer close(URLs)
@@ -50,10 +50,10 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 			if parsedURL.ETLDPlus1 == domain {
 				if includeSubs {
-					URLs <- sources.URLs{Source: source.Name(), Value: i.Page.URL}
+					URLs <- scraping.URL{Source: source.Name(), Value: i.Page.URL}
 				} else {
 					if parsedURL.SubDomain == "" || parsedURL.SubDomain == "www" {
-						URLs <- sources.URLs{Source: source.Name(), Value: i.Page.URL}
+						URLs <- scraping.URL{Source: source.Name(), Value: i.Page.URL}
 					}
 				}
 			}
