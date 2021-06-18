@@ -22,10 +22,10 @@ type Scope struct {
 type Session struct {
 	Scope  Scope
 	Client *http.Client
-	Keys   Keys
+	Keys   *Keys
 }
 
-func New(domain string, includeSubs bool, timeout int, keys Keys) (*Session, error) {
+func New(domain string, includeSubs bool, timeout int, keys *Keys) (*Session, error) {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
@@ -79,6 +79,7 @@ func (session *Session) DiscardHTTPResponse(response *http.Response) {
 		if err != nil {
 			return
 		}
+
 		response.Body.Close()
 	}
 }

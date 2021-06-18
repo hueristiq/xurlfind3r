@@ -8,10 +8,10 @@ assignees: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is. Include the version of sigurlfinder you are using.
+A clear and concise description of what the bug is. Include the version of sigurlfind3r you are using.
 
 **Steps To Reproduce**
-Steps to reproduce the behavior: e.g. The complete command you used.
+Steps to reproduce the behavior: e.g. The complete command you used/ran.
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.

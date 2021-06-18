@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -10,19 +11,14 @@ import (
 	"strings"
 
 	"github.com/logrusorgru/aurora/v3"
-	"github.com/signedsecurity/sigurlfind3r/pkg/runner"
+	"github.com/signedsecurity/sigurlfind3r/internal/configuration"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
-type options struct {
-	sourcesList bool
-	noColor     bool
-	silent      bool
-}
-
 var (
-	co options
 	au aurora.Aurora
-	so runner.Options
+	o  configuration.CLIOptions
 )
 
 func banner() {
@@ -37,20 +33,20 @@ func banner() {
 }
 
 func init() {
-	flag.StringVar(&so.Domain, "d", "", "")
-	flag.StringVar(&so.Domain, "domain", "", "")
-	flag.StringVar(&so.SourcesExclude, "es", "", "")
-	flag.StringVar(&so.SourcesExclude, "exclude-sources", "", "")
-	flag.BoolVar(&so.IncludeSubs, "is", false, "")
-	flag.BoolVar(&so.IncludeSubs, "include-subs", false, "")
-	flag.BoolVar(&co.sourcesList, "ls", false, "")
-	flag.BoolVar(&co.sourcesList, "list-sources", false, "")
-	flag.BoolVar(&co.noColor, "ns", false, "")
-	flag.BoolVar(&co.noColor, "no-color", false, "")
-	flag.BoolVar(&co.silent, "s", false, "")
-	flag.BoolVar(&co.silent, "silent", false, "")
-	flag.StringVar(&so.SourcesUse, "us", "", "")
-	flag.StringVar(&so.SourcesUse, "use-sources", "", "")
+	flag.StringVar(&o.Domain, "d", "", "")
+	flag.StringVar(&o.Domain, "domain", "", "")
+	flag.StringVar(&o.SourcesToExclude, "es", "", "")
+	flag.StringVar(&o.SourcesToExclude, "exclude-sources", "", "")
+	flag.BoolVar(&o.IncludeSubdomains, "is", false, "")
+	flag.BoolVar(&o.IncludeSubdomains, "include-subs", false, "")
+	flag.BoolVar(&o.ListSources, "ls", false, "")
+	flag.BoolVar(&o.ListSources, "list-sources", false, "")
+	flag.BoolVar(&o.NoColor, "ns", false, "")
+	flag.BoolVar(&o.NoColor, "no-color", false, "")
+	flag.BoolVar(&o.Silent, "s", false, "")
+	flag.BoolVar(&o.Silent, "silent", false, "")
+	flag.StringVar(&o.SourcesToUse, "us", "", "")
+	flag.StringVar(&o.SourcesToUse, "use-sources", "", "")
 
 	flag.Usage = func() {
 		banner()
@@ -72,25 +68,25 @@ func init() {
 
 	flag.Parse()
 
-	au = aurora.NewAurora(!co.noColor)
+	au = aurora.NewAurora(!o.NoColor)
 }
 
 func main() {
-	options, err := runner.ParseOptions(&so)
+	options, err := configuration.ParseCLIOptions(&o)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	if !co.silent {
+	if !o.Silent {
 		banner()
 	}
 
-	if co.sourcesList {
-		fmt.Println("[", au.BrightBlue("INF"), "] current list of the available", au.Underline(strconv.Itoa(len(options.YAMLConfig.Sources))+" sources").Bold())
+	if o.ListSources {
+		fmt.Println("[", au.BrightBlue("INF"), "] current list of the available", au.Underline(strconv.Itoa(len(options.YAML.Sources))+" sources").Bold())
 		fmt.Println("[", au.BrightBlue("INF"), "] sources marked with an * needs key or token")
 		fmt.Println("")
 
-		keys := options.YAMLConfig.GetKeys()
+		keys := options.YAML.GetKeys()
 		needsKey := make(map[string]interface{})
 		keysElem := reflect.ValueOf(&keys).Elem()
 
@@ -98,7 +94,7 @@ func main() {
 			needsKey[strings.ToLower(keysElem.Type().Field(i).Name)] = keysElem.Field(i).Interface()
 		}
 
-		for _, source := range options.YAMLConfig.Sources {
+		for _, source := range options.YAML.Sources {
 			if _, ok := needsKey[source]; ok {
 				fmt.Println(">", source, "*")
 			} else {
@@ -110,28 +106,34 @@ func main() {
 		os.Exit(0)
 	}
 
-	if !co.silent {
+	if !o.Silent {
 		fmt.Println("[", au.BrightBlue("INF"), "] fetching urls for", au.Underline(options.Domain).Bold())
 
-		if options.IncludeSubs {
+		if options.IncludeSubdomains {
 			fmt.Println("[", au.BrightBlue("INF"), "] -iS used: includes subdomains' urls")
 		}
 
 		fmt.Println("")
 	}
 
-	runner := runner.New(options)
+	runner := sigurlfind3r.New(&sigurlfind3r.Options{
+		SourcesToUse:     options.SourcesToUse,
+		SourcesToExclude: options.SourcesToExclude,
+		Keys: &session.Keys{
+			GitHub: options.YAML.Keys.GitHub,
+		},
+	})
 
-	URLs, err := runner.Run()
+	URLs, err := runner.Run(context.Background(), options.Domain, options.IncludeSubdomains)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	for URL := range URLs {
-		if co.silent {
+		if o.Silent {
 			fmt.Println(URL.Value)
 		} else {
-			fmt.Printf("[%s] %s", au.BrightBlue(URL.Source), URL.Value)
+			fmt.Printf("[%s] %s\n", au.BrightBlue(URL.Source), URL.Value)
 		}
 	}
 }

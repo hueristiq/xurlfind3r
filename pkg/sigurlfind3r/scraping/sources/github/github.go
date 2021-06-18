@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/session"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sources"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 	"github.com/tomnomnom/linkheader"
 )
 
@@ -34,8 +34,8 @@ type response struct {
 	Items      []item `json:"items"`
 }
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan sources.URLs {
-	URLs := make(chan sources.URLs)
+func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan scraping.URL {
+	URLs := make(chan scraping.URL)
 
 	go func() {
 		defer close(URLs)
@@ -53,7 +53,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 	return URLs
 }
 
-func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, ses *session.Session, URLs chan sources.URLs) {
+func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, ses *session.Session, URLs chan scraping.URL) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -106,7 +106,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 	}
 }
 
-func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ses *session.Session, URLs chan sources.URLs) error {
+func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ses *session.Session, URLs chan scraping.URL) error {
 	for _, item := range items {
 		res, err := ses.SimpleGet(rawContentURL(item.HTMLURL))
 		if err != nil {
@@ -125,8 +125,8 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ses *s
 				}
 
 				for _, URL := range domainRegexp.FindAllString(normalizeContent(line), -1) {
-					if URL, ok := sources.NormalizeURL(URL, ses.Scope); ok {
-						URLs <- sources.URLs{Source: name, Value: URL}
+					if URL, ok := scraping.NormalizeURL(URL, ses.Scope); ok {
+						URLs <- scraping.URL{Source: name, Value: URL}
 					}
 				}
 			}
@@ -134,8 +134,8 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ses *s
 
 		for _, textMatch := range item.TextMatches {
 			for _, URL := range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
-				if URL, ok := sources.NormalizeURL(URL, ses.Scope); ok {
-					URLs <- sources.URLs{Source: name, Value: URL}
+				if URL, ok := scraping.NormalizeURL(URL, ses.Scope); ok {
+					URLs <- scraping.URL{Source: name, Value: URL}
 				}
 			}
 		}
