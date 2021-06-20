@@ -13,17 +13,10 @@ func NormalizeURL(URL string, scope session.Scope) (string, bool) {
 	URL = strings.TrimRight(URL, "/")
 	URL = strings.Trim(URL, " ")
 
-	// if scope.FilterRegex.MatchString(URL) {
-	// 	return URL, false
-	// }
-
 	parsedURL, err := urlx.Parse(URL)
 	if err != nil {
 		return URL, false
 	}
-
-	// fmt.Println(parsedURL.Path)
-	// fmt.Println(scope.FilterRegex.MatchString(parsedURL.Path))
 
 	if scope.FilterRegex.MatchString(parsedURL.Path) {
 		return URL, false
