@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/enenumxela/urlx/pkg/urlx"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
@@ -43,19 +42,8 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 		}
 
 		for _, i := range results.Results {
-			parsedURL, err := urlx.Parse(i.Page.URL)
-			if err != nil {
-				continue
-			}
-
-			if parsedURL.ETLDPlus1 == domain {
-				if includeSubs {
-					URLs <- scraping.URL{Source: source.Name(), Value: i.Page.URL}
-				} else {
-					if parsedURL.SubDomain == "" || parsedURL.SubDomain == "www" {
-						URLs <- scraping.URL{Source: source.Name(), Value: i.Page.URL}
-					}
-				}
+			if URL, ok := scraping.NormalizeURL(i.Page.URL, ses.Scope); ok {
+				URLs <- scraping.URL{Source: source.Name(), Value: URL}
 			}
 		}
 	}()

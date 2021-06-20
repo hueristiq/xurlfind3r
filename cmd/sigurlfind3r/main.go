@@ -37,6 +37,8 @@ func init() {
 	flag.StringVar(&o.Domain, "domain", "", "")
 	flag.StringVar(&o.SourcesToExclude, "es", "", "")
 	flag.StringVar(&o.SourcesToExclude, "exclude-sources", "", "")
+	flag.StringVar(&o.FilterRegex, "f", "", "")
+	flag.StringVar(&o.FilterRegex, "filter", "", "")
 	flag.BoolVar(&o.IncludeSubdomains, "is", false, "")
 	flag.BoolVar(&o.IncludeSubdomains, "include-subs", false, "")
 	flag.BoolVar(&o.ListSources, "ls", false, "")
@@ -57,11 +59,12 @@ func init() {
 		h += "\nOPTIONS:\n"
 		h += "  -d,  --domain            domain to fetch urls for\n"
 		h += "  -es, --exclude-sources   comma(,) separated list of sources to exclude\n"
+		h += "  -f,  --filter            URL filtering regex\n"
 		h += "  -is, --include-subs      include subdomains' urls\n"
 		h += "  -ls, --list-sources      list all the available sources\n"
 		h += "  -nc, --no-color          no color mode\n"
 		h += "  -s,  --silent            silent mode: output urls only\n"
-		h += "  -us, --use-sources       comma(,) separated list of sources to use\n\n"
+		h += "  -us, --use-sources       comma(,) separated list of sources to use\n"
 
 		fmt.Println(h)
 	}
@@ -117,14 +120,16 @@ func main() {
 	}
 
 	runner := sigurlfind3r.New(&sigurlfind3r.Options{
-		SourcesToUse:     options.SourcesToUse,
-		SourcesToExclude: options.SourcesToExclude,
+		FilterRegex:       options.FilterRegex,
+		SourcesToUse:      options.SourcesToUse,
+		SourcesToExclude:  options.SourcesToExclude,
+		IncludeSubdomains: options.IncludeSubdomains,
 		Keys: &session.Keys{
 			GitHub: options.YAML.Keys.GitHub,
 		},
 	})
 
-	URLs, err := runner.Run(context.Background(), options.Domain, options.IncludeSubdomains)
+	URLs, err := runner.Run(context.Background(), options.Domain)
 	if err != nil {
 		log.Fatalln(err)
 	}
