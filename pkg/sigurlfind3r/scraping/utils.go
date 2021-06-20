@@ -3,9 +3,8 @@ package scraping
 import (
 	"strings"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
-
 	"github.com/enenumxela/urlx/pkg/urlx"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
 func NormalizeURL(URL string, scope session.Scope) (string, bool) {
@@ -19,11 +18,15 @@ func NormalizeURL(URL string, scope session.Scope) (string, bool) {
 		return URL, false
 	}
 
+	if scope.FilterRegex.MatchString(parsedURL.Path) {
+		return URL, false
+	}
+
 	if parsedURL.ETLDPlus1 == "" || parsedURL.ETLDPlus1 != scope.Domain {
 		return URL, false
 	}
 
-	if !scope.IncludeSubs {
+	if !scope.IncludeSubdomains {
 		if parsedURL.Host != scope.Domain && parsedURL.Host != "www."+scope.Domain {
 			return URL, false
 		}

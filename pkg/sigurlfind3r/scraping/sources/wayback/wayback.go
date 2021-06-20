@@ -48,7 +48,9 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 				URL = strings.TrimPrefix(URL, "25")
 				URL = strings.TrimPrefix(URL, "2f")
 
-				URLs <- scraping.URL{Source: source.Name(), Value: URL}
+				if URL, ok := scraping.NormalizeURL(URL, ses.Scope); ok {
+					URLs <- scraping.URL{Source: source.Name(), Value: URL}
+				}
 			}
 		}
 	}()

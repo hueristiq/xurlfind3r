@@ -8,30 +8,54 @@ sigurlfind3r is a passive reconnaissance tool, it fetches known URLs from **[Ali
 
 ## Usage
 
-To display help message for sigurlfind3r use the `-h` flag:
+```bash
+sigurlfind3r -h
+```
+
+This will display help for the tool.
 
 ```
-$ sigurlfind3r -h
-
-     _                  _  __ _           _
- ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| | ___ _ __
-/ __| |/ _` | | | | '__| | |_| | '_ \ / _` |/ _ \ '__|
-\__ \ | (_| | |_| | |  | |  _| | | | | (_| |  __/ |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|\___|_| v1.0.0
+     _                  _  __ _           _ _____
+ ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
+/ __| |/ _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
+\__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
+|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.0.0
        |___/
 
 USAGE:
-  sigurlfinder [OPTIONS]
+  sigurlfind3r [OPTIONS]
 
 OPTIONS:
   -d,  --domain            domain to fetch urls for
   -es, --exclude-sources   comma(,) separated list of sources to exclude
+  -f,  --filter            URL filtering regex
   -is, --include-subs      include subdomains' urls
   -ls, --list-sources      list all the available sources
   -nc, --no-color          no color mode
   -s,  --silent            silent mode: output urls only
   -us, --use-sources       comma(,) separated list of sources to use
+```
 
+### Examples
+
+#### Basic
+
+```bash
+sigurlfind3r -d tesla.com
+```
+
+#### Include Subdomains
+
+```bash
+sigurlfind3r -d tesla.com -is
+```
+
+#### Regex filter out URLs
+
+> sigurlfind3r filters out `.(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)` by default
+
+```bash
+sigurlfind3r -d tesla.com -f ".(png|ico|jpg|gif|css|woff|svg|ttf|eot|pdf)"
 ```
 
 ## Installation
@@ -45,7 +69,7 @@ You can download the pre-built binary for your platform from this repository's [
 sigurlfind3r requires **go1.14+** to install successfully. Run the following command to get the repo
 
 ```bash
-▶ GO111MODULE=on go get -u -v github.com/signedsecurity/sigurlfind3r/cmd/sigurlfind3r
+GO111MODULE=on go get -u -v github.com/signedsecurity/sigurlfind3r/cmd/sigurlfind3r
 ```
 
 #### From Github

@@ -20,6 +20,7 @@ type YAMLConfiguration struct {
 
 type CLIOptions struct {
 	Domain            string
+	FilterRegex       string
 	IncludeSubdomains bool
 	ListSources       bool
 	NoColor           bool
@@ -30,6 +31,7 @@ type CLIOptions struct {
 
 type Options struct {
 	Domain            string
+	FilterRegex       string
 	IncludeSubdomains bool
 	ListSources       bool
 	NoColor           bool
@@ -39,6 +41,7 @@ type Options struct {
 	YAML              YAMLConfiguration
 }
 
+// ParseCLIOptions parse the command line flags and read config file
 func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 	version := "1.0.0"
 
@@ -51,6 +54,7 @@ func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 
 	parsedOptions = &Options{
 		Domain:            options.Domain,
+		FilterRegex:       options.FilterRegex,
 		IncludeSubdomains: options.IncludeSubdomains,
 		ListSources:       options.ListSources,
 		NoColor:           options.NoColor,

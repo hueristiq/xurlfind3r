@@ -2,48 +2,57 @@ package sigurlfind3r
 
 import (
 	"context"
+	"regexp"
 
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/passive"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
-type Keys struct {
-	GitHub []string `json:"github"`
-}
-
-type Options struct {
-	SourcesToExclude []string
-	SourcesToUse     []string
-	Keys             *session.Keys
-}
-
+// Runner is an instance of url collection client used
+// to orchestrate the whole process.
 type Runner struct {
-	Options *Options
-	Passive *passive.Agent
+	FilterRegex *regexp.Regexp
+	Passive     *passive.Agent
+	Options     *Options
 }
 
+// Options is an instance of options used in creation of a Runner.
+type Options struct {
+	FilterRegex       string
+	SourcesToExclude  []string
+	SourcesToUse      []string
+	IncludeSubdomains bool
+	Keys              *session.Keys
+}
+
+// New creates a new Runner struct instance by parsing
+// the configuration options, configuring sources, etc.
 func New(options ...*Options) (runner *Runner) {
-	// Set default config
+	// Set default options
 	opts := &Options{
-		SourcesToExclude: make([]string, 0),
-		SourcesToUse:     scraping.SourcesList,
+		FilterRegex:       "",
+		IncludeSubdomains: false,
+		SourcesToExclude:  make([]string, 0),
+		SourcesToUse:      scraping.SourcesList,
 	}
 
-	// Override config if provided
+	// Override default options if custom provided
 	if len(options) > 0 {
 		opts = options[0]
 	}
 
 	runner = &Runner{
-		Options: opts,
-		Passive: passive.New(opts.SourcesToUse, opts.SourcesToExclude),
+		FilterRegex: regexp.MustCompile(opts.FilterRegex),
+		Passive:     passive.New(opts.SourcesToUse, opts.SourcesToExclude),
+		Options:     opts,
 	}
 
 	return
 }
 
-func (runner *Runner) Run(ctx context.Context, domain string, subs bool) (URLs chan scraping.URL, err error) {
+// Run runs the url collection flow on the specified target
+func (runner *Runner) Run(ctx context.Context, domain string) (URLs chan scraping.URL, err error) {
 	URLs = make(chan scraping.URL)
 
 	// Create a unique map for filtering duplicate URLs out
@@ -51,8 +60,7 @@ func (runner *Runner) Run(ctx context.Context, domain string, subs bool) (URLs c
 	// Create a map to track sources for each URL
 	sourceMap := make(map[string]map[string]struct{})
 
-	// keys := runner.options.YAMLConfig.GetKeys()
-	results := runner.Passive.Enumerate(domain, subs, runner.Options.Keys)
+	results := runner.Passive.Run(domain, runner.FilterRegex, runner.Options.IncludeSubdomains, runner.Options.Keys)
 
 	// Process the results in a separate goroutine
 	go func() {

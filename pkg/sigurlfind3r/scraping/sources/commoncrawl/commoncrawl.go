@@ -108,7 +108,9 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 					return
 				}
 
-				URLs <- scraping.URL{Source: source.Name(), Value: result.URL}
+				if URL, ok := scraping.NormalizeURL(result.URL, ses.Scope); ok {
+					URLs <- scraping.URL{Source: source.Name(), Value: URL}
+				}
 			}
 		}
 	}()

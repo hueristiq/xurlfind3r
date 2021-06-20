@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"time"
 )
 
@@ -15,17 +16,18 @@ type Keys struct {
 }
 
 type Scope struct {
-	Domain      string
-	IncludeSubs bool
+	Domain            string
+	FilterRegex       *regexp.Regexp
+	IncludeSubdomains bool
 }
 
 type Session struct {
-	Scope  Scope
 	Client *http.Client
 	Keys   *Keys
+	Scope  Scope
 }
 
-func New(domain string, includeSubs bool, timeout int, keys *Keys) (*Session, error) {
+func New(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, timeout int, keys *Keys) (*Session, error) {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
@@ -38,12 +40,13 @@ func New(domain string, includeSubs bool, timeout int, keys *Keys) (*Session, er
 	}
 
 	return &Session{
-		Scope: Scope{
-			Domain:      domain,
-			IncludeSubs: includeSubs,
-		},
 		Client: client,
 		Keys:   keys,
+		Scope: Scope{
+			Domain:            domain,
+			FilterRegex:       filterRegex,
+			IncludeSubdomains: includeSubdomains,
+		},
 	}, nil
 }
 
