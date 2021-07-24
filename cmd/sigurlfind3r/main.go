@@ -35,19 +35,19 @@ func banner() {
 func init() {
 	flag.StringVar(&o.Domain, "d", "", "")
 	flag.StringVar(&o.Domain, "domain", "", "")
-	flag.StringVar(&o.SourcesToExclude, "es", "", "")
+	flag.StringVar(&o.SourcesToExclude, "eS", "", "")
 	flag.StringVar(&o.SourcesToExclude, "exclude-sources", "", "")
-	flag.StringVar(&o.FilterRegex, "f", ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)", "")
-	flag.StringVar(&o.FilterRegex, "filter", ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)", "")
-	flag.BoolVar(&o.IncludeSubdomains, "is", false, "")
+	flag.StringVar(&o.FilterRegex, "f", "", "")
+	flag.StringVar(&o.FilterRegex, "filter", "", "")
+	flag.BoolVar(&o.IncludeSubdomains, "iS", false, "")
 	flag.BoolVar(&o.IncludeSubdomains, "include-subs", false, "")
-	flag.BoolVar(&o.ListSources, "ls", false, "")
+	flag.BoolVar(&o.ListSources, "lS", false, "")
 	flag.BoolVar(&o.ListSources, "list-sources", false, "")
-	flag.BoolVar(&o.NoColor, "ns", false, "")
+	flag.BoolVar(&o.NoColor, "nC", false, "")
 	flag.BoolVar(&o.NoColor, "no-color", false, "")
 	flag.BoolVar(&o.Silent, "s", false, "")
 	flag.BoolVar(&o.Silent, "silent", false, "")
-	flag.StringVar(&o.SourcesToUse, "us", "", "")
+	flag.StringVar(&o.SourcesToUse, "uS", "", "")
 	flag.StringVar(&o.SourcesToUse, "use-sources", "", "")
 
 	flag.Usage = func() {
@@ -57,14 +57,14 @@ func init() {
 		h += "  sigurlfind3r [OPTIONS]\n"
 
 		h += "\nOPTIONS:\n"
-		h += "  -d,  --domain            domain to fetch urls for\n"
-		h += "  -es, --exclude-sources   comma(,) separated list of sources to exclude\n"
-		h += "  -f,  --filter            URL filtering regex\n"
-		h += "  -is, --include-subs      include subdomains' urls\n"
-		h += "  -ls, --list-sources      list all the available sources\n"
-		h += "  -nc, --no-color          no color mode\n"
-		h += "  -s,  --silent            silent mode: output urls only\n"
-		h += "  -us, --use-sources       comma(,) separated list of sources to use\n"
+		h += "   -d, --domain            domain to fetch urls for\n"
+		h += "  -eS, --exclude-sources   comma(,) separated list of sources to exclude\n"
+		h += "   -f, --filter            URL filtering regex\n"
+		h += "  -iS, --include-subs      include subdomains' urls\n"
+		h += "  -lS, --list-sources      list all the available sources\n"
+		h += "  -nC, --no-color          no color mode\n"
+		h += "   -s  --silent            silent mode: output urls only\n"
+		h += "  -uS, --use-sources       comma(,) separated list of sources to use\n"
 
 		fmt.Println(h)
 	}

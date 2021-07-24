@@ -52,10 +52,8 @@ sigurlfind3r -d tesla.com -is
 
 #### Regex filter out URLs
 
-> sigurlfind3r filters out `.(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)` by default
-
 ```bash
-sigurlfind3r -d tesla.com -f ".(png|ico|jpg|gif|css|woff|svg|ttf|eot|pdf)"
+sigurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
 ```
 
 ## Installation
@@ -75,10 +73,10 @@ GO111MODULE=on go get -u -v github.com/signedsecurity/sigurlfind3r/cmd/sigurlfin
 #### From Github
 
 ```bash
-▶ git clone https://github.com/signedsecurity/sigurlfind3r.git
-▶ cd sigurlfind3r/cmd/sigurlfind3r/
-▶ go build; mv sigurlfind3r /usr/local/bin/
-▶ sigurlfind3r -h
+git clone https://github.com/signedsecurity/sigurlfind3r.git && \
+cd sigurlfind3r/cmd/sigurlfind3r/ && \
+go build; mv sigurlfind3r /usr/local/bin/ && \
+sigurlfind3r -h
 ```
 
 ## Post Installation

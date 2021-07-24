@@ -18,8 +18,10 @@ func NormalizeURL(URL string, scope session.Scope) (string, bool) {
 		return URL, false
 	}
 
-	if scope.FilterRegex.MatchString(parsedURL.Path) {
-		return URL, false
+	if scope.FilterRegex != nil {
+		if scope.FilterRegex.MatchString(parsedURL.Path) {
+			return URL, false
+		}
 	}
 
 	if parsedURL.ETLDPlus1 == "" || parsedURL.ETLDPlus1 != scope.Domain {

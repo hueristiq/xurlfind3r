@@ -43,10 +43,14 @@ func New(options ...*Options) (runner *Runner) {
 	}
 
 	runner = &Runner{
-		FilterRegex: regexp.MustCompile(opts.FilterRegex),
-		Passive:     passive.New(opts.SourcesToUse, opts.SourcesToExclude),
-		Options:     opts,
+		Options: opts,
 	}
+
+	if opts.FilterRegex != "" {
+		runner.FilterRegex = regexp.MustCompile(opts.FilterRegex)
+	}
+
+	runner.Passive = passive.New(opts.SourcesToUse, opts.SourcesToExclude)
 
 	return
 }
