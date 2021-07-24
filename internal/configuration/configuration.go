@@ -43,7 +43,7 @@ type Options struct {
 
 // ParseCLIOptions parse the command line flags and read config file
 func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
-	version := "1.1.0"
+	version := "1.2.0"
 
 	directory, err := os.UserHomeDir()
 	if err != nil {

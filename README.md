@@ -19,21 +19,21 @@ This will display help for the tool.
  ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
 / __| |/ _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
 \__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.1.0
+|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.2.0
        |___/
 
 USAGE:
   sigurlfind3r [OPTIONS]
 
 OPTIONS:
-  -d,  --domain            domain to fetch urls for
-  -es, --exclude-sources   comma(,) separated list of sources to exclude
-  -f,  --filter            URL filtering regex
-  -is, --include-subs      include subdomains' urls
-  -ls, --list-sources      list all the available sources
-  -nc, --no-color          no color mode
-  -s,  --silent            silent mode: output urls only
-  -us, --use-sources       comma(,) separated list of sources to use
+   -d, --domain            domain to fetch urls for
+  -eS, --exclude-sources   comma(,) separated list of sources to exclude
+   -f, --filter            URL filtering regex
+  -iS, --include-subs      include subdomains' urls
+  -lS, --list-sources      list all the available sources
+  -nC, --no-color          no color mode
+   -s  --silent            silent mode: output urls only
+  -uS, --use-sources       comma(,) separated list of sources to use
 ```
 
 ### Examples
