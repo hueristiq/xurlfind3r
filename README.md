@@ -4,65 +4,34 @@
 
 sigurlfind3r is a passive reconnaissance tool, it fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**.
 
-**DiSCLAIMER:** fetching urls from github is a bit slow.
+## Resource
 
-## Usage
+* [Features](#features)
+* [Installation](#installation)
+	* [From Binary](#from-binary)
+	* [From source](#from-source)
+	* [From github](#from-github)
+* [Post Installation](#post-installation)
+* [Usage](#usage)
+	* [Examples](#examples)
+		* [Basic](#basic)
+		* [Include Subdomains' URLs](#include-subdomains-urls)
+		* [Regex filter URLs](#regex-filter-urls)
+* [Contribution](#contribution)
 
-```bash
-sigurlfind3r -h
-```
+## Features
 
-This will display help for the tool.
-
-```
-     _                  _  __ _           _ _____
- ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
-/ __| |/ _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
-\__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.2.0
-       |___/
-
-USAGE:
-  sigurlfind3r [OPTIONS]
-
-OPTIONS:
-   -d, --domain            domain to fetch urls for
-  -eS, --exclude-sources   comma(,) separated list of sources to exclude
-   -f, --filter            URL filtering regex
-  -iS, --include-subs      include subdomains' urls
-  -lS, --list-sources      list all the available sources
-  -nC, --no-color          no color mode
-   -s  --silent            silent mode: output urls only
-  -uS, --use-sources       comma(,) separated list of sources to use
-```
-
-### Examples
-
-#### Basic
-
-```bash
-sigurlfind3r -d tesla.com
-```
-
-#### Include Subdomains
-
-```bash
-sigurlfind3r -d tesla.com -is
-```
-
-#### Regex filter out URLs
-
-```bash
-sigurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
-```
+* Fetches known URLs from AlienVault's OTX, Common Crawl, URLScan, Github & the Wayback Machine.
+* Save output to file.
+* Regex filter URLs.
 
 ## Installation
 
-#### From Binary
+### From Binary
 
 You can download the pre-built binary for your platform from this repository's [releases](https://github.com/signedsecurity/sigurlfind3r/releases/) page, extract, then move it to your `$PATH`and you're ready to go.
 
-#### From Source
+### From Source
 
 sigurlfind3r requires **go1.14+** to install successfully. Run the following command to get the repo
 
@@ -70,7 +39,7 @@ sigurlfind3r requires **go1.14+** to install successfully. Run the following com
 GO111MODULE=on go get -u -v github.com/signedsecurity/sigurlfind3r/cmd/sigurlfind3r
 ```
 
-#### From Github
+### From Github
 
 ```bash
 git clone https://github.com/signedsecurity/sigurlfind3r.git && \
@@ -97,6 +66,59 @@ keys:
     github:
         - d23a554bbc1aabb208c9acfbd2dd41ce7fc9db39
         - asdsd54bbc1aabb208c9acfbd2dd41ce7fc9db39
+```
+
+## Usage
+
+**DiSCLAIMER:** fetching urls from github is a bit slow.
+
+```bash
+sigurlfind3r -h
+```
+
+This will display help for the tool.
+
+```
+     _                  _  __ _           _ _____
+ ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
+/ __| |/ _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
+\__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
+|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.2.0
+       |___/
+
+USAGE:
+  sigurlfind3r [OPTIONS]
+
+OPTIONS:
+   -d, --domain            domain to fetch urls for
+  -eS, --exclude-sources   comma(,) separated list of sources to exclude
+   -f, --filter            URL filtering regex
+  -iS, --include-subs      include subdomains' urls
+  -lS, --list-sources      list all the available sources
+  -nC, --no-color          no color mode
+   -s  --silent            silent mode: output urls only
+  -uS, --use-sources       comma(,) separated list of sources to use
+   -o, --output            output file
+```
+
+### Examples
+
+#### Basic
+
+```bash
+sigurlfind3r -d tesla.com
+```
+
+#### Include Subdomains' URLs
+
+```bash
+sigurlfind3r -d tesla.com -iS
+```
+
+#### Regex filter URLs
+
+```bash
+sigurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
 ```
 
 ## Contribution

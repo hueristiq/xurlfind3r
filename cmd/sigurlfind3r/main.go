@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -17,19 +19,15 @@ import (
 )
 
 var (
-	au aurora.Aurora
-	o  configuration.CLIOptions
+	au      aurora.Aurora
+	o       configuration.CLIOptions
+	output  string
+	silent  bool
+	noColor bool
 )
 
 func banner() {
-	fmt.Fprintln(os.Stderr, aurora.BrightBlue(`
-     _                  _  __ _           _ _____
- ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
-/ __| |/ _`+"`"+` | | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
-\__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.2.0
-       |___/
-`).Bold())
+	fmt.Fprintln(os.Stderr, configuration.BANNER)
 }
 
 func init() {
@@ -43,12 +41,14 @@ func init() {
 	flag.BoolVar(&o.IncludeSubdomains, "include-subs", false, "")
 	flag.BoolVar(&o.ListSources, "lS", false, "")
 	flag.BoolVar(&o.ListSources, "list-sources", false, "")
-	flag.BoolVar(&o.NoColor, "nC", false, "")
-	flag.BoolVar(&o.NoColor, "no-color", false, "")
-	flag.BoolVar(&o.Silent, "s", false, "")
-	flag.BoolVar(&o.Silent, "silent", false, "")
+	flag.BoolVar(&noColor, "nC", false, "")
+	flag.BoolVar(&noColor, "no-color", false, "")
+	flag.BoolVar(&silent, "s", false, "")
+	flag.BoolVar(&silent, "silent", false, "")
 	flag.StringVar(&o.SourcesToUse, "uS", "", "")
 	flag.StringVar(&o.SourcesToUse, "use-sources", "", "")
+	flag.StringVar(&output, "o", "", "")
+	flag.StringVar(&output, "output", "", "")
 
 	flag.Usage = func() {
 		banner()
@@ -65,13 +65,14 @@ func init() {
 		h += "  -nC, --no-color          no color mode\n"
 		h += "   -s  --silent            silent mode: output urls only\n"
 		h += "  -uS, --use-sources       comma(,) separated list of sources to use\n"
+		h += "   -o, --output            output file\n"
 
 		fmt.Println(h)
 	}
 
 	flag.Parse()
 
-	au = aurora.NewAurora(!o.NoColor)
+	au = aurora.NewAurora(!noColor)
 }
 
 func main() {
@@ -80,7 +81,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if !o.Silent {
+	if !silent {
 		banner()
 	}
 
@@ -109,7 +110,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if !o.Silent {
+	if !silent {
 		fmt.Println("[", au.BrightBlue("INF"), "] fetching urls for", au.Underline(options.Domain).Bold())
 
 		if options.IncludeSubdomains {
@@ -134,11 +135,44 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	for URL := range URLs {
-		if o.Silent {
-			fmt.Println(URL.Value)
-		} else {
-			fmt.Printf("[%s] %s\n", au.BrightBlue(URL.Source), URL.Value)
+	if output != "" {
+		directory := filepath.Dir(output)
+
+		if _, err := os.Stat(directory); os.IsNotExist(err) {
+			if err = os.MkdirAll(directory, os.ModePerm); err != nil {
+				log.Fatalln(err)
+			}
+		}
+
+		file, err := os.OpenFile(output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		defer file.Close()
+
+		writer := bufio.NewWriter(file)
+
+		for URL := range URLs {
+			if silent {
+				fmt.Println(URL.Value)
+			} else {
+				fmt.Printf("[%s] %s\n", au.BrightBlue(URL.Source), URL.Value)
+			}
+
+			fmt.Fprintln(writer, URL.Value)
+		}
+
+		if err = writer.Flush(); err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		for URL := range URLs {
+			if silent {
+				fmt.Println(URL.Value)
+			} else {
+				fmt.Printf("[%s] %s\n", au.BrightBlue(URL.Source), URL.Value)
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -23,8 +24,6 @@ type CLIOptions struct {
 	FilterRegex       string
 	IncludeSubdomains bool
 	ListSources       bool
-	NoColor           bool
-	Silent            bool
 	SourcesToExclude  string
 	SourcesToUse      string
 }
@@ -34,17 +33,28 @@ type Options struct {
 	FilterRegex       string
 	IncludeSubdomains bool
 	ListSources       bool
-	NoColor           bool
-	Silent            bool
 	SourcesToExclude  []string
 	SourcesToUse      []string
 	YAML              YAMLConfiguration
 }
 
+const (
+	VERSION = "1.2.0"
+)
+
+var (
+	BANNER string = fmt.Sprintf(`
+     _                  _  __ _           _ _____
+ ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
+/ __| |/ _`+"`"+` | | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
+\__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
+|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
+       |___/
+`, VERSION)
+)
+
 // ParseCLIOptions parse the command line flags and read config file
 func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
-	version := "1.2.0"
-
 	directory, err := os.UserHomeDir()
 	if err != nil {
 		return
@@ -57,8 +67,6 @@ func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 		FilterRegex:       options.FilterRegex,
 		IncludeSubdomains: options.IncludeSubdomains,
 		ListSources:       options.ListSources,
-		NoColor:           options.NoColor,
-		Silent:            options.Silent,
 	}
 
 	if options.SourcesToUse != "" {
@@ -73,7 +81,7 @@ func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {
 		configuration := YAMLConfiguration{
-			Version: version,
+			Version: VERSION,
 			Sources: scraping.SourcesList,
 		}
 
@@ -94,9 +102,9 @@ func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 			return nil, err
 		}
 
-		if configuration.Version != version {
+		if configuration.Version != VERSION {
 			configuration.Sources = scraping.SourcesList
-			configuration.Version = version
+			configuration.Version = VERSION
 
 			if err = configuration.MarshalWrite(configPath); err != nil {
 				return nil, err
