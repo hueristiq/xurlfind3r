@@ -56,13 +56,14 @@ sigurlfind3r will work after [installation](#installation). However, to configur
 Example:
 
 ```yaml
-version: 1.1.0
+version: 1.4.0
 sources:
     - commoncrawl
     - github
     - otx
     - urlscan
     - wayback
+    - waybackrobots
 keys:
     github:
         - d23a554bbc1aabb208c9acfbd2dd41ce7fc9db39
@@ -84,7 +85,7 @@ This will display help for the tool.
  ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
 / __| |/ _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
 \__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.2.0
+|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.4.0
        |___/
 
 USAGE:
