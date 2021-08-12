@@ -7,6 +7,7 @@ import (
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/otx"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/urlscan"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/wayback"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/waybackrobots"
 )
 
 // Agent is a struct for running passive url collection for a given host.
@@ -42,6 +43,8 @@ func (agent *Agent) addSources(sourcesToUse []string) {
 			agent.sources[source] = &urlscan.Source{}
 		case "wayback":
 			agent.sources[source] = &wayback.Source{}
+		case "waybackrobots":
+			agent.sources[source] = &waybackrobots.Source{}
 		}
 	}
 }

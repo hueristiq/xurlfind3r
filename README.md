@@ -22,6 +22,7 @@ sigurlfind3r is a passive reconnaissance tool, it fetches known URLs from **[Ali
 ## Features
 
 * Fetches known URLs from AlienVault's OTX, Common Crawl, URLScan, Github & the Wayback Machine.
+* Fetches disallowed paths from `robots.txt` found on your target domain and snapshotted by the Wayback Machine.
 * Save output to file.
 * Regex filter URLs.
 
