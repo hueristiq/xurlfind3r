@@ -2,7 +2,9 @@
 
 [![release](https://img.shields.io/github/release/signedsecurity/sigurlfind3r?style=flat&color=0040ff)](https://github.com/signedsecurity/sigurlfind3r/releases) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/signedsecurity/sigurlfind3r.svg?style=flat&color=0040ff)](https://github.com/signedsecurity/sigurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/signedsecurity/sigurlfind3r.svg?style=flat&color=0040ff)](https://github.com/signedsecurity/sigurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?colorB=0040FF)](https://github.com/signedsecurity/sigurlfind3r/blob/master/LICENSE) [![twitter](https://img.shields.io/badge/twitter-@signedsecurity-0040ff.svg)](https://twitter.com/signedsecurity)
 
-sigurlfind3r is a passive reconnaissance tool, it fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**.
+A passive reconnaissance tool for known URLs discovery - it gathers a list of URLs passively using various online sources.
+
+<!-- sigurlfind3r is a passive reconnaissance tool, it fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**. -->
 
 ## Resource
 
@@ -21,10 +23,10 @@ sigurlfind3r is a passive reconnaissance tool, it fetches known URLs from **[Ali
 
 ## Features
 
-* Fetches known URLs from AlienVault's OTX, Common Crawl, URLScan, Github & the Wayback Machine.
+* Fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**.
 * Fetches disallowed paths from `robots.txt` found on your target domain and snapshotted by the Wayback Machine.
-* Save output to file.
 * Regex filter URLs.
+* Save output to file.
 
 ## Installation
 
