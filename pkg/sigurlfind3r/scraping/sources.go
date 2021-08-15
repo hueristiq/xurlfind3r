@@ -26,4 +26,5 @@ var SourcesList = []string{
 	"otx",
 	"urlscan",
 	"wayback",
+	"waybackrobots",
 }
