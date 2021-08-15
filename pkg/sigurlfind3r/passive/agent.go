@@ -1,6 +1,11 @@
+// Package passive provides capability for doing passive subdomain
+// enumeration on targets.
 package passive
 
 import (
+	"regexp"
+	"sync"
+
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/commoncrawl"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/github"
@@ -8,6 +13,7 @@ import (
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/urlscan"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/wayback"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/waybackrobots"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
 // Agent is a struct for running passive url collection for a given host.
@@ -17,14 +23,46 @@ type Agent struct {
 }
 
 // New creates a new agent for passive url collection
+// Create the agent, insert the sources and remove the excluded sources
 func New(sourcesToUse, sourcesToExclude []string) (agent *Agent) {
-	// Create the agent, insert the sources and remove the excluded sources
 	agent = &Agent{
 		sources: make(map[string]scraping.Source),
 	}
 
 	agent.addSources(sourcesToUse)
 	agent.removeSources(sourcesToExclude)
+
+	return
+}
+
+// Run collects all the known urls for a given domain
+func (agent *Agent) Run(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, keys *session.Keys) (URLs chan scraping.URL) {
+	URLs = make(chan scraping.URL)
+
+	go func() {
+		defer close(URLs)
+
+		ses, err := session.New(domain, filterRegex, includeSubdomains, 10, keys)
+		if err != nil {
+			return
+		}
+
+		wg := &sync.WaitGroup{}
+
+		for name, source := range agent.sources {
+			wg.Add(1)
+
+			go func(name string, source scraping.Source) {
+				defer wg.Done()
+
+				for res := range source.Run(domain, ses, includeSubdomains) {
+					URLs <- res
+				}
+			}(name, source)
+		}
+
+		wg.Wait()
+	}()
 
 	return
 }
