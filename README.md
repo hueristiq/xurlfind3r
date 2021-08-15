@@ -4,8 +4,6 @@
 
 A passive reconnaissance tool for known URLs discovery - it gathers a list of URLs passively using various online sources.
 
-<!-- sigurlfind3r is a passive reconnaissance tool, it fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**. -->
-
 ## Resource
 
 * [Features](#features)
@@ -17,8 +15,8 @@ A passive reconnaissance tool for known URLs discovery - it gathers a list of UR
 * [Usage](#usage)
 	* [Examples](#examples)
 		* [Basic](#basic)
-		* [Include Subdomains' URLs](#include-subdomains-urls)
 		* [Regex filter URLs](#regex-filter-urls)
+		* [Include Subdomains' URLs](#include-subdomains-urls)
 * [Contribution](#contribution)
 
 ## Features
@@ -113,16 +111,16 @@ OPTIONS:
 sigurlfind3r -d tesla.com
 ```
 
-#### Include Subdomains' URLs
-
-```bash
-sigurlfind3r -d tesla.com -iS
-```
-
 #### Regex filter URLs
 
 ```bash
 sigurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
+```
+
+#### Include Subdomains' URLs
+
+```bash
+sigurlfind3r -d tesla.com -iS
 ```
 
 ## Contribution
