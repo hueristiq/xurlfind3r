@@ -56,7 +56,7 @@ sigurlfind3r will work after [installation](#installation). However, to configur
 Example:
 
 ```yaml
-version: 1.4.1
+version: 1.5.0
 sources:
     - commoncrawl
     - github
@@ -85,7 +85,7 @@ This will display help for the tool.
  ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
 / __| |/ _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
 \__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.4.1
+|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.5.0
        |___/
 
 USAGE:
