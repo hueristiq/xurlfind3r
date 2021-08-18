@@ -27,7 +27,7 @@ A passive reconnaissance tool for known URLs discovery - it gathers a list of UR
 * Reduce noise:
     * Regex filter URLs.
     * Removes duplicate pages in the sense of URL patterns that are probably repetitive and points to the same web template.
-* Save output to file.
+* Output to stdout for piping or save to file.
 
 ## Installation
 
