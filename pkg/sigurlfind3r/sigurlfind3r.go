@@ -2,8 +2,11 @@ package sigurlfind3r
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"regexp"
 
+	"github.com/enenumxela/urlx/pkg/urlx"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/passive"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
@@ -59,35 +62,55 @@ func New(options ...*Options) (runner *Runner) {
 func (runner *Runner) Run(ctx context.Context, domain string) (URLs chan scraping.URL, err error) {
 	URLs = make(chan scraping.URL)
 
-	// Create a unique map for filtering duplicate URLs out
-	uniqueMap := make(map[string]scraping.URL)
-	// Create a map to track sources for each URL
-	sourceMap := make(map[string]map[string]struct{})
-
 	results := runner.Passive.Run(domain, runner.FilterRegex, runner.Options.IncludeSubdomains, runner.Options.Keys)
+
+	deDupMap := make(map[string]url.Values)
+	uniqueMap := make(map[string]scraping.URL)
 
 	// Process the results in a separate goroutine
 	go func() {
 		defer close(URLs)
 
 		for result := range results {
-			URL := result.Value
-
-			if _, exists := uniqueMap[URL]; !exists {
-				sourceMap[URL] = make(map[string]struct{})
-			}
-
-			sourceMap[URL][result.Source] = struct{}{}
-
-			if _, exists := uniqueMap[URL]; exists {
+			// unique urls - If the url already exists in the unique map
+			if _, exists := uniqueMap[result.Value]; exists {
 				continue
 			}
 
-			hostEntry := scraping.URL{Source: result.Source, Value: URL}
+			parsedURL, err := urlx.Parse(result.Value)
+			if err != nil {
+				continue
+			}
 
-			uniqueMap[URL] = hostEntry
+			// urls with query
+			if len(parsedURL.Query()) > 0 {
+				unique := false
 
-			URLs <- hostEntry
+				key := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Domain, parsedURL.Path)
+
+				if _, exists := deDupMap[key]; exists {
+					for parameter := range parsedURL.Query() {
+						if _, exists := deDupMap[key][parameter]; !exists {
+							deDupMap[key][parameter] = []string{"sigurlfind3r"}
+							unique = true
+						}
+					}
+				} else {
+					deDupMap[key] = parsedURL.Query()
+					unique = true
+				}
+
+				if !unique {
+					continue
+				}
+			}
+
+			uniqueMap[parsedURL.String()] = scraping.URL{
+				Source: result.Source,
+				Value:  parsedURL.String(),
+			}
+
+			URLs <- uniqueMap[parsedURL.String()]
 		}
 	}()
 
