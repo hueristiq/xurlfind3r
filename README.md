@@ -21,10 +21,13 @@ A passive reconnaissance tool for known URLs discovery - it gathers a list of UR
 
 ## Features
 
-* Fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**.
-* Fetches disallowed paths from `robots.txt` found on your target domain and snapshotted by the Wayback Machine.
-* Regex filter URLs.
-* Save output to file.
+* Collect known URLs:
+    * Fetches from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**.
+    * Fetches disallowed paths from `robots.txt` found on your target domain and snapshotted by the Wayback Machine.
+* Reduce noise:
+    * Regex filter URLs.
+    * Removes duplicate pages in the sense of URL patterns that are probably repetitive and points to the same web template.
+* Output to stdout for piping or save to file.
 
 ## Installation
 
