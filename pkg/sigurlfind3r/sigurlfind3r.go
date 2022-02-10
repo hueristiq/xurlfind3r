@@ -26,7 +26,7 @@ type Options struct {
 	SourcesToExclude  []string
 	SourcesToUse      []string
 	IncludeSubdomains bool
-	Keys              *session.Keys
+	Keys              session.Keys
 }
 
 // New creates a new Runner struct instance by parsing

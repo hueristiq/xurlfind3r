@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"path"
 	"strings"
@@ -16,6 +17,7 @@ type YAMLConfiguration struct {
 	Sources []string `yaml:"sources"`
 	Keys    struct {
 		GitHub []string `yaml:"github"`
+		Intelx []string `yaml:"intelx"`
 	}
 }
 
@@ -39,7 +41,7 @@ type Options struct {
 }
 
 const (
-	VERSION = "1.5.0"
+	VERSION = "1.6.0"
 )
 
 var (
@@ -163,6 +165,16 @@ func (config *YAMLConfiguration) GetKeys() session.Keys {
 
 	if len(config.Keys.GitHub) > 0 {
 		keys.GitHub = config.Keys.GitHub
+	}
+
+	intelxKeysCount := len(config.Keys.Intelx)
+	if intelxKeysCount > 0 {
+		intelxKeys := config.Keys.Intelx[rand.Intn(intelxKeysCount)]
+		parts := strings.Split(intelxKeys, ":")
+		if len(parts) == 2 {
+			keys.IntelXHost = parts[0]
+			keys.IntelXKey = parts[1]
+		}
 	}
 
 	return keys
