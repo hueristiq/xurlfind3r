@@ -15,7 +15,6 @@ import (
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/signedsecurity/sigurlfind3r/internal/configuration"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
 var (
@@ -125,9 +124,10 @@ func main() {
 		SourcesToUse:      options.SourcesToUse,
 		SourcesToExclude:  options.SourcesToExclude,
 		IncludeSubdomains: options.IncludeSubdomains,
-		Keys: &session.Keys{
-			GitHub: options.YAML.Keys.GitHub,
-		},
+		// Keys: &session.Keys{
+		// 	GitHub: options.YAML.Keys.GitHub,
+		// },
+		Keys: options.YAML.GetKeys(),
 	})
 
 	URLs, err := runner.Run(context.Background(), options.Domain)

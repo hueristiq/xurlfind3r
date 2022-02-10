@@ -22,7 +22,7 @@ A passive reconnaissance tool for known URLs discovery - it gathers a list of UR
 ## Features
 
 * Collect known URLs:
-    * Fetches from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)** and the **[Wayback Machine](https://archive.org/web/)**.
+    * Fetches from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
     * Fetches disallowed paths from `robots.txt` found on your target domain and snapshotted by the Wayback Machine.
 * Reduce noise:
     * Regex filter URLs.
@@ -37,10 +37,10 @@ You can download the pre-built binary for your platform from this repository's [
 
 ### From Source
 
-sigurlfind3r requires **go1.14+** to install successfully. Run the following command to get the repo
+sigurlfind3r requires **go1.17+** to install successfully. Run the following command to get the repo
 
 ```bash
-GO111MODULE=on go get -u -v github.com/signedsecurity/sigurlfind3r/cmd/sigurlfind3r
+go install -v github.com/signedsecurity/sigurlfind3r/cmd/sigurlfind3r@latest
 ```
 
 ### From Github
@@ -59,10 +59,11 @@ sigurlfind3r will work after [installation](#installation). However, to configur
 Example:
 
 ```yaml
-version: 1.5.0
+version: 1.6.0
 sources:
     - commoncrawl
     - github
+    - intelx
     - otx
     - urlscan
     - wayback
@@ -71,6 +72,8 @@ keys:
     github:
         - d23a554bbc1aabb208c9acfbd2dd41ce7fc9db39
         - asdsd54bbc1aabb208c9acfbd2dd41ce7fc9db39
+    intelx:
+        - 2.intelx.io:00000000-0000-0000-0000-000000000000
 ```
 
 ## Usage
@@ -88,7 +91,7 @@ This will display help for the tool.
  ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
 / __| |/ _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
 \__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.5.0
+|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.6.0
        |___/
 
 USAGE:

@@ -12,7 +12,10 @@ import (
 )
 
 type Keys struct {
-	GitHub []string `json:"github"`
+	GitHub     []string `json:"github"`
+	Intelx     string   `json:"intelx"` // unused, add just for the purpose of adding * on listing sources
+	IntelXHost string   `json:"intelXHost"`
+	IntelXKey  string   `json:"intelXKey"`
 }
 
 type Scope struct {
@@ -23,11 +26,11 @@ type Scope struct {
 
 type Session struct {
 	Client *http.Client
-	Keys   *Keys
+	Keys   Keys
 	Scope  Scope
 }
 
-func New(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, timeout int, keys *Keys) (*Session, error) {
+func New(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, timeout int, keys Keys) (*Session, error) {
 	client := &http.Client{
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
@@ -50,12 +53,20 @@ func New(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, time
 	}, nil
 }
 
+func (session *Session) Get(getURL string, headers map[string]string) (*http.Response, error) {
+	return session.HTTPRequest(http.MethodGet, getURL, headers, nil)
+}
+
 func (session *Session) SimpleGet(getURL string) (*http.Response, error) {
 	return session.HTTPRequest(http.MethodGet, getURL, map[string]string{}, nil)
 }
 
-func (session *Session) Get(getURL string, headers map[string]string) (*http.Response, error) {
-	return session.HTTPRequest(http.MethodGet, getURL, headers, nil)
+func (session *Session) Post(postURL, cookies string, headers map[string]string, body io.Reader) (*http.Response, error) {
+	return session.HTTPRequest(http.MethodPost, postURL, headers, body)
+}
+
+func (session *Session) SimplePost(postURL, contentType string, body io.Reader) (*http.Response, error) {
+	return session.HTTPRequest(http.MethodPost, postURL, map[string]string{"Content-Type": contentType}, body)
 }
 
 func (session *Session) HTTPRequest(method, requestURL string, headers map[string]string, body io.Reader) (*http.Response, error) {

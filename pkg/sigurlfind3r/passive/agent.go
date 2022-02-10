@@ -9,6 +9,7 @@ import (
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/commoncrawl"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/github"
+	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/intelx"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/otx"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/urlscan"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/wayback"
@@ -36,7 +37,7 @@ func New(sourcesToUse, sourcesToExclude []string) (agent *Agent) {
 }
 
 // Run collects all the known urls for a given domain
-func (agent *Agent) Run(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, keys *session.Keys) (URLs chan scraping.URL) {
+func (agent *Agent) Run(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, keys session.Keys) (URLs chan scraping.URL) {
 	URLs = make(chan scraping.URL)
 
 	go func() {
@@ -75,6 +76,8 @@ func (agent *Agent) addSources(sourcesToUse []string) {
 			agent.sources[source] = &commoncrawl.Source{}
 		case "github":
 			agent.sources[source] = &github.Source{}
+		case "intelx":
+			agent.sources[source] = &intelx.Source{}
 		case "otx":
 			agent.sources[source] = &otx.Source{}
 		case "urlscan":

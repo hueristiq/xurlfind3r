@@ -23,6 +23,7 @@ type Source interface {
 var SourcesList = []string{
 	"commoncrawl",
 	"github",
+	"intelx",
 	"otx",
 	"urlscan",
 	"wayback",
