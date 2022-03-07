@@ -41,7 +41,7 @@ type Options struct {
 }
 
 const (
-	VERSION = "1.6.0"
+	VERSION = "1.6.1"
 )
 
 var (
