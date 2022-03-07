@@ -24,37 +24,8 @@ type CommonResult struct {
 }
 
 type CommonAPIResult []struct {
+	ID  string `json:"id"`
 	API string `json:"cdx-api"`
-}
-
-var apiURL string
-
-func formatURL(domain string, page uint, includeSubs bool) string {
-	if includeSubs {
-		domain = "*." + domain
-	}
-
-	return fmt.Sprintf("%s?url=%s/*&output=json&fl=url&page=%d", apiURL, domain, page)
-}
-
-func getPagination(domain string, ses *session.Session, includeSubs bool) (*CommonPaginationResult, error) {
-	res, err := ses.SimpleGet(fmt.Sprintf("%s&showNumPages=true", formatURL(domain, 0, includeSubs)))
-	if err != nil {
-		ses.DiscardHTTPResponse(res)
-		return nil, err
-	}
-
-	defer res.Body.Close()
-
-	var paginationResult CommonPaginationResult
-
-	body, err := ioutil.ReadAll(res.Body)
-
-	if err := json.Unmarshal(body, &paginationResult); err != nil {
-		return nil, err
-	}
-
-	return &paginationResult, nil
 }
 
 func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan scraping.URL {
@@ -69,8 +40,6 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			return
 		}
 
-		defer res.Body.Close()
-
 		var apiRresults CommonAPIResult
 
 		body, err := ioutil.ReadAll(res.Body)
@@ -79,18 +48,15 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			return
 		}
 
-		apiURL = apiRresults[0].API
+		res.Body.Close()
 
-		pagination, err := getPagination(domain, ses, includeSubs)
-		if err != nil {
-			fmt.Println(err)
-		}
+		for _, u := range apiRresults {
+			var headers = map[string]string{"Host": "index.commoncrawl.org"}
 
-		for page := uint(0); page < pagination.Pages; page++ {
-			res, err := ses.SimpleGet(formatURL(domain, page, includeSubs))
+			res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", u.API, domain), headers)
 			if err != nil {
 				ses.DiscardHTTPResponse(res)
-				return
+				continue
 			}
 
 			defer res.Body.Close()
