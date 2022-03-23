@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"sync"
 
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
 	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
@@ -50,35 +51,45 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 		res.Body.Close()
 
+		wg := new(sync.WaitGroup)
+
 		for _, u := range apiRresults {
-			var headers = map[string]string{"Host": "index.commoncrawl.org"}
+			wg.Add(1)
 
-			res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", u.API, domain), headers)
-			if err != nil {
-				ses.DiscardHTTPResponse(res)
-				continue
-			}
+			go func(api string) {
+				defer wg.Done()
 
-			defer res.Body.Close()
+				var headers = map[string]string{"Host": "index.commoncrawl.org"}
 
-			sc := bufio.NewScanner(res.Body)
-
-			for sc.Scan() {
-				var result CommonResult
-
-				if err := json.Unmarshal(sc.Bytes(), &result); err != nil {
+				res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), headers)
+				if err != nil {
+					ses.DiscardHTTPResponse(res)
 					return
 				}
 
-				if result.Error != "" {
-					return
-				}
+				defer res.Body.Close()
 
-				if URL, ok := scraping.NormalizeURL(result.URL, ses.Scope); ok {
-					URLs <- scraping.URL{Source: source.Name(), Value: URL}
+				sc := bufio.NewScanner(res.Body)
+
+				for sc.Scan() {
+					var result CommonResult
+
+					if err := json.Unmarshal(sc.Bytes(), &result); err != nil {
+						return
+					}
+
+					if result.Error != "" {
+						return
+					}
+
+					if URL, ok := scraping.NormalizeURL(result.URL, ses.Scope); ok {
+						URLs <- scraping.URL{Source: source.Name(), Value: URL}
+					}
 				}
-			}
+			}(u.API)
 		}
+
+		wg.Wait()
 	}()
 
 	return URLs
