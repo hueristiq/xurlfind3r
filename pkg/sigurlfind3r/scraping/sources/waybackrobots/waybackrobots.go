@@ -23,10 +23,6 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 	go func() {
 		defer close(URLs)
 
-		// if includeSubs {
-		// 	domain = "*." + domain
-		// }
-
 		res, err := ses.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
 		if err != nil {
 			ses.DiscardHTTPResponse(res)
@@ -62,7 +58,6 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 				res, err := ses.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
 				if err != nil {
-					// fmt.Println(err)
 					ses.DiscardHTTPResponse(res)
 					return
 				}

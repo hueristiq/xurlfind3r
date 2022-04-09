@@ -29,7 +29,7 @@ func NormalizeURL(URL string, scope session.Scope) (string, bool) {
 	}
 
 	if !scope.IncludeSubdomains {
-		if parsedURL.Host != scope.Domain && parsedURL.Host != "www."+scope.Domain {
+		if parsedURL.Host != scope.Domain || parsedURL.Host != "www."+scope.Domain {
 			return URL, false
 		}
 	}

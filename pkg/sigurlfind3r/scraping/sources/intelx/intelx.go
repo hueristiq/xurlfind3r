@@ -96,6 +96,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 				res.Body.Close()
 				return
 			}
+
 			res.Body.Close()
 
 			status = response.Status
