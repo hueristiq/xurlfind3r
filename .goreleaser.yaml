@@ -4,8 +4,8 @@ before:
 
 builds:
     -
-        binary: sigurlfind3r
-        main: cmd/sigurlfind3r/main.go
+        binary: urlfind3r
+        main: cmd/urlfind3r/main.go
         goos:
             - linux
             - windows

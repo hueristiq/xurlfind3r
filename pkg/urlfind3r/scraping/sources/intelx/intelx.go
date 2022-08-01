@@ -8,9 +8,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
 )
 
 type searchResponseType struct {

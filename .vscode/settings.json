@@ -1,5 +1,5 @@
 {
     "yaml.schemas": {
-        "https://json.schemastore.org/github-workflow.json": "file:///home/enenumxela/Projects/signedsecurity/open-source-projects/sigurlfind3r/.github/workflows/build.yml"
+        "https://json.schemastore.org/github-workflow.json": "file:///home/enenumxela/Projects/hueristiq/open-source-projects/urlfind3r/.github/workflows/build.yml"
     }
 }

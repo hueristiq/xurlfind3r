@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,12 +46,11 @@ const (
 
 var (
 	BANNER string = fmt.Sprintf(`
-     _                  _  __ _           _ _____
- ___(_) __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __
-/ __| |/ _`+"`"+` | | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
-\__ \ | (_| | |_| | |  | |  _| | | | | (_| |___) | |
-|___/_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
-       |___/
+            _  __ _           _ _____      
+ _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+| | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
+| |_| | |  | |  _| | | | | (_| |___) | |   
+ \__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
 `, VERSION)
 )
 
@@ -62,7 +61,7 @@ func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 		return
 	}
 
-	configPath := directory + "/.config/sigurlfind3r/conf.yaml"
+	configPath := directory + "/.config/urlfind3r/conf.yaml"
 
 	parsedOptions = &Options{
 		Domain:            options.Domain,

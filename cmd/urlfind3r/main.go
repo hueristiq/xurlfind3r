@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hueristiq/urlfind3r/internal/configuration"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r"
 	"github.com/logrusorgru/aurora/v3"
-	"github.com/signedsecurity/sigurlfind3r/internal/configuration"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r"
 )
 
 var (
@@ -53,7 +53,7 @@ func init() {
 		banner()
 
 		h := "USAGE:\n"
-		h += "  sigurlfind3r [OPTIONS]\n"
+		h += "  urlfind3r [OPTIONS]\n"
 
 		h += "\nOPTIONS:\n"
 		h += "   -d, --domain            domain to fetch urls for\n"
@@ -119,7 +119,7 @@ func main() {
 		fmt.Println("")
 	}
 
-	runner := sigurlfind3r.New(&sigurlfind3r.Options{
+	runner := urlfind3r.New(&urlfind3r.Options{
 		FilterRegex:       options.FilterRegex,
 		SourcesToUse:      options.SourcesToUse,
 		SourcesToExclude:  options.SourcesToExclude,

@@ -6,15 +6,15 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/commoncrawl"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/github"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/intelx"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/otx"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/urlscan"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/wayback"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping/sources/waybackrobots"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping/sources/commoncrawl"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping/sources/github"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping/sources/intelx"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping/sources/otx"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping/sources/urlscan"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping/sources/wayback"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping/sources/waybackrobots"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
 )
 
 // Agent is a struct for running passive url collection for a given host.

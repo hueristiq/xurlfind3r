@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/scraping"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
 	"github.com/tomnomnom/linkheader"
 )
 

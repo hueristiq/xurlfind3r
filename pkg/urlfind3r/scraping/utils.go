@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/enenumxela/urlx/pkg/urlx"
-	"github.com/signedsecurity/sigurlfind3r/pkg/sigurlfind3r/session"
+	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
 )
 
 func NormalizeURL(URL string, scope session.Scope) (string, bool) {
@@ -24,7 +24,7 @@ func NormalizeURL(URL string, scope session.Scope) (string, bool) {
 		}
 	}
 
-	if parsedURL.ETLDPlus1 == "" || parsedURL.ETLDPlus1 != scope.Domain {
+	if parsedURL.ETLDPlusOne == "" || parsedURL.ETLDPlusOne != scope.Domain {
 		return URL, false
 	}
 
