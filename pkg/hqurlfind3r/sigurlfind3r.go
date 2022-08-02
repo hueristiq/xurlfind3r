@@ -1,4 +1,4 @@
-package urlfind3r
+package hqurlfind3r
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"regexp"
 
 	"github.com/enenumxela/urlx/pkg/urlx"
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/passive"
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping"
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/passive"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
 )
 
 // Runner is an instance of url collection client used
@@ -91,7 +91,7 @@ func (runner *Runner) Run(ctx context.Context, domain string) (URLs chan scrapin
 				if _, exists := deDupMap[key]; exists {
 					for parameter := range parsedURL.Query() {
 						if _, exists := deDupMap[key][parameter]; !exists {
-							deDupMap[key][parameter] = []string{"urlfind3r"}
+							deDupMap[key][parameter] = []string{"hqurlfind3r"}
 							unique = true
 						}
 					}

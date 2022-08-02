@@ -1,4 +1,4 @@
-module github.com/hueristiq/urlfind3r
+module github.com/hueristiq/hqurlfind3r
 
 go 1.18
 

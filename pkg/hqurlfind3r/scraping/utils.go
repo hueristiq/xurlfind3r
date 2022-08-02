@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/enenumxela/urlx/pkg/urlx"
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
 )
 
 func NormalizeURL(URL string, scope session.Scope) (string, bool) {

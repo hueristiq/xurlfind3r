@@ -1,6 +1,6 @@
 package scraping
 
-import "github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
+import "github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
 
 // URL is a result structure returned by a source
 type URL struct {

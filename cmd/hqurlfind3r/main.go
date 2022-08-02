@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hueristiq/urlfind3r/internal/configuration"
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r"
+	"github.com/hueristiq/hqurlfind3r/internal/configuration"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r"
 	"github.com/logrusorgru/aurora/v3"
 )
 
@@ -53,7 +53,7 @@ func init() {
 		banner()
 
 		h := "USAGE:\n"
-		h += "  urlfind3r [OPTIONS]\n"
+		h += "  hqurlfind3r [OPTIONS]\n"
 
 		h += "\nOPTIONS:\n"
 		h += "   -d, --domain            domain to fetch urls for\n"
@@ -119,7 +119,7 @@ func main() {
 		fmt.Println("")
 	}
 
-	runner := urlfind3r.New(&urlfind3r.Options{
+	runner := hqurlfind3r.New(&hqurlfind3r.Options{
 		FilterRegex:       options.FilterRegex,
 		SourcesToUse:      options.SourcesToUse,
 		SourcesToExclude:  options.SourcesToExclude,

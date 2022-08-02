@@ -1,6 +1,6 @@
-# urlfind3r
+# hqurlfind3r
 
-[![release](https://img.shields.io/github/release/hueristiq/urlfind3r?style=flat&color=0040ff)](https://github.com/hueristiq/urlfind3r/releases) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/urlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/urlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/urlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/urlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?colorB=0040FF)](https://github.com/hueristiq/urlfind3r/blob/master/LICENSE) [![twitter](https://img.shields.io/badge/twitter-@itshueristiq-0040ff.svg)](https://twitter.com/itshueristiq)
+[![release](https://img.shields.io/github/release/hueristiq/hqurlfind3r?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/releases) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?colorB=0040FF)](https://github.com/hueristiq/hqurlfind3r/blob/master/LICENSE) [![twitter](https://img.shields.io/badge/twitter-@itshueristiq-0040ff.svg)](https://twitter.com/itshueristiq)
 
 A passive reconnaissance tool for known URLs discovery - it gathers a list of URLs passively using various online sources.
 
@@ -33,28 +33,28 @@ A passive reconnaissance tool for known URLs discovery - it gathers a list of UR
 
 ### From Binary
 
-You can download the pre-built binary for your platform from this repository's [releases](https://github.com/hueristiq/urlfind3r/releases/) page, extract, then move it to your `$PATH`and you're ready to go.
+You can download the pre-built binary for your platform from this repository's [releases](https://github.com/hueristiq/hqurlfind3r/releases/) page, extract, then move it to your `$PATH`and you're ready to go.
 
 ### From Source
 
-urlfind3r requires **go1.17+** to install successfully. Run the following command to get the repo
+hqurlfind3r requires **go1.17+** to install successfully. Run the following command to get the repo
 
 ```bash
-go install -v github.com/hueristiq/urlfind3r/cmd/urlfind3r@latest
+go install -v github.com/hueristiq/hqurlfind3r/cmd/hqurlfind3r@latest
 ```
 
 ### From Github
 
 ```bash
-git clone https://github.com/hueristiq/urlfind3r.git && \
-cd urlfind3r/cmd/urlfind3r/ && \
-go build; mv urlfind3r /usr/local/bin/ && \
-urlfind3r -h
+git clone https://github.com/hueristiq/hqurlfind3r.git && \
+cd hqurlfind3r/cmd/hqurlfind3r/ && \
+go build; mv hqurlfind3r /usr/local/bin/ && \
+hqurlfind3r -h
 ```
 
 ## Post Installation
 
-urlfind3r will work after [installation](#installation). However, to configure urlfind3r to work with certain services - currently github - you will need to have setup API keys. The API keys are stored in the `$HOME/.config/urlfind3r/conf.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these services.
+hqurlfind3r will work after [installation](#installation). However, to configure hqurlfind3r to work with certain services - currently github - you will need to have setup API keys. The API keys are stored in the `$HOME/.config/hqurlfind3r/conf.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these services.
 
 Example:
 
@@ -81,20 +81,20 @@ keys:
 **DiSCLAIMER:** fetching urls from github is a bit slow.
 
 ```bash
-urlfind3r -h
+hqurlfind3r -h
 ```
 
 This will display help for the tool.
 
 ```
-            _  __ _           _ _____      
- _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
-| | | | '__| | |_| | '_ \ / _` | |_ \| '__|
-| |_| | |  | |  _| | | | | (_| |___) | |   
- \__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| 1.8.0
-
+ _                      _  __ _           _ _____      
+| |__   __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+| '_ \ / _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
+| | | | (_| | |_| | |  | |  _| | | | | (_| |___) | |   
+|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.8.0
+          |_|
 USAGE:
-  urlfind3r [OPTIONS]
+  hqurlfind3r [OPTIONS]
 
 OPTIONS:
    -d, --domain            domain to fetch urls for
@@ -113,21 +113,21 @@ OPTIONS:
 #### Basic
 
 ```bash
-urlfind3r -d tesla.com
+hqurlfind3r -d tesla.com
 ```
 
 #### Regex filter URLs
 
 ```bash
-urlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
+hqurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
 ```
 
 #### Include Subdomains' URLs
 
 ```bash
-urlfind3r -d tesla.com -iS
+hqurlfind3r -d tesla.com -iS
 ```
 
 ## Contribution
 
-[Issues](https://github.com/hueristiq/urlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/urlfind3r/pulls) are welcome!
+[Issues](https://github.com/hueristiq/hqurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/hqurlfind3r/pulls) are welcome!

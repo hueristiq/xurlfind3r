@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is. Include the version of urlfind3r you are using.
+A clear and concise description of what the bug is. Include the version of hqurlfind3r you are using.
 
 **Steps To Reproduce**
 Steps to reproduce the behavior: e.g. The complete command you used/ran.

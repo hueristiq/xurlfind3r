@@ -24,4 +24,4 @@ jobs:
             -
                 name: Build
                 run: go build -v .
-                working-directory: ./cmd/urlfind3r
+                working-directory: ./cmd/hqurlfind3r

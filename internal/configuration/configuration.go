@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping"
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,12 +46,12 @@ const (
 
 var (
 	BANNER string = fmt.Sprintf(`
-            _  __ _           _ _____      
- _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
-| | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
-| |_| | |  | |  _| | | | | (_| |___) | |   
- \__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
-`, VERSION)
+ _                      _  __ _           _ _____      
+| |__   __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+| '_ \ / _`+"`"+` | | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
+| | | | (_| | |_| | |  | |  _| | | | | (_| |___) | |   
+|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v%s
+          |_|`, VERSION)
 )
 
 // ParseCLIOptions parse the command line flags and read config file
@@ -61,7 +61,7 @@ func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 		return
 	}
 
-	configPath := directory + "/.config/urlfind3r/conf.yaml"
+	configPath := directory + "/.config/hqurlfind3r/conf.yaml"
 
 	parsedOptions = &Options{
 		Domain:            options.Domain,

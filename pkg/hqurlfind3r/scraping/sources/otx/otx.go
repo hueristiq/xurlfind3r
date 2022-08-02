@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/scraping"
-	"github.com/hueristiq/urlfind3r/pkg/urlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
+	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
 )
 
 type Source struct{}

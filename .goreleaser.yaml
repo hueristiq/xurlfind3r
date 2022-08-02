@@ -4,8 +4,8 @@ before:
 
 builds:
     -
-        binary: urlfind3r
-        main: cmd/urlfind3r/main.go
+        binary: hqurlfind3r
+        main: cmd/hqurlfind3r/main.go
         goos:
             - linux
             - windows
