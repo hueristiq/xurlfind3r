@@ -10,9 +10,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/enenumxela/urlx/pkg/urlx"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/url"
 )
 
 type Source struct{}
@@ -104,7 +104,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 						}
 					}
 
-					parsedURL, _ := urlx.Parse(row[1])
+					parsedURL, _ := url.Parse(url.Options{URL: row[1]})
 
 					endpoint = filepath.Join(parsedURL.Host, endpoint)
 					endpoint = parsedURL.Scheme + "://" + endpoint

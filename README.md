@@ -59,7 +59,7 @@ hqurlfind3r will work after [installation](#installation). However, to configure
 Example:
 
 ```yaml
-version: 1.8.0
+version: 1.9.0
 sources:
     - commoncrawl
     - github
@@ -91,7 +91,7 @@ This will display help for the tool.
 | |__   __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 | '_ \ / _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
 | | | | (_| | |_| | |  | |  _| | | | | (_| |___) | |   
-|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.8.0
+|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.9.0
           |_|
 USAGE:
   hqurlfind3r [OPTIONS]

@@ -3,8 +3,8 @@ package scraping
 import (
 	"strings"
 
-	"github.com/enenumxela/urlx/pkg/urlx"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/url"
 )
 
 func NormalizeURL(URL string, scope session.Scope) (string, bool) {
@@ -13,7 +13,7 @@ func NormalizeURL(URL string, scope session.Scope) (string, bool) {
 	URL = strings.TrimRight(URL, "/")
 	URL = strings.Trim(URL, " ")
 
-	parsedURL, err := urlx.Parse(URL)
+	parsedURL, err := url.Parse(url.Options{URL: URL})
 	if err != nil {
 		return URL, false
 	}

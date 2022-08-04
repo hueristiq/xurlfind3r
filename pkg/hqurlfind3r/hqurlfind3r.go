@@ -3,13 +3,13 @@ package hqurlfind3r
 import (
 	"context"
 	"fmt"
-	"net/url"
+	urlz "net/url"
 	"regexp"
 
-	"github.com/enenumxela/urlx/pkg/urlx"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/passive"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/url"
 )
 
 // Runner is an instance of url collection client used
@@ -64,7 +64,7 @@ func (runner *Runner) Run(ctx context.Context, domain string) (URLs chan scrapin
 
 	results := runner.Passive.Run(domain, runner.FilterRegex, runner.Options.IncludeSubdomains, runner.Options.Keys)
 
-	deDupMap := make(map[string]url.Values)
+	deDupMap := make(map[string]urlz.Values)
 	uniqueMap := make(map[string]scraping.URL)
 
 	// Process the results in a separate goroutine
@@ -77,7 +77,7 @@ func (runner *Runner) Run(ctx context.Context, domain string) (URLs chan scrapin
 				continue
 			}
 
-			parsedURL, err := urlx.Parse(result.Value)
+			parsedURL, err := url.Parse(url.Options{URL: result.Value})
 			if err != nil {
 				continue
 			}
