@@ -2,9 +2,9 @@ package commoncrawl
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"sync"
 
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
@@ -35,21 +35,33 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 	go func() {
 		defer close(URLs)
 
-		res, err := ses.SimpleGet("http://index.commoncrawl.org/collinfo.json")
+		res, err := ses.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
-			ses.DiscardHTTPResponse(res)
 			return
 		}
 
 		var apiRresults CommonAPIResult
 
-		body, err := ioutil.ReadAll(res.Body)
-
-		if err := json.Unmarshal(body, &apiRresults); err != nil {
+		if err := json.Unmarshal(res.Body(), &apiRresults); err != nil {
+			fmt.Println(err)
 			return
 		}
 
-		res.Body.Close()
+		// res, err := ses.SimpleGet("http://index.commoncrawl.org/collinfo.json")
+		// if err != nil {
+		// 	ses.DiscardHTTPResponse(res)
+		// 	return
+		// }
+
+		// var apiRresults CommonAPIResult
+
+		// body, err := ioutil.ReadAll(res.Body)
+
+		// if err := json.Unmarshal(body, &apiRresults); err != nil {
+		// 	return
+		// }
+
+		// res.Body.Close()
 
 		wg := new(sync.WaitGroup)
 
@@ -61,15 +73,24 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 				var headers = map[string]string{"Host": "index.commoncrawl.org"}
 
-				res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), headers)
+				res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), "", headers)
 				if err != nil {
-					ses.DiscardHTTPResponse(res)
 					return
 				}
 
-				defer res.Body.Close()
+				sc := bufio.NewScanner(bytes.NewReader(res.Body()))
 
-				sc := bufio.NewScanner(res.Body)
+				// var headers = map[string]string{"Host": "index.commoncrawl.org"}
+
+				// res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), headers)
+				// if err != nil {
+				// 	ses.DiscardHTTPResponse(res)
+				// 	return
+				// }
+
+				// defer res.Body.Close()
+
+				// sc := bufio.NewScanner(res.Body)
 
 				for sc.Scan() {
 					var result CommonResult

@@ -2,6 +2,7 @@ package wayback
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"net/url"
 	"strings"
@@ -24,13 +25,10 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 		res, err := ses.SimpleGet(fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain))
 		if err != nil {
-			ses.DiscardHTTPResponse(res)
 			return
 		}
 
-		defer res.Body.Close()
-
-		scanner := bufio.NewScanner(res.Body)
+		scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
 
 		for scanner.Scan() {
 			URL := scanner.Text()

@@ -2,10 +2,9 @@ package github
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -15,6 +14,7 @@ import (
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
 	"github.com/tomnomnom/linkheader"
+	"github.com/valyala/fasthttp"
 )
 
 type Source struct{}
@@ -64,18 +64,24 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		}
 	}
 
-	headers := map[string]string{"Accept": "application/vnd.github.v3.text-match+json", "Authorization": "token " + token.Hash}
-
-	res, err := ses.Get(searchURL, headers)
-	isForbidden := res != nil && res.StatusCode == http.StatusForbidden
+	res, err := ses.Request(
+		fasthttp.MethodGet,
+		searchURL,
+		"",
+		map[string]string{
+			"Accept":        "application/vnd.github.v3.text-match+json",
+			"Authorization": "token " + token.Hash,
+		},
+		nil,
+	)
+	isForbidden := res != nil && res.StatusCode() == fasthttp.StatusForbidden
 	if err != nil && !isForbidden {
-		ses.DiscardHTTPResponse(res)
 		return
 	}
 
-	ratelimitRemaining, _ := strconv.ParseInt(string(res.Header.Get("X-Ratelimit-Remaining")), 10, 64)
+	ratelimitRemaining, _ := strconv.ParseInt(string(res.Header.Peek("X-Ratelimit-Remaining")), 10, 64)
 	if isForbidden && ratelimitRemaining == 0 {
-		retryAfterSeconds, _ := strconv.ParseInt(string(res.Header.Get("Retry-After")), 10, 64)
+		retryAfterSeconds, _ := strconv.ParseInt(string(res.Header.Peek("Retry-After")), 10, 64)
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
 		source.Enumerate(searchURL, domainRegexp, tokens, ses, URLs)
@@ -83,9 +89,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 
 	var results response
 
-	body, err := ioutil.ReadAll(res.Body)
-
-	if err := json.Unmarshal(body, &results); err != nil {
+	if err := json.Unmarshal(res.Body(), &results); err != nil {
 		return
 	}
 
@@ -94,7 +98,8 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		return
 	}
 
-	linksHeader := linkheader.Parse(string(res.Header.Get("Link")))
+	linksHeader := linkheader.Parse(string(res.Header.Peek("Link")))
+
 	for _, link := range linksHeader {
 		if link.Rel == "next" {
 			nextURL, err := url.QueryUnescape(link.URL)
@@ -108,16 +113,10 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 
 func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ses *session.Session, URLs chan scraping.URL) error {
 	for _, item := range items {
-		res, err := ses.SimpleGet(rawContentURL(item.HTMLURL))
-		if err != nil {
-			if res != nil && res.StatusCode != http.StatusNotFound {
-				ses.DiscardHTTPResponse(res)
-			}
-			return err
-		}
+		res, _ := ses.SimpleGet(rawContentURL(item.HTMLURL))
 
-		if res.StatusCode == http.StatusOK {
-			scanner := bufio.NewScanner(res.Body)
+		if res.StatusCode() == fasthttp.StatusOK {
+			scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
 			for scanner.Scan() {
 				line := scanner.Text()
 				if line == "" {

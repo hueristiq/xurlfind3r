@@ -3,7 +3,6 @@ package otx
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
@@ -34,17 +33,12 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 		for page := 0; ; page++ {
 			res, err := ses.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
 			if err != nil {
-				ses.DiscardHTTPResponse(res)
 				return
 			}
 
-			defer res.Body.Close()
-
 			var results response
 
-			body, err := ioutil.ReadAll(res.Body)
-
-			if err := json.Unmarshal(body, &results); err != nil {
+			if err := json.Unmarshal(res.Body(), &results); err != nil {
 				return
 			}
 

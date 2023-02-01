@@ -1,16 +1,12 @@
 package intelx
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"time"
 
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
-	jsoniter "github.com/json-iterator/go"
 )
 
 type searchResponseType struct {
@@ -56,48 +52,34 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 		body, err := json.Marshal(reqBody)
 		if err != nil {
-			log.Fatalln(err)
 			return
 		}
 
-		res, err := ses.SimplePost(searchURL, "application/json", bytes.NewBuffer(body))
+		res, err := ses.SimplePost(searchURL, "application/json", body)
 		if err != nil {
-			log.Fatalln(err)
 			return
 		}
 
 		var response searchResponseType
 
-		if err = jsoniter.NewDecoder(res.Body).Decode(&response); err != nil {
-			res.Body.Close()
+		if err := json.Unmarshal(res.Body(), &response); err != nil {
 			return
 		}
 
-		res.Body.Close()
-
 		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", ses.Keys.IntelXHost, ses.Keys.IntelXKey, response.ID)
 		status := 0
+
 		for status == 0 || status == 3 {
-			res, err = ses.Get(resultsURL, nil)
+			res, err = ses.Get(resultsURL, "", nil)
 			if err != nil {
-				log.Fatalln(err)
 				return
 			}
 
 			var response searchResultType
 
-			if err = jsoniter.NewDecoder(res.Body).Decode(&response); err != nil {
-				res.Body.Close()
+			if err := json.Unmarshal(res.Body(), &response); err != nil {
 				return
 			}
-
-			_, err = ioutil.ReadAll(res.Body)
-			if err != nil {
-				res.Body.Close()
-				return
-			}
-
-			res.Body.Close()
 
 			status = response.Status
 			for _, hostname := range response.Selectors {

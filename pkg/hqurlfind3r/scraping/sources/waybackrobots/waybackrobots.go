@@ -1,10 +1,8 @@
 package waybackrobots
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -25,20 +23,12 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 		res, err := ses.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
 		if err != nil {
-			ses.DiscardHTTPResponse(res)
 			return
 		}
-
-		defer res.Body.Close()
 
 		robotsURLsRows := [][2]string{}
 
-		data, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return
-		}
-
-		if err = json.Unmarshal(data, &robotsURLsRows); err != nil {
+		if err = json.Unmarshal(res.Body(), &robotsURLsRows); err != nil {
 			return
 		}
 
@@ -58,16 +48,12 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 				res, err := ses.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
 				if err != nil {
-					ses.DiscardHTTPResponse(res)
 					return
 				}
 
-				buf := new(bytes.Buffer)
-				buf.ReadFrom(res.Body)
-
 				pattern := regexp.MustCompile(`Disallow:\s?.+`)
 
-				disallowed := pattern.FindAllStringSubmatch(buf.String(), -1)
+				disallowed := pattern.FindAllStringSubmatch(string(res.Body()), -1)
 
 				if len(disallowed) < 1 {
 					return

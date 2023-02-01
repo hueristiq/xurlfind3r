@@ -3,7 +3,6 @@ package urlscan
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
@@ -27,15 +26,12 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 		res, err := ses.SimpleGet(fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s", domain))
 		if err != nil {
-			ses.DiscardHTTPResponse(res)
 			return
 		}
 
-		defer res.Body.Close()
+		body := res.Body()
 
 		var results response
-
-		body, err := ioutil.ReadAll(res.Body)
 
 		if err := json.Unmarshal(body, &results); err != nil {
 			return

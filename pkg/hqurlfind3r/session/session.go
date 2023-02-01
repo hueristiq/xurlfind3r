@@ -1,14 +1,11 @@
 package session
 
 import (
-	"crypto/tls"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"regexp"
-	"time"
+
+	"github.com/corpix/uarand"
+	"github.com/valyala/fasthttp"
 )
 
 type Keys struct {
@@ -25,24 +22,15 @@ type Scope struct {
 }
 
 type Session struct {
-	Client *http.Client
+	Client *fasthttp.Client
 	Keys   Keys
 	Scope  Scope
 }
 
-func New(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, timeout int, keys Keys) (*Session, error) {
-	client := &http.Client{
-		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 100,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-		Timeout: time.Duration(timeout) * time.Second,
-	}
+func New(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, timeout int, keys Keys) (session *Session, err error) {
+	client := &fasthttp.Client{}
 
-	return &Session{
+	session = &Session{
 		Client: client,
 		Keys:   keys,
 		Scope: Scope{
@@ -50,35 +38,47 @@ func New(domain string, filterRegex *regexp.Regexp, includeSubdomains bool, time
 			FilterRegex:       filterRegex,
 			IncludeSubdomains: includeSubdomains,
 		},
-	}, nil
-}
-
-func (session *Session) Get(getURL string, headers map[string]string) (*http.Response, error) {
-	return session.HTTPRequest(http.MethodGet, getURL, headers, nil)
-}
-
-func (session *Session) SimpleGet(getURL string) (*http.Response, error) {
-	return session.HTTPRequest(http.MethodGet, getURL, map[string]string{}, nil)
-}
-
-func (session *Session) Post(postURL, cookies string, headers map[string]string, body io.Reader) (*http.Response, error) {
-	return session.HTTPRequest(http.MethodPost, postURL, headers, body)
-}
-
-func (session *Session) SimplePost(postURL, contentType string, body io.Reader) (*http.Response, error) {
-	return session.HTTPRequest(http.MethodPost, postURL, map[string]string{"Content-Type": contentType}, body)
-}
-
-func (session *Session) HTTPRequest(method, requestURL string, headers map[string]string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, requestURL, body)
-	if err != nil {
-		return nil, err
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36")
+	return
+}
+
+// Get makes a GET request to a URL with extended parameters
+func (session *Session) Get(URL, cookies string, headers map[string]string) (*fasthttp.Response, error) {
+	return session.Request(fasthttp.MethodGet, URL, cookies, headers, nil)
+}
+
+// SimpleGet makes a simple GET request to a URL
+func (session *Session) SimpleGet(URL string) (*fasthttp.Response, error) {
+	return session.Request(fasthttp.MethodGet, URL, "", map[string]string{}, nil)
+}
+
+// Post makes a POST request to a URL with extended parameters
+func (session *Session) Post(URL, cookies string, headers map[string]string, body []byte) (*fasthttp.Response, error) {
+	return session.Request(fasthttp.MethodPost, URL, cookies, headers, body)
+}
+
+// SimplePost makes a simple POST request to a URL
+func (session *Session) SimplePost(URL, contentType string, body []byte) (*fasthttp.Response, error) {
+	return session.Request(fasthttp.MethodPost, URL, "", map[string]string{"Content-Type": contentType}, body)
+}
+
+// Request makes any HTTP request to a URL with extended parameters
+func (session *Session) Request(method, URL, cookies string, headers map[string]string, body []byte) (*fasthttp.Response, error) {
+	req := fasthttp.AcquireRequest()
+
+	req.SetRequestURI(URL)
+	req.SetBody(body)
+	req.Header.SetMethod(method)
+
+	req.Header.Set("User-Agent", uarand.GetRandom())
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en")
 	req.Header.Set("Connection", "close")
+
+	if cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
 
 	for key, value := range headers {
 		req.Header.Set(key, value)
@@ -87,26 +87,14 @@ func (session *Session) HTTPRequest(method, requestURL string, headers map[strin
 	return httpRequestWrapper(session.Client, req)
 }
 
-func (session *Session) DiscardHTTPResponse(response *http.Response) {
-	if response != nil {
-		_, err := io.Copy(ioutil.Discard, response.Body)
-		if err != nil {
-			return
-		}
+func httpRequestWrapper(client *fasthttp.Client, req *fasthttp.Request) (*fasthttp.Response, error) {
+	res := fasthttp.AcquireResponse()
 
-		response.Body.Close()
-	}
-}
+	client.Do(req, res)
 
-func httpRequestWrapper(client *http.Client, request *http.Request) (*http.Response, error) {
-	res, err := client.Do(request)
-	if err != nil {
-		return nil, err
+	if res.StatusCode() != fasthttp.StatusOK {
+		return res, fmt.Errorf("Unexpected status code")
 	}
 
-	if res.StatusCode != http.StatusOK {
-		requestURL, _ := url.QueryUnescape(request.URL.String())
-		return res, fmt.Errorf("unexpected status code %d received from %s", res.StatusCode, requestURL)
-	}
 	return res, nil
 }
