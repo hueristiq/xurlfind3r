@@ -51,7 +51,8 @@ var (
 | '_ \ / _`+"`"+` | | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
 | | | | (_| | |_| | |  | |  _| | | | | (_| |___) | |   
 |_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v%s
-          |_|`, VERSION)
+          |_|
+`, VERSION)
 )
 
 // ParseCLIOptions parse the command line flags and read config file

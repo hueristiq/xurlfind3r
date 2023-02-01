@@ -13,7 +13,7 @@ import (
 
 type Keys struct {
 	GitHub     []string `json:"github"`
-	Intelx     string   `json:"intelx"` // unused, add just for the purpose of adding * on listing sources
+	Intelx     string   `json:"intelx"` // unused, add for the purpose of adding an asterisk `*` on listing sources
 	IntelXHost string   `json:"intelXHost"`
 	IntelXKey  string   `json:"intelXKey"`
 }

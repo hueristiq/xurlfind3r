@@ -44,7 +44,7 @@ func init() {
 	flag.Usage = func() {
 		printBanner()
 
-		h := "\nUSAGE:\n"
+		h := "USAGE:\n"
 		h += "  hqurlfind3r [OPTIONS]\n"
 
 		h += "\nOPTIONS:\n"
@@ -105,7 +105,7 @@ func main() {
 		fmt.Println("[", au.BrightBlue("INF"), "] fetching urls for", au.Underline(options.Domain).Bold())
 
 		if options.IncludeSubdomains {
-			fmt.Println("[", au.BrightBlue("INF"), "] -iS used: includes subdomains' urls")
+			fmt.Println("[", au.BrightBlue("INF"), "] `--include-subdomains` used: includes subdomains' urls")
 		}
 
 		fmt.Println("")
