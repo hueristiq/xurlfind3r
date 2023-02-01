@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
-	"flag"
+
 	"fmt"
 	"log"
 	"os"
@@ -15,63 +15,55 @@ import (
 	"github.com/hueristiq/hqurlfind3r/internal/configuration"
 	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r"
 	"github.com/logrusorgru/aurora/v3"
+	flag "github.com/spf13/pflag"
 )
 
 var (
-	au      aurora.Aurora
-	o       configuration.CLIOptions
-	output  string
-	silent  bool
-	noColor bool
+	au                 aurora.Aurora
+	o                  configuration.CLIOptions
+	output             string
+	monochrome, silent bool
 )
 
-func banner() {
+func printBanner() {
 	fmt.Fprintln(os.Stderr, configuration.BANNER)
 }
 
 func init() {
-	flag.StringVar(&o.Domain, "d", "", "")
-	flag.StringVar(&o.Domain, "domain", "", "")
-	flag.StringVar(&o.SourcesToExclude, "eS", "", "")
-	flag.StringVar(&o.SourcesToExclude, "exclude-sources", "", "")
-	flag.StringVar(&o.FilterRegex, "f", "", "")
-	flag.StringVar(&o.FilterRegex, "filter", "", "")
-	flag.BoolVar(&o.IncludeSubdomains, "iS", false, "")
-	flag.BoolVar(&o.IncludeSubdomains, "include-subs", false, "")
-	flag.BoolVar(&o.ListSources, "lS", false, "")
-	flag.BoolVar(&o.ListSources, "list-sources", false, "")
-	flag.BoolVar(&noColor, "nC", false, "")
-	flag.BoolVar(&noColor, "no-color", false, "")
-	flag.BoolVar(&silent, "s", false, "")
-	flag.BoolVar(&silent, "silent", false, "")
-	flag.StringVar(&o.SourcesToUse, "uS", "", "")
-	flag.StringVar(&o.SourcesToUse, "use-sources", "", "")
-	flag.StringVar(&output, "o", "", "")
-	flag.StringVar(&output, "output", "", "")
+	flag.StringVarP(&o.Domain, "domain", "d", "", "target domain")
+	flag.BoolVar(&o.IncludeSubdomains, "include-subdomains", false, "include subdomains")
+	flag.StringVarP(&o.FilterRegex, "filter", "f", "", "URL filtering regex")
+	flag.StringSliceVar(&o.SourcesToUse, "use-sources", []string{}, "comma(,) separated sources to use")
+	flag.StringSliceVar(&o.SourcesToExclude, "exclude-sources", []string{}, "comma(,) separated sources to exclude")
+	flag.BoolVar(&o.ListSources, "list-sources", false, "list all the available sources")
+	flag.BoolVarP(&monochrome, "monochrome", "m", false, "no colored output mode")
+	flag.BoolVarP(&silent, "silent", "s", false, "silent output mode")
+	flag.StringVarP(&output, "output", "o", "", "output file")
 
+	flag.CommandLine.SortFlags = false
 	flag.Usage = func() {
-		banner()
+		printBanner()
 
-		h := "USAGE:\n"
+		h := "\nUSAGE:\n"
 		h += "  hqurlfind3r [OPTIONS]\n"
 
 		h += "\nOPTIONS:\n"
-		h += "   -d, --domain            domain to fetch urls for\n"
-		h += "  -eS, --exclude-sources   comma(,) separated list of sources to exclude\n"
-		h += "   -f, --filter            URL filtering regex\n"
-		h += "  -iS, --include-subs      include subdomains' urls\n"
-		h += "  -lS, --list-sources      list all the available sources\n"
-		h += "  -nC, --no-color          no color mode\n"
-		h += "   -s  --silent            silent mode: output urls only\n"
-		h += "  -uS, --use-sources       comma(,) separated list of sources to use\n"
-		h += "   -o, --output            output file\n"
+		h += "  -d, --domain string             target domain\n"
+		h += "      --include-subdomains        include subdomains\n"
+		h += "  -f, --filter string             URL filtering regex\n"
+		h += "      --use-sources strings       comma(,) separated sources to use\n"
+		h += "      --exclude-sources strings   comma(,) separated sources to exclude\n"
+		h += "      --list-sources              list all the available sources\n"
+		h += "  -m, --monochrome                no colored output mode\n"
+		h += "  -s, --silent                    silent output mode\n"
+		h += "  -o, --output string             output file\n"
 
-		fmt.Println(h)
+		fmt.Fprintln(os.Stderr, h)
 	}
 
 	flag.Parse()
 
-	au = aurora.NewAurora(!noColor)
+	au = aurora.NewAurora(!monochrome)
 }
 
 func main() {
@@ -81,7 +73,7 @@ func main() {
 	}
 
 	if !silent {
-		banner()
+		printBanner()
 	}
 
 	if o.ListSources {

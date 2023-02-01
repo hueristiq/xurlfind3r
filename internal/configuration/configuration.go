@@ -26,8 +26,8 @@ type CLIOptions struct {
 	FilterRegex       string
 	IncludeSubdomains bool
 	ListSources       bool
-	SourcesToExclude  string
-	SourcesToUse      string
+	SourcesToExclude  []string
+	SourcesToUse      []string
 }
 
 type Options struct {
@@ -70,14 +70,14 @@ func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
 		ListSources:       options.ListSources,
 	}
 
-	if options.SourcesToUse != "" {
-		parsedOptions.SourcesToUse = append(parsedOptions.SourcesToUse, strings.Split(options.SourcesToUse, ",")...)
+	if len(options.SourcesToUse) > 0 {
+		parsedOptions.SourcesToUse = append(parsedOptions.SourcesToUse, options.SourcesToUse...)
 	} else {
 		parsedOptions.SourcesToUse = append(parsedOptions.SourcesToUse, scraping.SourcesList...)
 	}
 
-	if options.SourcesToExclude != "" {
-		parsedOptions.SourcesToExclude = append(parsedOptions.SourcesToExclude, strings.Split(options.SourcesToExclude, ",")...)
+	if len(options.SourcesToExclude) > 0 {
+		parsedOptions.SourcesToExclude = append(parsedOptions.SourcesToExclude, options.SourcesToExclude...)
 	}
 
 	if _, err = os.Stat(configPath); os.IsNotExist(err) {

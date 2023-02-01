@@ -23,7 +23,7 @@ type Agent struct {
 	sources map[string]scraping.Source
 }
 
-// New creates a new agent for passive url collection
+// New creates a new agent for passive urls collection
 // Create the agent, insert the sources and remove the excluded sources
 func New(sourcesToUse, sourcesToExclude []string) (agent *Agent) {
 	agent = &Agent{
