@@ -47,22 +47,6 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			return
 		}
 
-		// res, err := ses.SimpleGet("http://index.commoncrawl.org/collinfo.json")
-		// if err != nil {
-		// 	ses.DiscardHTTPResponse(res)
-		// 	return
-		// }
-
-		// var apiRresults CommonAPIResult
-
-		// body, err := ioutil.ReadAll(res.Body)
-
-		// if err := json.Unmarshal(body, &apiRresults); err != nil {
-		// 	return
-		// }
-
-		// res.Body.Close()
-
 		wg := new(sync.WaitGroup)
 
 		for _, u := range apiRresults {
@@ -79,18 +63,6 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 				}
 
 				sc := bufio.NewScanner(bytes.NewReader(res.Body()))
-
-				// var headers = map[string]string{"Host": "index.commoncrawl.org"}
-
-				// res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), headers)
-				// if err != nil {
-				// 	ses.DiscardHTTPResponse(res)
-				// 	return
-				// }
-
-				// defer res.Body.Close()
-
-				// sc := bufio.NewScanner(res.Body)
 
 				for sc.Scan() {
 					var result CommonResult
