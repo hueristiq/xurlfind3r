@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
 )
 
 type Source struct{}
@@ -24,14 +26,16 @@ type response struct {
 	} `json:"url_list"`
 }
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) (URLs chan scraping.URL) {
-	URLs = make(chan scraping.URL)
+func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan output.URL) {
+	domain := ftr.Domain
+
+	URLs = make(chan output.URL)
 
 	go func() {
 		defer close(URLs)
 
 		for page := 0; ; page++ {
-			res, err := ses.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
+			res, err := requests.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
 			if err != nil {
 				return
 			}
@@ -43,8 +47,8 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			}
 
 			for _, i := range results.URLList {
-				if URL, ok := scraping.NormalizeURL(i.URL, ses.Scope); ok {
-					URLs <- scraping.URL{Source: source.Name(), Value: URL}
+				if URL, ok := ftr.Examine(i.URL); ok {
+					URLs <- output.URL{Source: source.Name(), Value: URL}
 				}
 			}
 

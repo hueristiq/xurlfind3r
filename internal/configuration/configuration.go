@@ -2,42 +2,23 @@ package configuration
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
 	"gopkg.in/yaml.v3"
 )
 
-type YAMLConfiguration struct {
+type Configuration struct {
 	Version string   `yaml:"version"`
 	Sources []string `yaml:"sources"`
 	Keys    struct {
 		GitHub []string `yaml:"github"`
 		Intelx []string `yaml:"intelx"`
 	}
-}
-
-type CLIOptions struct {
-	Domain            string
-	FilterRegex       string
-	IncludeSubdomains bool
-	ListSources       bool
-	SourcesToExclude  []string
-	SourcesToUse      []string
-}
-
-type Options struct {
-	Domain            string
-	FilterRegex       string
-	IncludeSubdomains bool
-	ListSources       bool
-	SourcesToExclude  []string
-	SourcesToUse      []string
-	YAML              YAMLConfiguration
 }
 
 const (
@@ -53,123 +34,54 @@ var (
 |_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v%s
           |_|
 `, VERSION)
+	ConfigurationFilePath = func() string {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		return filepath.Join(home, "/.config/hqurlfind3r/conf.yaml")
+	}()
 )
 
-// ParseCLIOptions parse the command line flags and read config file
-func ParseCLIOptions(options *CLIOptions) (parsedOptions *Options, err error) {
-	directory, err := os.UserHomeDir()
-	if err != nil {
-		return
-	}
-
-	configPath := directory + "/.config/hqurlfind3r/conf.yaml"
-
-	parsedOptions = &Options{
-		Domain:            options.Domain,
-		FilterRegex:       options.FilterRegex,
-		IncludeSubdomains: options.IncludeSubdomains,
-		ListSources:       options.ListSources,
-	}
-
-	if len(options.SourcesToUse) > 0 {
-		parsedOptions.SourcesToUse = append(parsedOptions.SourcesToUse, options.SourcesToUse...)
-	} else {
-		parsedOptions.SourcesToUse = append(parsedOptions.SourcesToUse, scraping.SourcesList...)
-	}
-
-	if len(options.SourcesToExclude) > 0 {
-		parsedOptions.SourcesToExclude = append(parsedOptions.SourcesToExclude, options.SourcesToExclude...)
-	}
-
-	if _, err = os.Stat(configPath); os.IsNotExist(err) {
-		configuration := YAMLConfiguration{
-			Version: VERSION,
-			Sources: scraping.SourcesList,
-		}
-
-		directory, _ := path.Split(configPath)
-
-		if err = makeDirectory(directory); err != nil {
-			return
-		}
-
-		if err = configuration.MarshalWrite(configPath); err != nil {
-			return
-		}
-
-		parsedOptions.YAML = configuration
-	} else {
-		configuration, err := UnmarshalRead(configPath)
-		if err != nil {
-			return nil, err
-		}
-
-		if configuration.Version != VERSION {
-			configuration.Sources = scraping.SourcesList
-			configuration.Version = VERSION
-
-			if err = configuration.MarshalWrite(configPath); err != nil {
-				return nil, err
-			}
-		}
-
-		parsedOptions.YAML = configuration
-	}
-
-	return
-}
-
-func makeDirectory(directory string) error {
-	if _, err := os.Stat(directory); os.IsNotExist(err) {
-		if directory != "" {
-			err = os.MkdirAll(directory, os.ModePerm)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (config *YAMLConfiguration) MarshalWrite(file string) error {
-	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+func (configuration *Configuration) Write() error {
+	file, err := os.OpenFile(ConfigurationFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return err
 	}
 
-	enc := yaml.NewEncoder(f)
+	enc := yaml.NewEncoder(file)
 	enc.SetIndent(4)
-	err = enc.Encode(&config)
-	f.Close()
+	err = enc.Encode(&configuration)
+	file.Close()
 	return err
 }
 
-func UnmarshalRead(file string) (YAMLConfiguration, error) {
-	config := YAMLConfiguration{}
+func Read() (Configuration, error) {
+	configuration := Configuration{}
 
-	f, err := os.Open(file)
+	file, err := os.Open(ConfigurationFilePath)
 	if err != nil {
-		return config, err
+		return configuration, err
 	}
 
-	err = yaml.NewDecoder(f).Decode(&config)
+	err = yaml.NewDecoder(file).Decode(&configuration)
 
-	f.Close()
+	file.Close()
 
-	return config, err
+	return configuration, err
 }
 
-func (config *YAMLConfiguration) GetKeys() session.Keys {
-	keys := session.Keys{}
+func (configuration *Configuration) GetKeys() sources.Keys {
+	keys := sources.Keys{}
 
-	if len(config.Keys.GitHub) > 0 {
-		keys.GitHub = config.Keys.GitHub
+	if len(configuration.Keys.GitHub) > 0 {
+		keys.GitHub = configuration.Keys.GitHub
 	}
 
-	intelxKeysCount := len(config.Keys.Intelx)
+	intelxKeysCount := len(configuration.Keys.Intelx)
 	if intelxKeysCount > 0 {
-		intelxKeys := config.Keys.Intelx[rand.Intn(intelxKeysCount)]
+		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)]
 		parts := strings.Split(intelxKeys, ":")
 		if len(parts) == 2 {
 			keys.IntelXHost = parts[0]

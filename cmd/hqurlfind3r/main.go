@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"context"
+	"regexp"
 
 	"fmt"
 	"log"
@@ -13,16 +13,25 @@ import (
 	"strings"
 
 	"github.com/hueristiq/hqurlfind3r/internal/configuration"
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
 	"github.com/logrusorgru/aurora/v3"
-	flag "github.com/spf13/pflag"
+	"github.com/spf13/pflag"
 )
 
 var (
-	au                 aurora.Aurora
-	o                  configuration.CLIOptions
-	output             string
-	monochrome, silent bool
+	listSources bool
+
+	domain                         string
+	sourcesToUse, sourcesToExclude []string
+	includeSubdomains              bool
+	filterRegex                    string
+	monochrome, silent             bool
+	output                         string
+
+	au aurora.Aurora
 )
 
 func printBanner() {
@@ -30,18 +39,18 @@ func printBanner() {
 }
 
 func init() {
-	flag.StringVarP(&o.Domain, "domain", "d", "", "target domain")
-	flag.BoolVar(&o.IncludeSubdomains, "include-subdomains", false, "include subdomains")
-	flag.StringVarP(&o.FilterRegex, "filter", "f", "", "URL filtering regex")
-	flag.StringSliceVar(&o.SourcesToUse, "use-sources", []string{}, "comma(,) separated sources to use")
-	flag.StringSliceVar(&o.SourcesToExclude, "exclude-sources", []string{}, "comma(,) separated sources to exclude")
-	flag.BoolVar(&o.ListSources, "list-sources", false, "list all the available sources")
-	flag.BoolVarP(&monochrome, "monochrome", "m", false, "no colored output mode")
-	flag.BoolVarP(&silent, "silent", "s", false, "silent output mode")
-	flag.StringVarP(&output, "output", "o", "", "output file")
+	pflag.StringVarP(&domain, "domain", "d", "", "target domain")
+	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "include subdomains")
+	pflag.StringVarP(&filterRegex, "filter", "f", "", "URL filtering regex")
+	pflag.StringSliceVar(&sourcesToUse, "use-sources", []string{}, "comma(,) separated sources to use")
+	pflag.StringSliceVar(&sourcesToExclude, "exclude-sources", []string{}, "comma(,) separated sources to exclude")
+	pflag.BoolVar(&listSources, "list-sources", false, "list all the available sources")
+	pflag.BoolVarP(&monochrome, "monochrome", "m", false, "no colored output mode")
+	pflag.BoolVarP(&silent, "silent", "s", false, "silent output mode")
+	pflag.StringVarP(&output, "output", "o", "", "output file")
 
-	flag.CommandLine.SortFlags = false
-	flag.Usage = func() {
+	pflag.CommandLine.SortFlags = false
+	pflag.Usage = func() {
 		printBanner()
 
 		h := "USAGE:\n"
@@ -61,27 +70,36 @@ func init() {
 		fmt.Fprintln(os.Stderr, h)
 	}
 
-	flag.Parse()
+	pflag.Parse()
 
 	au = aurora.NewAurora(!monochrome)
 }
 
 func main() {
-	options, err := configuration.ParseCLIOptions(&o)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	var (
+		keys  sources.Keys
+		regex *regexp.Regexp
+		ftr   filter.Filter
+		clr   *collector.Collector
+		rnr   *runner.Runner
+	)
 
 	if !silent {
 		printBanner()
 	}
 
-	if o.ListSources {
-		fmt.Println("[", au.BrightBlue("INF"), "] current list of the available", au.Underline(strconv.Itoa(len(options.YAML.Sources))+" sources").Bold())
+	config, err := configuration.Read()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	keys = config.GetKeys()
+
+	if listSources {
+		fmt.Println("[", au.BrightBlue("INF"), "] current list of the available", au.Underline(strconv.Itoa(len(config.Sources))+" sources").Bold())
 		fmt.Println("[", au.BrightBlue("INF"), "] sources marked with an * needs key or token")
 		fmt.Println("")
 
-		keys := options.YAML.GetKeys()
 		needsKey := make(map[string]interface{})
 		keysElem := reflect.ValueOf(&keys).Elem()
 
@@ -89,7 +107,7 @@ func main() {
 			needsKey[strings.ToLower(keysElem.Type().Field(i).Name)] = keysElem.Field(i).Interface()
 		}
 
-		for _, source := range options.YAML.Sources {
+		for _, source := range config.Sources {
 			if _, ok := needsKey[source]; ok {
 				fmt.Println(">", source, "*")
 			} else {
@@ -102,24 +120,29 @@ func main() {
 	}
 
 	if !silent {
-		fmt.Println("[", au.BrightBlue("INF"), "] fetching urls for", au.Underline(options.Domain).Bold())
+		fmt.Println("[", au.BrightBlue("INF"), "] fetching urls for", au.Underline(domain).Bold())
 
-		if options.IncludeSubdomains {
+		if includeSubdomains {
 			fmt.Println("[", au.BrightBlue("INF"), "] `--include-subdomains` used: includes subdomains' urls")
 		}
 
 		fmt.Println("")
 	}
 
-	runner := hqurlfind3r.New(&hqurlfind3r.Options{
-		FilterRegex:       options.FilterRegex,
-		SourcesToUse:      options.SourcesToUse,
-		SourcesToExclude:  options.SourcesToExclude,
-		IncludeSubdomains: options.IncludeSubdomains,
-		Keys:              options.YAML.GetKeys(),
-	})
+	if filterRegex != "" {
+		regex = regexp.MustCompile(filterRegex)
+	}
 
-	URLs, err := runner.Run(context.Background(), options.Domain)
+	ftr = filter.Filter{
+		Domain:            domain,
+		IncludeSubdomains: includeSubdomains,
+		ExcludeRegex:      regex,
+	}
+
+	clr = collector.New(sourcesToUse, sourcesToExclude, keys, ftr)
+	rnr = runner.New(clr)
+
+	URLs, err := rnr.Run()
 	if err != nil {
 		log.Fatalln(err)
 	}

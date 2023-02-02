@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
 )
 
 type searchResponseType struct {
@@ -32,17 +34,19 @@ type requestBody struct {
 
 type Source struct{}
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) (URLs chan scraping.URL) {
-	URLs = make(chan scraping.URL)
+func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan output.URL) {
+	domain := ftr.Domain
+
+	URLs = make(chan output.URL)
 
 	go func() {
 		defer close(URLs)
 
-		if ses.Keys.IntelXKey == "" || ses.Keys.IntelXHost == "" {
+		if keys.IntelXKey == "" || keys.IntelXHost == "" {
 			return
 		}
 
-		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", ses.Keys.IntelXHost, ses.Keys.IntelXKey)
+		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", keys.IntelXHost, keys.IntelXKey)
 		reqBody := requestBody{
 			Term:       domain,
 			MaxResults: 100000,
@@ -55,7 +59,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			return
 		}
 
-		res, err := ses.SimplePost(searchURL, "application/json", body)
+		res, err := requests.SimplePost(searchURL, "application/json", body)
 		if err != nil {
 			return
 		}
@@ -66,11 +70,11 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			return
 		}
 
-		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", ses.Keys.IntelXHost, ses.Keys.IntelXKey, response.ID)
+		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", keys.IntelXHost, keys.IntelXKey, response.ID)
 		status := 0
 
 		for status == 0 || status == 3 {
-			res, err = ses.Get(resultsURL, "", nil)
+			res, err = requests.Get(resultsURL, "", nil)
 			if err != nil {
 				return
 			}
@@ -83,8 +87,8 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 			status = response.Status
 			for _, hostname := range response.Selectors {
-				if URL, ok := scraping.NormalizeURL(hostname.Selectvalue, ses.Scope); ok {
-					URLs <- scraping.URL{Source: source.Name(), Value: URL}
+				if URL, ok := ftr.Examine(hostname.Selectvalue); ok {
+					URLs <- output.URL{Source: source.Name(), Value: URL}
 				}
 			}
 		}

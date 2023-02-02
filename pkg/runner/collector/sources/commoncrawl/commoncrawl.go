@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
 )
 
 type Source struct{}
@@ -29,13 +31,15 @@ type CommonAPIResult []struct {
 	API string `json:"cdx-api"`
 }
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan scraping.URL {
-	URLs := make(chan scraping.URL)
+func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
+	domain := ftr.Domain
+
+	URLs := make(chan output.URL)
 
 	go func() {
 		defer close(URLs)
 
-		res, err := ses.SimpleGet("https://index.commoncrawl.org/collinfo.json")
+		res, err := requests.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
 			return
 		}
@@ -57,7 +61,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 
 				var headers = map[string]string{"Host": "index.commoncrawl.org"}
 
-				res, err := ses.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), "", headers)
+				res, err := requests.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), "", headers)
 				if err != nil {
 					return
 				}
@@ -75,8 +79,8 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 						return
 					}
 
-					if URL, ok := scraping.NormalizeURL(result.URL, ses.Scope); ok {
-						URLs <- scraping.URL{Source: source.Name(), Value: URL}
+					if URL, ok := ftr.Examine(result.URL); ok {
+						URLs <- output.URL{Source: source.Name(), Value: URL}
 					}
 				}
 			}(u.API)

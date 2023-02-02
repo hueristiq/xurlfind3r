@@ -8,20 +8,24 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/scraping"
-	"github.com/hueristiq/hqurlfind3r/pkg/hqurlfind3r/session"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
 	"github.com/hueristiq/url"
 )
 
 type Source struct{}
 
-func (source *Source) Run(domain string, ses *session.Session, includeSubs bool) chan scraping.URL {
-	URLs := make(chan scraping.URL)
+func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
+	domain := ftr.Domain
+
+	URLs := make(chan output.URL)
 
 	go func() {
 		defer close(URLs)
 
-		res, err := ses.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
+		res, err := requests.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
 		if err != nil {
 			return
 		}
@@ -46,7 +50,7 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 			go func(row [2]string) {
 				defer wg.Done()
 
-				res, err := ses.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
+				res, err := requests.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
 				if err != nil {
 					return
 				}
@@ -95,8 +99,8 @@ func (source *Source) Run(domain string, ses *session.Session, includeSubs bool)
 					endpoint = filepath.Join(parsedURL.Host, endpoint)
 					endpoint = parsedURL.Scheme + "://" + endpoint
 
-					if URL, ok := scraping.NormalizeURL(endpoint, ses.Scope); ok {
-						URLs <- scraping.URL{Source: source.Name(), Value: URL}
+					if URL, ok := ftr.Examine(endpoint); ok {
+						URLs <- output.URL{Source: source.Name(), Value: URL}
 					}
 				}
 			}(row)
