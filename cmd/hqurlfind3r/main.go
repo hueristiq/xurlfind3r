@@ -22,6 +22,8 @@ import (
 )
 
 var (
+	au aurora.Aurora
+
 	listSources bool
 
 	domain                         string
@@ -30,8 +32,6 @@ var (
 	filterRegex                    string
 	monochrome, silent             bool
 	output                         string
-
-	au aurora.Aurora
 )
 
 func printBanner() {

@@ -15,20 +15,20 @@ import (
 
 type Source struct{}
 
-type CommonPaginationResult struct {
-	Blocks   uint `json:"blocks"`
-	PageSize uint `json:"pageSize"`
-	Pages    uint `json:"pages"`
-}
+// type CommonPaginationResult struct {
+// 	Blocks   uint `json:"blocks"`
+// 	PageSize uint `json:"pageSize"`
+// 	Pages    uint `json:"pages"`
+// }
 
-type CommonResult struct {
+type CDXAPIResult struct {
 	URL   string `json:"url"`
 	Error string `json:"error"`
 }
 
-type CommonAPIResult []struct {
-	ID  string `json:"id"`
-	API string `json:"cdx-api"`
+type CommonCrawlIndex struct {
+	ID      string `json:"id"`
+	CDX_API string `json:"cdx-api"`
 }
 
 func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
@@ -44,17 +44,22 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 			return
 		}
 
-		var apiRresults CommonAPIResult
+		var commonCrawlIndexes []CommonCrawlIndex
 
-		if err := json.Unmarshal(res.Body(), &apiRresults); err != nil {
+		if err := json.Unmarshal(res.Body(), &commonCrawlIndexes); err != nil {
 			fmt.Println(err)
+
 			return
 		}
 
 		wg := new(sync.WaitGroup)
 
-		for _, u := range apiRresults {
+		for index := range commonCrawlIndexes {
+			commonCrawlIndex := commonCrawlIndexes[index]
+
 			wg.Add(1)
+
+			API := commonCrawlIndex.CDX_API
 
 			go func(api string) {
 				defer wg.Done()
@@ -69,7 +74,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 				sc := bufio.NewScanner(bytes.NewReader(res.Body()))
 
 				for sc.Scan() {
-					var result CommonResult
+					var result CDXAPIResult
 
 					if err := json.Unmarshal(sc.Bytes(), &result); err != nil {
 						return
@@ -83,7 +88,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 						URLs <- output.URL{Source: source.Name(), Value: URL}
 					}
 				}
-			}(u.API)
+			}(API)
 		}
 
 		wg.Wait()
