@@ -1,8 +1,8 @@
 # hqurlfind3r
 
-[![release](https://img.shields.io/github/release/hueristiq/hqurlfind3r?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/releases) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?colorB=0040FF)](https://github.com/hueristiq/hqurlfind3r/blob/master/LICENSE) [![twitter](https://img.shields.io/badge/twitter-@itshueristiq-0040ff.svg)](https://twitter.com/itshueristiq)
+[![release](https://img.shields.io/github/release/hueristiq/hqurlfind3r?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/releases) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?colorB=0040FF)](https://github.com/hueristiq/hqurlfind3r/blob/master/LICENSE)
 
-A passive reconnaissance tool for known URLs discovery - it gathers a list of URLs passively using various online sources.
+A passive reconnaissance tool for known URLs discovery.
 
 ## Resource
 
@@ -21,13 +21,13 @@ A passive reconnaissance tool for known URLs discovery - it gathers a list of UR
 
 ## Features
 
-* Collect known URLs:
-    * Fetches from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
-    * Fetches disallowed paths from `robots.txt` found on your target domain and snapshotted by the Wayback Machine.
-* Reduce noise:
-    * Regex filter URLs.
-    * Removes duplicate pages in the sense of URL patterns that are probably repetitive and points to the same web template.
-* Output to stdout for piping or save to file.
+* Fetches known URLs:-
+    * ... from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
+    * ... from parsing `robots.txt`, snapshots on the Wayback Machine, disallowed paths.
+* Reduces noise:-
+    * ... by xegex filtering URLs.
+    * ... by removing duplicate pages in the sense of URL patterns that are probably repetitive and points to the same web template.
+* Outputs to stdout, for piping, or file.
 
 ## Installation
 
@@ -91,21 +91,22 @@ This will display help for the tool.
 | |__   __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 | '_ \ / _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
 | | | | (_| | |_| | |  | |  _| | | | | (_| |___) | |   
-|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v1.9.0
+|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v2.0.0
           |_|
+
 USAGE:
   hqurlfind3r [OPTIONS]
 
 OPTIONS:
-   -d, --domain            domain to fetch urls for
-  -eS, --exclude-sources   comma(,) separated list of sources to exclude
-   -f, --filter            URL filtering regex
-  -iS, --include-subs      include subdomains' urls
-  -lS, --list-sources      list all the available sources
-  -nC, --no-color          no color mode
-   -s  --silent            silent mode: output urls only
-  -uS, --use-sources       comma(,) separated list of sources to use
-   -o, --output            output file
+  -d, --domain string             target domain
+      --include-subdomains        include subdomains
+  -f, --filter string             URL filtering regex
+      --use-sources strings       comma(,) separated sources to use
+      --exclude-sources strings   comma(,) separated sources to exclude
+      --list-sources              list all the available sources
+  -m, --monochrome                no colored output mode
+  -s, --silent                    silent output mode
+  -o, --output string             output file
 ```
 
 ### Examples
@@ -125,7 +126,7 @@ hqurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|wo
 #### Include Subdomains' URLs
 
 ```bash
-hqurlfind3r -d tesla.com -iS
+hqurlfind3r -d tesla.com --include-subdomains
 ```
 
 ## Contribution
