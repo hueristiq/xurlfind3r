@@ -8,11 +8,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hueristiq/hqgoutils/url"
 	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
 	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
 	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/requests"
 	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
-	"github.com/hueristiq/url"
 )
 
 type Source struct{}

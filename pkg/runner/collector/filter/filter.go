@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hueristiq/url"
+	"github.com/hueristiq/hqgoutils/url"
 )
 
 type Filter struct {

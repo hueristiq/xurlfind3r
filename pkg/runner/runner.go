@@ -4,9 +4,9 @@ import (
 	"fmt"
 	urlz "net/url"
 
+	"github.com/hueristiq/hqgoutils/url"
 	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector"
 	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
-	"github.com/hueristiq/url"
 )
 
 type Runner struct {
@@ -48,7 +48,9 @@ func (runner *Runner) Run() (URLs chan output.URL, err error) {
 			if len(parsedURL.Query()) > 0 {
 				unique := false
 
-				key := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Domain, parsedURL.Path)
+				key := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path)
+
+				fmt.Println(key)
 
 				if _, exists := deDupMap[key]; exists {
 					for parameter := range parsedURL.Query() {
