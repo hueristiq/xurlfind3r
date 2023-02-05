@@ -15,12 +15,6 @@ import (
 
 type Source struct{}
 
-// type CommonPaginationResult struct {
-// 	Blocks   uint `json:"blocks"`
-// 	PageSize uint `json:"pageSize"`
-// 	Pages    uint `json:"pages"`
-// }
-
 type CDXAPIResult struct {
 	URL   string `json:"url"`
 	Error string `json:"error"`
