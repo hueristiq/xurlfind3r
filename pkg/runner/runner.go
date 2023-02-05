@@ -50,8 +50,6 @@ func (runner *Runner) Run() (URLs chan output.URL, err error) {
 
 				key := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path)
 
-				fmt.Println(key)
-
 				if _, exists := deDupMap[key]; exists {
 					for parameter := range parsedURL.Query() {
 						if _, exists := deDupMap[key][parameter]; !exists {
