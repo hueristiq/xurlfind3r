@@ -11,7 +11,7 @@ jobs:
         name: Build
         strategy:
             matrix:
-                go-version: [1.19.x]
+                go-version: [1.20]
                 os: [ubuntu-latest, windows-latest, macOS-12]
         runs-on: ${{ matrix.os }}
         steps:
@@ -30,8 +30,8 @@ jobs:
                 run: |
                     go clean -modcache
                     go mod tidy
-                working-directory: v2/
+                working-directory: .
             -
                 name: Build
                 run: go build -v .
-                working-directory: v2/cmd/hqurlfind3r
+                working-directory: cmd/hqurlfind3r
