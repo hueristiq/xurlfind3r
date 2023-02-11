@@ -37,7 +37,7 @@ You can download the pre-built binary for your platform from this repository's [
 
 ### From Source
 
-hqurlfind3r requires **go1.19+** to install successfully. Run the following command to get the repo
+hqurlfind3r requires **go1.20+** to install successfully. Run the following command to get the repo
 
 ```bash
 go install -v github.com/hueristiq/hqurlfind3r/cmd/hqurlfind3r@latest
