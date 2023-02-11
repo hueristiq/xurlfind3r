@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
 	"gopkg.in/yaml.v3"
 )
 

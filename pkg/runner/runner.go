@@ -5,8 +5,8 @@ import (
 	urlz "net/url"
 
 	"github.com/hueristiq/hqgoutils/url"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
 )
 
 type Runner struct {

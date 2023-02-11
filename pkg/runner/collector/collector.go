@@ -3,16 +3,16 @@ package collector
 import (
 	"sync"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources/commoncrawl"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources/github"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources/intelx"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources/otx"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources/urlscan"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources/wayback"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources/waybackrobots"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources/commoncrawl"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources/github"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources/intelx"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources/otx"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources/urlscan"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources/wayback"
+	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources/waybackrobots"
 )
 
 type Collector struct {
