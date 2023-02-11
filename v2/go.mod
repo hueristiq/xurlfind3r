@@ -1,4 +1,4 @@
-module github.com/hueristiq/hqurlfind3r
+module github.com/hueristiq/hqurlfind3r/v2
 
 go 1.20
 

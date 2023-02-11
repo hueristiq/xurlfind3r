@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hueristiq/hqurlfind3r/internal/configuration"
-	"github.com/hueristiq/hqurlfind3r/pkg/runner"
-	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector"
-	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/hqurlfind3r/v2/internal/configuration"
+	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner"
+	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector"
+	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
+	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/spf13/pflag"
 )

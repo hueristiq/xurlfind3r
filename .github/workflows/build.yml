@@ -29,8 +29,8 @@ jobs:
                 run: |
                     go clean -modcache
                     go mod tidy
-                working-directory: .
+                working-directory: v2/
             -
                 name: Build
                 run: go build -v .
-                working-directory: cmd/hqurlfind3r
+                working-directory: v2/cmd/hqurlfind3r/
