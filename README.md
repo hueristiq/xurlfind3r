@@ -37,17 +37,17 @@ You can download the pre-built binary for your platform from this repository's [
 
 ### From Source
 
-hqurlfind3r requires **go1.17+** to install successfully. Run the following command to get the repo
+hqurlfind3r requires **go1.19+** to install successfully. Run the following command to get the repo
 
 ```bash
-go install -v github.com/hueristiq/hqurlfind3r/cmd/hqurlfind3r@latest
+go install -v github.com/hueristiq/hqurlfind3r/v2/cmd/hqurlfind3r@latest
 ```
 
 ### From Github
 
 ```bash
 git clone https://github.com/hueristiq/hqurlfind3r.git && \
-cd hqurlfind3r/cmd/hqurlfind3r/ && \
+cd hqurlfind3r/v2/cmd/hqurlfind3r/ && \
 go build; mv hqurlfind3r /usr/local/bin/ && \
 hqurlfind3r -h
 ```
@@ -59,7 +59,7 @@ hqurlfind3r will work after [installation](#installation). However, to configure
 Example:
 
 ```yaml
-version: 1.9.0
+version: 2.0.0
 sources:
     - commoncrawl
     - github
