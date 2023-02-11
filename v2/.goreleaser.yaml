@@ -1,15 +1,18 @@
 before:
-  hooks:
-    - go mod tidy
+    hooks:
+        - go mod tidy
 
 builds:
     -
-        binary: hqurlfind3r
+        id: hqurlfind3r
         main: cmd/hqurlfind3r/main.go
+        env:
+            - CGO_ENABLED=0
+        binary: hqurlfind3r
         goos:
             - linux
-            - windows
             - darwin
+            - windows
         goarch:
             - amd64
             - 386

@@ -1,6 +1,6 @@
-module github.com/hueristiq/hqurlfind3r
+module github.com/hueristiq/hqurlfind3r/v2
 
-go 1.18
+go 1.19
 
 require (
 	github.com/corpix/uarand v0.2.0
