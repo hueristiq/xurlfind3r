@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hueristiq/hqgoutils/url"
+	hqurl "github.com/hueristiq/hqgoutils/url"
 )
 
 type Filter struct {
@@ -16,7 +16,7 @@ type Filter struct {
 func (filter Filter) Examine(inputURL string) (outputURL string, pass bool) {
 	var (
 		err       error
-		parsedURL *url.URL
+		parsedURL *hqurl.URL
 	)
 
 	outputURL = inputURL
@@ -27,7 +27,7 @@ func (filter Filter) Examine(inputURL string) (outputURL string, pass bool) {
 	outputURL = strings.Trim(outputURL, " ")
 
 	// if error parsing, ignore URL
-	parsedURL, err = url.Parse(url.Options{URL: outputURL})
+	parsedURL, err = hqurl.Parse(hqurl.Options{URL: outputURL})
 	if err != nil {
 		return
 	}

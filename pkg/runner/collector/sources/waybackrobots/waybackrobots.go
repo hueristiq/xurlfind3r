@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hueristiq/hqgoutils/url"
+	hqurl "github.com/hueristiq/hqgoutils/url"
 	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
 	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
 	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/requests"
@@ -94,7 +94,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 						}
 					}
 
-					parsedURL, _ := url.Parse(url.Options{URL: row[1]})
+					parsedURL, _ := hqurl.Parse(hqurl.Options{URL: row[1]})
 
 					endpoint = filepath.Join(parsedURL.Host, endpoint)
 					endpoint = parsedURL.Scheme + "://" + endpoint

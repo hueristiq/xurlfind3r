@@ -2,9 +2,9 @@ package runner
 
 import (
 	"fmt"
-	urlz "net/url"
+	"net/url"
 
-	"github.com/hueristiq/hqgoutils/url"
+	hqurl "github.com/hueristiq/hqgoutils/url"
 	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector"
 	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
 )
@@ -26,7 +26,7 @@ func (runner *Runner) Run() (URLs chan output.URL, err error) {
 
 	results := runner.Collector.Collect()
 
-	deDupMap := make(map[string]urlz.Values)
+	deDupMap := make(map[string]url.Values)
 	uniqueMap := make(map[string]output.URL)
 
 	// Process the results in a separate goroutine
@@ -39,7 +39,7 @@ func (runner *Runner) Run() (URLs chan output.URL, err error) {
 				continue
 			}
 
-			parsedURL, err := url.Parse(url.Options{URL: result.Value})
+			parsedURL, err := hqurl.Parse(hqurl.Options{URL: result.Value})
 			if err != nil {
 				continue
 			}
