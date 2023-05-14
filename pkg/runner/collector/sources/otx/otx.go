@@ -14,9 +14,7 @@ import (
 type Source struct{}
 
 type response struct {
-	HasNext    bool `json:"has_next"`
-	ActualSize int  `json:"actual_size"`
-	URLList    []struct {
+	URLList []struct {
 		Domain   string `json:"domain"`
 		URL      string `json:"url"`
 		Hostname string `json:"hostname"`
@@ -25,6 +23,11 @@ type response struct {
 		FullSize int    `json:"full_size"`
 		Paged    bool   `json:"paged"`
 	} `json:"url_list"`
+	PageNum    int  `json:"page_num"`
+	Paged      bool `json:"paged"`
+	HasNext    bool `json:"has_next"`
+	FullSize   int  `json:"full_size"`
+	ActualSize int  `json:"actual_size"`
 }
 
 func (source *Source) Run(_ sources.Keys, ftr filter.Filter) (URLs chan output.URL) {
@@ -40,7 +43,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) (URLs chan output.U
 			res *fasthttp.Response
 		)
 
-		for page := 0; ; page++ {
+		for page := 1; ; page++ {
 			res, err = requests.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
 			if err != nil {
 				return
