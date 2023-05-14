@@ -15,6 +15,7 @@ type Tokens struct {
 
 func NewTokenManager(keys []string) *Tokens {
 	pool := []Token{}
+
 	for _, key := range keys {
 		t := Token{Hash: key, ExceededTime: time.Time{}, RetryAfter: 0}
 		pool = append(pool, t)
@@ -30,6 +31,7 @@ func (r *Tokens) setCurrentTokenExceeded(retryAfter int64) {
 	if r.current >= len(r.pool) {
 		r.current %= len(r.pool)
 	}
+
 	if r.pool[r.current].RetryAfter == 0 {
 		r.pool[r.current].ExceededTime = time.Now()
 		r.pool[r.current].RetryAfter = retryAfter

@@ -5,8 +5,8 @@ import (
 	"net/url"
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
 )
 
 type Runner struct {
@@ -39,7 +39,7 @@ func (runner *Runner) Run() (URLs chan output.URL, err error) {
 				continue
 			}
 
-			parsedURL, err := hqurl.Parse(hqurl.Options{URL: result.Value})
+			parsedURL, err := hqurl.Parse(result.Value)
 			if err != nil {
 				continue
 			}
@@ -53,7 +53,7 @@ func (runner *Runner) Run() (URLs chan output.URL, err error) {
 				if _, exists := deDupMap[key]; exists {
 					for parameter := range parsedURL.Query() {
 						if _, exists := deDupMap[key][parameter]; !exists {
-							deDupMap[key][parameter] = []string{"hqurlfind3r"}
+							deDupMap[key][parameter] = []string{"xurlfind3r"}
 							unique = true
 						}
 					}

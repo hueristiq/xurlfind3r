@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/requests"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/valyala/fasthttp"
 )
 
 type Source struct{}
@@ -26,7 +27,7 @@ type response struct {
 	} `json:"url_list"`
 }
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan output.URL) {
+func (source *Source) Run(_ sources.Keys, ftr filter.Filter) (URLs chan output.URL) {
 	domain := ftr.Domain
 
 	URLs = make(chan output.URL)
@@ -34,15 +35,20 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 	go func() {
 		defer close(URLs)
 
+		var (
+			err error
+			res *fasthttp.Response
+		)
+
 		for page := 0; ; page++ {
-			res, err := requests.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
+			res, err = requests.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
 			if err != nil {
 				return
 			}
 
 			var results response
 
-			if err := json.Unmarshal(res.Body(), &results); err != nil {
+			if err = json.Unmarshal(res.Body(), &results); err != nil {
 				return
 			}
 

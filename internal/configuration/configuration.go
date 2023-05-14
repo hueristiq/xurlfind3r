@@ -1,88 +1,139 @@
 package configuration
 
 import (
-	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	hqlog "github.com/hueristiq/hqgoutils/log"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
 )
+
+type Keys struct {
+	Github []string `yaml:"github"`
+	Intelx []string `yaml:"intelx"`
+}
 
 type Configuration struct {
 	Version string   `yaml:"version"`
 	Sources []string `yaml:"sources"`
-	Keys    struct {
-		GitHub []string `yaml:"github"`
-		Intelx []string `yaml:"intelx"`
-	}
+	Keys    Keys     `yaml:"keys"`
 }
 
 const (
-	VERSION = "2.0.0"
+	// NAME is this projet's name
+	NAME string = "xurlfind3r"
+	// VERSION is this projet's version
+	VERSION string = "0.0.0"
+	// DESCRIPTION is this projet's description
+	DESCRIPTION string = "A CLI utility to fetch known URLs."
 )
 
 var (
-	BANNER string = fmt.Sprintf(`
- _                      _  __ _           _ _____      
-| |__   __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
-| '_ \ / _`+"`"+` | | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
-| | | | (_| | |_| | |  | |  _| | | | | (_| |___) | |   
-|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v%s
-          |_|
-`, VERSION)
-	ConfigurationFilePath = func() string {
+	// BANNER is this project's CLI display banner
+	BANNER = aurora.Sprintf(
+		aurora.BrightBlue(`
+                 _  __ _           _ _____      
+__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+\ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
+ >  <| |_| | |  | |  _| | | | | (_| |___) | |
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
+
+%s
+`).Bold(),
+		aurora.BrightYellow("v"+VERSION).Bold(),
+		aurora.BrightGreen(DESCRIPTION).Italic(),
+	)
+	// rootDirectoryName is Hueristiq's directory name on disk
+	rootDirectoryName = ".hueristiq"
+	// projectRootDirectoryName is current project's directory name on disk
+	projectRootDirectoryName = NAME
+	// ProjectRootDirectoryPath is current project's directory path on disk
+	ProjectRootDirectoryPath = func(rootDirectoryName, projectRootDirectoryName string) string {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			log.Fatalln(err)
+			hqlog.Fatal().Msg(err.Error())
 		}
 
-		return filepath.Join(home, "/.config/hqurlfind3r/conf.yaml")
-	}()
+		return filepath.Join(home, rootDirectoryName, projectRootDirectoryName)
+	}(rootDirectoryName, projectRootDirectoryName)
+	// configurationFileName is current project's configuration file name
+	configurationFileName = "config.yaml"
+	// configurationFilePath is current project's configuration file path
+	ConfigurationFilePath = filepath.Join(ProjectRootDirectoryPath, configurationFileName)
+	Default               = Configuration{
+		Version: VERSION,
+		Sources: sources.List,
+		Keys: Keys{
+			Github: []string{},
+			Intelx: []string{},
+		},
+	}
 )
 
-func (configuration *Configuration) Write() error {
-	file, err := os.OpenFile(ConfigurationFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+func Read() (configuration Configuration, err error) {
+	var (
+		file *os.File
+	)
+
+	file, err = os.Open(ConfigurationFilePath)
 	if err != nil {
-		return err
+		return
 	}
 
-	enc := yaml.NewEncoder(file)
-	enc.SetIndent(4)
-	err = enc.Encode(&configuration)
-	file.Close()
-	return err
-}
-
-func Read() (Configuration, error) {
-	configuration := Configuration{}
-
-	file, err := os.Open(ConfigurationFilePath)
-	if err != nil {
-		return configuration, err
-	}
+	defer file.Close()
 
 	err = yaml.NewDecoder(file).Decode(&configuration)
 
-	file.Close()
+	return
+}
 
-	return configuration, err
+func Write(configuration *Configuration) (err error) {
+	var (
+		file *os.File
+
+		identation = 4
+	)
+
+	directory := filepath.Dir(ConfigurationFilePath)
+
+	if _, err = os.Stat(directory); os.IsNotExist(err) {
+		if directory != "" {
+			if err = os.MkdirAll(directory, os.ModePerm); err != nil {
+				return
+			}
+		}
+	}
+
+	file, err = os.OpenFile(ConfigurationFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return
+	}
+
+	defer file.Close()
+
+	enc := yaml.NewEncoder(file)
+	enc.SetIndent(identation)
+	err = enc.Encode(&configuration)
+
+	return
 }
 
 func (configuration *Configuration) GetKeys() sources.Keys {
 	keys := sources.Keys{}
 
-	if len(configuration.Keys.GitHub) > 0 {
-		keys.GitHub = configuration.Keys.GitHub
+	if len(configuration.Keys.Github) > 0 {
+		keys.GitHub = configuration.Keys.Github
 	}
 
 	intelxKeysCount := len(configuration.Keys.Intelx)
 	if intelxKeysCount > 0 {
-		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)]
+		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)] //nolint:gosec // Works perfectly
 		parts := strings.Split(intelxKeys, ":")
+
 		if len(parts) == 2 {
 			keys.IntelXHost = parts[0]
 			keys.IntelXKey = parts[1]

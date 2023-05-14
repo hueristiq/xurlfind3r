@@ -14,10 +14,12 @@ var (
 func httpRequestWrapper(req *fasthttp.Request) (res *fasthttp.Response, err error) {
 	res = fasthttp.AcquireResponse()
 
-	client.Do(req, res)
+	if err = client.Do(req, res); err != nil {
+		return
+	}
 
 	if res.StatusCode() != fasthttp.StatusOK {
-		err = fmt.Errorf("Unexpected status code")
+		err = fmt.Errorf("unexpected status code")
 	}
 
 	return

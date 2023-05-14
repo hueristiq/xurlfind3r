@@ -9,15 +9,16 @@ import (
 	"sync"
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/requests"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/valyala/fasthttp"
 )
 
 type Source struct{}
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
+func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 	domain := ftr.Domain
 
 	URLs := make(chan output.URL)
@@ -25,7 +26,12 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 	go func() {
 		defer close(URLs)
 
-		res, err := requests.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
+		var (
+			err error
+			res *fasthttp.Response
+		)
+
+		res, err = requests.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
 		if err != nil {
 			return
 		}
@@ -50,7 +56,12 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 			go func(row [2]string) {
 				defer wg.Done()
 
-				res, err := requests.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
+				var (
+					err error
+					res *fasthttp.Response
+				)
+
+				res, err = requests.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
 				if err != nil {
 					return
 				}
@@ -76,7 +87,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 						continue
 					}
 
-					endpoint = strings.Replace(endpoint, "*", "", -1)
+					endpoint = strings.ReplaceAll(endpoint, "*", "")
 
 					for strings.HasPrefix(endpoint, "/") {
 						if len(endpoint) >= 1 {
@@ -94,7 +105,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 						}
 					}
 
-					parsedURL, _ := hqurl.Parse(hqurl.Options{URL: row[1]})
+					parsedURL, _ := hqurl.Parse(row[1])
 
 					endpoint = filepath.Join(parsedURL.Host, endpoint)
 					endpoint = parsedURL.Scheme + "://" + endpoint

@@ -27,7 +27,7 @@ func (filter Filter) Examine(inputURL string) (outputURL string, pass bool) {
 	outputURL = strings.Trim(outputURL, " ")
 
 	// if error parsing, ignore URL
-	parsedURL, err = hqurl.Parse(hqurl.Options{URL: outputURL})
+	parsedURL, err = hqurl.Parse(outputURL)
 	if err != nil {
 		return
 	}

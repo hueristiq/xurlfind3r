@@ -1,16 +1,17 @@
-# hqurlfind3r
+# xurlfind3r
 
-[![release](https://img.shields.io/github/release/hueristiq/hqurlfind3r?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/releases) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0040ff.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/hqurlfind3r.svg?style=flat&color=0040ff)](https://github.com/hueristiq/hqurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?colorB=0040FF)](https://github.com/hueristiq/hqurlfind3r/blob/master/LICENSE)
+![made with go](https://img.shields.io/badge/made%20with-Go-0000FF.svg) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/releases) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=0000FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0000FF.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![contribution](https://img.shields.io/badge/contributions-welcome-0000FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-A passive reconnaissance tool for known URLs discovery.
+`xurlfind3r` is a command-line interface (CLI) utility to fetch known URLs.
 
 ## Resource
 
 * [Features](#features)
 * [Installation](#installation)
-	* [From Binary](#from-binary)
-	* [From source](#from-source)
-	* [From github](#from-github)
+	* [Install release binaries](#install-release-binaries)
+	* [Install source](#install-sources)
+		* [`go install ...`](#go-install)
+		* [`go build ...` the development Version](#go-build--the-development-version)
 * [Post Installation](#post-installation)
 * [Usage](#usage)
 	* [Examples](#examples)
@@ -18,6 +19,7 @@ A passive reconnaissance tool for known URLs discovery.
 		* [Regex filter URLs](#regex-filter-urls)
 		* [Include Subdomains' URLs](#include-subdomains-urls)
 * [Contribution](#contribution)
+* [Licensing](#licensing)
 
 ## Features
 
@@ -31,35 +33,88 @@ A passive reconnaissance tool for known URLs discovery.
 
 ## Installation
 
-### From Binary
+### Install release binaries
 
-You can download the pre-built binary for your platform from this repository's [releases](https://github.com/hueristiq/hqurlfind3r/releases/) page, extract, then move it to your `$PATH`and you're ready to go.
+Visit the [releases page](https://github.com/hueristiq/xurlfind3r/releases) and find the appropriate archive for your operating system and architecture. Download the archive from your browser or copy its URL and retrieve it with `wget` or `curl`:
 
-### From Source
+* ...with `wget`:
 
-hqurlfind3r requires **go1.20+** to install successfully. Run the following command to get the repo
+	```bash
+	wget https://github.com/hueristiq/xurlfind3r/releases/download/v<version>/xurlfind3r-<version>-linux-amd64.tar.gz
+	```
+
+* ...or, with `curl`:
+
+	```bash
+	curl -OL https://github.com/hueristiq/xurlfind3r/releases/download/v<version>/xurlfind3r-<version>-linux-amd64.tar.gz
+	```
+
+...then, extract the binary:
 
 ```bash
-go install -v github.com/hueristiq/hqurlfind3r/v2/cmd/hqurlfind3r@latest
+tar xf xurlfind3r-<version>-linux-amd64.tar.gz
 ```
 
-### From Github
+> **TIP:** The above steps, download and extract, can be combined into a single step with this onliner
+> 
+> ```bash
+> curl -sL https://github.com/hueristiq/xurlfind3r/releases/download/v<version>/xurlfind3r-<version>-linux-amd64.tar.gz | tar -xzv
+> ```
+
+**NOTE:** On Windows systems, you should be able to double-click the zip archive to extract the `xurlfind3r` executable.
+
+...move the `xurlfind3r` binary to somewhere in your `PATH`. For example, on GNU/Linux and OS X systems:
 
 ```bash
-git clone https://github.com/hueristiq/hqurlfind3r.git && \
-cd hqurlfind3r/cmd/hqurlfind3r/ && \
-go build; mv hqurlfind3r /usr/local/bin/ && \
-hqurlfind3r -h
+sudo mv xurlfind3r /usr/local/bin/
 ```
+
+**NOTE:** Windows users can follow [How to: Add Tool Locations to the PATH Environment Variable](https://msdn.microsoft.com/en-us/library/office/ee537574(v=office.14).aspx) in order to add `xurlfind3r` to their `PATH`.
+
+### Install source
+
+Before you install from source, you need to make sure that Go is installed on your system. You can install Go by following the official instructions for your operating system. For this, we will assume that Go is already installed.
+
+#### `go install ...`
+
+```bash
+go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
+```
+
+#### `go build ...` the development Version
+
+* Clone the repository
+
+	```bash
+	git clone https://github.com/hueristiq/xurlfind3r.git 
+	```
+
+* Build the utility
+
+	```bash
+	cd xurlfind3r/cmd/xurlfind3r && \
+	go build .
+	```
+
+* Move the `xurlfind3r` binary to somewhere in your `PATH`. For example, on GNU/Linux and OS X systems:
+
+	```bash
+	sudo mv xurlfind3r /usr/local/bin/
+	```
+
+	**NOTE:** Windows users can follow [How to: Add Tool Locations to the PATH Environment Variable](https://msdn.microsoft.com/en-us/library/office/ee537574(v=office.14).aspx) in order to add `xurlfind3r` to their `PATH`.
+
+
+**NOTE:** While the development version is a good way to take a peek at `xurlfind3r`'s latest features before they get released, be aware that it may have bugs. Officially released versions will generally be more stable.
 
 ## Post Installation
 
-hqurlfind3r will work after [installation](#installation). However, to configure hqurlfind3r to work with certain services - currently github - you will need to have setup API keys. The API keys are stored in the `$HOME/.config/hqurlfind3r/conf.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these services.
+xurlfind3r will work after [installation](#installation). However, to configure xurlfind3r to work with certain services - currently github - you will need to have setup API keys. The API keys are stored in the `$HOME/.config/xurlfind3r/conf.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these services.
 
 Example:
 
 ```yaml
-version: 2.0.0
+version: 0.0.0
 sources:
     - commoncrawl
     - github
@@ -81,32 +136,39 @@ keys:
 **DiSCLAIMER:** fetching urls from github is a bit slow.
 
 ```bash
-hqurlfind3r -h
+xurlfind3r -h
 ```
 
 This will display help for the tool.
 
 ```
- _                      _  __ _           _ _____      
-| |__   __ _ _   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
-| '_ \ / _` | | | | '__| | |_| | '_ \ / _` | |_ \| '__|
-| | | | (_| | |_| | |  | |  _| | | | | (_| |___) | |   
-|_| |_|\__, |\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v2.0.0
-          |_|
+                 _  __ _           _ _____      
+__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+\ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
+ >  <| |_| | |  | |  _| | | | | (_| |___) | |
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.0.0
+
+A CLI utility to fetch known URLs.
 
 USAGE:
-  hqurlfind3r [OPTIONS]
+  xurlfind3r [OPTIONS]
 
-OPTIONS:
+INPUT:
   -d, --domain string             target domain
-      --include-subdomains        include subdomains
-  -f, --filter string             URL filtering regex
+
+SOURCES:
       --use-sources strings       comma(,) separated sources to use
       --exclude-sources strings   comma(,) separated sources to exclude
       --list-sources              list all the available sources
+
+FILTER:
+      --include-subdomains        include subdomains
+  -f, --filter string             URL filtering regex
+
+OUTPUT:
   -m, --monochrome                no colored output mode
-  -s, --silent                    silent output mode
-  -o, --output string             output file
+  -o, --output string             output file to write found URLs
+  -v, --verbosity                 debug, info, warning, error, fatal or silent (default: info)
 ```
 
 ### Examples
@@ -114,21 +176,25 @@ OPTIONS:
 #### Basic
 
 ```bash
-hqurlfind3r -d tesla.com
+xurlfind3r -d tesla.com
 ```
 
 #### Regex filter URLs
 
 ```bash
-hqurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
+xurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
 ```
 
 #### Include Subdomains' URLs
 
 ```bash
-hqurlfind3r -d tesla.com --include-subdomains
+xurlfind3r -d tesla.com --include-subdomains
 ```
 
 ## Contribution
 
-[Issues](https://github.com/hueristiq/hqurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/hqurlfind3r/pulls) are welcome!
+[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! Check out the [contribution guidelines.](./CONTRIBUTING.md)
+
+## Licensing
+
+This utility is distributed under the [MIT license](./LICENSE)

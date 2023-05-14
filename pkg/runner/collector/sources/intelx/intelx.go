@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/requests"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/valyala/fasthttp"
 )
 
 type searchResponseType struct {
@@ -42,6 +43,12 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 	go func() {
 		defer close(URLs)
 
+		var (
+			err  error
+			body []byte
+			res  *fasthttp.Response
+		)
+
 		if keys.IntelXKey == "" || keys.IntelXHost == "" {
 			return
 		}
@@ -54,19 +61,19 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 			Timeout:    20,
 		}
 
-		body, err := json.Marshal(reqBody)
+		body, err = json.Marshal(reqBody)
 		if err != nil {
 			return
 		}
 
-		res, err := requests.SimplePost(searchURL, "application/json", body)
+		res, err = requests.SimplePost(searchURL, "application/json", body)
 		if err != nil {
 			return
 		}
 
 		var response searchResponseType
 
-		if err := json.Unmarshal(res.Body(), &response); err != nil {
+		if err = json.Unmarshal(res.Body(), &response); err != nil {
 			return
 		}
 
@@ -81,11 +88,12 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 
 			var response searchResultType
 
-			if err := json.Unmarshal(res.Body(), &response); err != nil {
+			if err = json.Unmarshal(res.Body(), &response); err != nil {
 				return
 			}
 
 			status = response.Status
+
 			for _, hostname := range response.Selectors {
 				if URL, ok := ftr.Examine(hostname.Selectvalue); ok {
 					URLs <- output.URL{Source: source.Name(), Value: URL}

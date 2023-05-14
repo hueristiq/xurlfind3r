@@ -7,15 +7,16 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/requests"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/valyala/fasthttp"
 )
 
 type Source struct{}
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
+func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 	domain := ftr.Domain
 
 	URLs := make(chan output.URL)
@@ -23,11 +24,16 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 	go func() {
 		defer close(URLs)
 
+		var (
+			err error
+			res *fasthttp.Response
+		)
+
 		if ftr.IncludeSubdomains {
 			domain = "*." + domain
 		}
 
-		res, err := requests.SimpleGet(fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain))
+		res, err = requests.SimpleGet(fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain))
 		if err != nil {
 			return
 		}
@@ -50,7 +56,9 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 				URL = strings.TrimPrefix(URL, "25")
 				URL = strings.TrimPrefix(URL, "2f")
 
-				if URL, ok := ftr.Examine(URL); ok {
+				var ok bool
+
+				if URL, ok = ftr.Examine(URL); ok {
 					URLs <- output.URL{Source: source.Name(), Value: URL}
 				}
 			}

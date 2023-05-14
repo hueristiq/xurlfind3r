@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/requests"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
 	"github.com/tomnomnom/linkheader"
 	"github.com/valyala/fasthttp"
 )
@@ -51,6 +51,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 		tokens := NewTokenManager(keys.GitHub)
 
 		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%s&sort=created&order=asc", domain)
+
 		source.Enumerate(searchURL, domainRegexp(domain, ftr.IncludeSubdomains), tokens, ftr, URLs)
 	}()
 
@@ -68,17 +69,19 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		}
 	}
 
-	res, err := requests.Request(
-		fasthttp.MethodGet,
-		searchURL,
-		"",
-		map[string]string{
+	var (
+		err     error
+		headers = map[string]string{
 			"Accept":        "application/vnd.github.v3.text-match+json",
 			"Authorization": "token " + token.Hash,
-		},
-		nil,
+		}
+		res *fasthttp.Response
 	)
+
+	res, err = requests.Request(fasthttp.MethodGet, searchURL, "", headers, nil)
+
 	isForbidden := res != nil && res.StatusCode() == fasthttp.StatusForbidden
+
 	if err != nil && !isForbidden {
 		return
 	}
@@ -93,7 +96,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 
 	var results response
 
-	if err := json.Unmarshal(res.Body(), &results); err != nil {
+	if err = json.Unmarshal(res.Body(), &results); err != nil {
 		return
 	}
 
@@ -110,14 +113,23 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 			if err != nil {
 				return
 			}
+
 			source.Enumerate(nextURL, domainRegexp, tokens, ftr, URLs)
 		}
 	}
 }
 
-func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr filter.Filter, URLs chan output.URL) error {
+func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr filter.Filter, URLs chan output.URL) (err error) {
 	for _, item := range items {
-		res, _ := requests.SimpleGet(rawContentURL(item.HTMLURL))
+		var (
+			res *fasthttp.Response
+			URL string
+		)
+
+		res, err = requests.SimpleGet(rawContentURL(item.HTMLURL))
+		if err != nil {
+			continue
+		}
 
 		if res.StatusCode() == fasthttp.StatusOK {
 			scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
@@ -127,8 +139,10 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr fi
 					continue
 				}
 
-				for _, URL := range domainRegexp.FindAllString(normalizeContent(line), -1) {
-					if URL, ok := ftr.Examine(URL); ok {
+				for _, URL = range domainRegexp.FindAllString(normalizeContent(line), -1) {
+					var ok bool
+
+					if URL, ok = ftr.Examine(URL); ok {
 						URLs <- output.URL{Source: name, Value: URL}
 					}
 				}
@@ -136,31 +150,37 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr fi
 		}
 
 		for _, textMatch := range item.TextMatches {
-			for _, URL := range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
-				if URL, ok := ftr.Examine(URL); ok {
+			for _, URL = range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
+				var ok bool
+
+				if URL, ok = ftr.Examine(URL); ok {
 					URLs <- output.URL{Source: name, Value: URL}
 				}
 			}
 		}
 	}
-	return nil
+
+	return
 }
 
 func normalizeContent(content string) string {
 	content, _ = url.QueryUnescape(content)
 	content = strings.ReplaceAll(content, "\\t", "")
 	content = strings.ReplaceAll(content, "\\n", "")
+
 	return content
 }
 
 func rawContentURL(URL string) string {
 	URL = strings.ReplaceAll(URL, "https://github.com/", "https://raw.githubusercontent.com/")
 	URL = strings.ReplaceAll(URL, "/blob/", "/")
+
 	return URL
 }
 
-func domainRegexp(host string, includeSubs bool) (URLRegex *regexp.Regexp) {
-	URLRegex = regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`)
+func domainRegexp(_ string, _ bool) (URLRegex *regexp.Regexp) {
+	URLRegex = regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`) //nolint:gocritic // To be looked at later
+
 	return URLRegex
 }
 

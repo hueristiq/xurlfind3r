@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/filter"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/output"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/requests"
-	"github.com/hueristiq/hqurlfind3r/v2/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
+	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/valyala/fasthttp"
 )
 
 type response struct {
@@ -20,7 +21,7 @@ type response struct {
 
 type Source struct{}
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
+func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 	domain := ftr.Domain
 
 	URLs := make(chan output.URL)
@@ -28,7 +29,12 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 	go func() {
 		defer close(URLs)
 
-		res, err := requests.SimpleGet(fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s", domain))
+		var (
+			err error
+			res *fasthttp.Response
+		)
+
+		res, err = requests.SimpleGet(fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s", domain))
 		if err != nil {
 			return
 		}
@@ -37,7 +43,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 
 		var results response
 
-		if err := json.Unmarshal(body, &results); err != nil {
+		if err = json.Unmarshal(body, &results); err != nil {
 			return
 		}
 
