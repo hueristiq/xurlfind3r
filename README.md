@@ -109,7 +109,7 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 ## Post Installation
 
-xurlfind3r will work after [installation](#installation). However, to configure xurlfind3r to work with certain services - currently github - you will need to have setup API keys. The API keys are stored in the `$HOME/.config/xurlfind3r/conf.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these services.
+xurlfind3r will work after [installation](#installation). However, to configure xurlfind3r to work with certain services - currently github - you will need to have setup API keys. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these services.
 
 Example:
 
