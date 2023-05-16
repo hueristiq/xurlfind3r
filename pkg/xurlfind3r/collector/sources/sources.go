@@ -2,7 +2,6 @@ package sources
 
 import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 )
 
 type Keys struct {
@@ -13,9 +12,14 @@ type Keys struct {
 	IntelXKey  string `json:"intelXKey"`
 }
 
+type URL struct {
+	Source string
+	Value  string
+}
+
 // Source is an interface inherited by each passive source
 type Source interface {
-	Run(keys Keys, ftr filter.Filter) chan output.URL
+	Run(keys Keys, ftr filter.Filter) chan URL
 	Name() string
 }
 

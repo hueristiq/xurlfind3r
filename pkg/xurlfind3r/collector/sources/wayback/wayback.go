@@ -9,17 +9,16 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
 
 type Source struct{}
 
-func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
+func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
 	domain := ftr.Domain
 
-	URLs := make(chan output.URL)
+	URLs := make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
@@ -33,7 +32,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 			domain = "*." + domain
 		}
 
-		res, err = httpclient.SimpleGet(fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain))
+		res, err = httpclient.SimpleGet(fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&sources=txt&fl=original&collapse=urlkey", domain))
 		if err != nil {
 			return
 		}
@@ -59,7 +58,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 				var ok bool
 
 				if URL, ok = ftr.Examine(URL); ok {
-					URLs <- output.URL{Source: source.Name(), Value: URL}
+					URLs <- sources.URL{Source: source.Name(), Value: URL}
 				}
 			}
 		}

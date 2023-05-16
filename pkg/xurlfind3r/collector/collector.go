@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources/commoncrawl"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources/github"
@@ -69,8 +68,8 @@ func (collector *Collector) removeSources(sourcesToExclude []string) {
 	}
 }
 
-func (collector *Collector) Collect() (URLs chan output.URL) {
-	URLs = make(chan output.URL)
+func (collector *Collector) Collect() (URLs chan sources.URL) {
+	URLs = make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)

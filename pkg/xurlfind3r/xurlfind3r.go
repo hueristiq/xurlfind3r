@@ -6,7 +6,7 @@ import (
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 )
 
 type Runner struct {
@@ -21,13 +21,13 @@ func New(clr *collector.Collector) (runner *Runner) {
 	return
 }
 
-func (runner *Runner) Run() (URLs chan output.URL, err error) {
-	URLs = make(chan output.URL)
+func (runner *Runner) Run() (URLs chan sources.URL, err error) {
+	URLs = make(chan sources.URL)
 
 	results := runner.Collector.Collect()
 
 	deDupMap := make(map[string]url.Values)
-	uniqueMap := make(map[string]output.URL)
+	uniqueMap := make(map[string]sources.URL)
 
 	// Process the results in a separate goroutine
 	go func() {
@@ -67,7 +67,7 @@ func (runner *Runner) Run() (URLs chan output.URL, err error) {
 				}
 			}
 
-			uniqueMap[parsedURL.String()] = output.URL{
+			uniqueMap[parsedURL.String()] = sources.URL{
 				Source: result.Source,
 				Value:  parsedURL.String(),
 			}

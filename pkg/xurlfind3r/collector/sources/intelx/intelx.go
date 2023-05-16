@@ -7,7 +7,6 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
@@ -35,10 +34,10 @@ type requestBody struct {
 
 type Source struct{}
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan output.URL) {
+func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan sources.URL) {
 	domain := ftr.Domain
 
-	URLs = make(chan output.URL)
+	URLs = make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
@@ -96,7 +95,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 
 			for _, hostname := range response.Selectors {
 				if URL, ok := ftr.Examine(hostname.Selectvalue); ok {
-					URLs <- output.URL{Source: source.Name(), Value: URL}
+					URLs <- sources.URL{Source: source.Name(), Value: URL}
 				}
 			}
 		}

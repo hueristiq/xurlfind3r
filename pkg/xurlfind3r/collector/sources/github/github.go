@@ -13,7 +13,6 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/tomnomnom/linkheader"
 	"github.com/valyala/fasthttp"
@@ -36,10 +35,10 @@ type response struct {
 	Items      []item `json:"items"`
 }
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
+func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan sources.URL {
 	domain := ftr.Domain
 
-	URLs := make(chan output.URL)
+	URLs := make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
@@ -58,7 +57,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL 
 	return URLs
 }
 
-func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, ftr filter.Filter, URLs chan output.URL) {
+func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, ftr filter.Filter, URLs chan sources.URL) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -119,7 +118,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 	}
 }
 
-func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr filter.Filter, URLs chan output.URL) (err error) {
+func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr filter.Filter, URLs chan sources.URL) (err error) {
 	for _, item := range items {
 		var (
 			res *fasthttp.Response
@@ -143,7 +142,7 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr fi
 					var ok bool
 
 					if URL, ok = ftr.Examine(URL); ok {
-						URLs <- output.URL{Source: name, Value: URL}
+						URLs <- sources.URL{Source: name, Value: URL}
 					}
 				}
 			}
@@ -154,7 +153,7 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr fi
 				var ok bool
 
 				if URL, ok = ftr.Examine(URL); ok {
-					URLs <- output.URL{Source: name, Value: URL}
+					URLs <- sources.URL{Source: name, Value: URL}
 				}
 			}
 		}

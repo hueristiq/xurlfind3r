@@ -9,7 +9,6 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
@@ -26,10 +25,10 @@ type Index struct {
 	CDX_API string `json:"cdx-api"` //nolint:revive,stylecheck // Is as is
 }
 
-func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
+func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
 	domain := ftr.Domain
 
-	URLs := make(chan output.URL)
+	URLs := make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
@@ -89,7 +88,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 					}
 
 					if URL, ok := ftr.Examine(result.URL); ok {
-						URLs <- output.URL{Source: source.Name(), Value: URL}
+						URLs <- sources.URL{Source: source.Name(), Value: URL}
 					}
 				}
 			}(API)
