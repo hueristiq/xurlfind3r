@@ -10,8 +10,8 @@ import (
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/requests"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
@@ -31,7 +31,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 			res *fasthttp.Response
 		)
 
-		res, err = requests.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
+		res, err = httpclient.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
 		if err != nil {
 			return
 		}
@@ -61,7 +61,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 					res *fasthttp.Response
 				)
 
-				res, err = requests.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
+				res, err = httpclient.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
 				if err != nil {
 					return
 				}

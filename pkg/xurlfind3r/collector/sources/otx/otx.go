@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/requests"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
@@ -44,7 +44,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) (URLs chan output.U
 		)
 
 		for page := 1; ; page++ {
-			res, err = requests.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
+			res, err = httpclient.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
 			if err != nil {
 				return
 			}

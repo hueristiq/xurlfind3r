@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/requests"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
@@ -66,7 +66,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 			return
 		}
 
-		res, err = requests.SimplePost(searchURL, "application/json", body)
+		res, err = httpclient.SimplePost(searchURL, "application/json", body)
 		if err != nil {
 			return
 		}
@@ -81,7 +81,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 		status := 0
 
 		for status == 0 || status == 3 {
-			res, err = requests.Get(resultsURL, "", nil)
+			res, err = httpclient.Get(resultsURL, "", nil)
 			if err != nil {
 				return
 			}

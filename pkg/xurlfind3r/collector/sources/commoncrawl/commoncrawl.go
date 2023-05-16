@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/requests"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
@@ -39,7 +39,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 			res *fasthttp.Response
 		)
 
-		res, err = requests.SimpleGet("https://index.commoncrawl.org/collinfo.json")
+		res, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
 			return
 		}
@@ -70,7 +70,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 					headers = map[string]string{"Host": "index.commoncrawl.org"}
 				)
 
-				res, err = requests.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), "", headers)
+				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), "", headers)
 				if err != nil {
 					return
 				}

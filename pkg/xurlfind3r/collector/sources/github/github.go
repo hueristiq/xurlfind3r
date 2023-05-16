@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/requests"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/tomnomnom/linkheader"
 	"github.com/valyala/fasthttp"
@@ -78,7 +78,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		res *fasthttp.Response
 	)
 
-	res, err = requests.Request(fasthttp.MethodGet, searchURL, "", headers, nil)
+	res, err = httpclient.Request(fasthttp.MethodGet, searchURL, "", headers, nil)
 
 	isForbidden := res != nil && res.StatusCode() == fasthttp.StatusForbidden
 
@@ -126,7 +126,7 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr fi
 			URL string
 		)
 
-		res, err = requests.SimpleGet(rawContentURL(item.HTMLURL))
+		res, err = httpclient.SimpleGet(rawContentURL(item.HTMLURL))
 		if err != nil {
 			continue
 		}

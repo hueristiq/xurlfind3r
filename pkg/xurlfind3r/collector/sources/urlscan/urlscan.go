@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/requests"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/valyala/fasthttp"
 )
@@ -34,7 +34,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan output.URL {
 			res *fasthttp.Response
 		)
 
-		res, err = requests.SimpleGet(fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s", domain))
+		res, err = httpclient.SimpleGet(fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s", domain))
 		if err != nil {
 			return
 		}
