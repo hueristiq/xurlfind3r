@@ -15,10 +15,10 @@ import (
 	"github.com/hueristiq/hqgoutils/log/formatter"
 	"github.com/hueristiq/hqgoutils/log/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
-	"github.com/hueristiq/xurlfind3r/pkg/runner"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/imdario/mergo"
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/spf13/pflag"
@@ -132,7 +132,7 @@ func main() {
 		regex *regexp.Regexp
 		ftr   filter.Filter
 		clr   *collector.Collector
-		rnr   *runner.Runner
+		rnr   *xurlfind3r.Runner
 	)
 
 	if verbosity != string(levels.LevelSilent) {
@@ -191,7 +191,7 @@ func main() {
 	}
 
 	clr = collector.New(sourcesToUse, sourcesToExclude, keys, ftr)
-	rnr = runner.New(clr)
+	rnr = xurlfind3r.New(clr)
 
 	URLs, err := rnr.Run()
 	if err != nil {

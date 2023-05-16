@@ -1,8 +1,8 @@
 package sources
 
 import (
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 )
 
 type Keys struct {

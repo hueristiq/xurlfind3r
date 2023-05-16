@@ -1,12 +1,12 @@
-package runner
+package xurlfind3r
 
 import (
 	"fmt"
 	"net/url"
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
 )
 
 type Runner struct {

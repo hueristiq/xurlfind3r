@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/output"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/requests"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/tomnomnom/linkheader"
 	"github.com/valyala/fasthttp"
 )

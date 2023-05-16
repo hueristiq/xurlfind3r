@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	hqlog "github.com/hueristiq/hqgoutils/log"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
 )
