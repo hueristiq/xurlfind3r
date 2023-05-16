@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
@@ -20,10 +19,8 @@ type response struct {
 
 type Source struct{}
 
-func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
-	domain := ftr.Domain
-
-	URLs := make(chan sources.URL)
+func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sources.URL) {
+	URLs = make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
@@ -47,13 +44,11 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
 		}
 
 		for _, i := range results.Results {
-			if URL, ok := ftr.Examine(i.Page.URL); ok {
-				URLs <- sources.URL{Source: source.Name(), Value: URL}
-			}
+			URLs <- sources.URL{Source: source.Name(), Value: i.Page.URL}
 		}
 	}()
 
-	return URLs
+	return
 }
 
 func (source *Source) Name() string {

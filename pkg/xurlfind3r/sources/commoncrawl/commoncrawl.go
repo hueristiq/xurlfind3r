@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
@@ -22,13 +21,11 @@ type CDXAPIResult struct {
 
 type Index struct {
 	ID      string `json:"id"`
-	CDX_API string `json:"cdx-api"` //nolint:revive,stylecheck // Is as is
+	CDX_API string `json:"cdx-API"` //nolint:revive,stylecheck // Is as is
 }
 
-func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
-	domain := ftr.Domain
-
-	URLs := make(chan sources.URL)
+func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sources.URL) {
+	URLs = make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
@@ -46,40 +43,36 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
 		var commonCrawlIndexes []Index
 
 		if err = json.Unmarshal(res.Body(), &commonCrawlIndexes); err != nil {
-			fmt.Println(err)
-
 			return
 		}
 
 		wg := new(sync.WaitGroup)
 
 		for index := range commonCrawlIndexes {
-			commonCrawlIndex := commonCrawlIndexes[index]
-
 			wg.Add(1)
 
-			API := commonCrawlIndex.CDX_API
+			commonCrawlIndex := commonCrawlIndexes[index]
 
-			go func(api string) {
+			go func(API string) {
 				defer wg.Done()
 
 				var (
 					err     error
-					res     *fasthttp.Response
 					headers = map[string]string{"Host": "index.commoncrawl.org"}
+					res     *fasthttp.Response
 				)
 
-				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", api, domain), "", headers)
+				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, domain), "", headers)
 				if err != nil {
 					return
 				}
 
-				sc := bufio.NewScanner(bytes.NewReader(res.Body()))
+				scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
 
-				for sc.Scan() {
+				for scanner.Scan() {
 					var result CDXAPIResult
 
-					if err = json.Unmarshal(sc.Bytes(), &result); err != nil {
+					if err = json.Unmarshal(scanner.Bytes(), &result); err != nil {
 						return
 					}
 
@@ -87,17 +80,15 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
 						return
 					}
 
-					if URL, ok := ftr.Examine(result.URL); ok {
-						URLs <- sources.URL{Source: source.Name(), Value: URL}
-					}
+					URLs <- sources.URL{Source: source.Name(), Value: result.URL}
 				}
-			}(API)
+			}(commonCrawlIndex.CDX_API)
 		}
 
 		wg.Wait()
 	}()
 
-	return URLs
+	return
 }
 
 func (source *Source) Name() string {

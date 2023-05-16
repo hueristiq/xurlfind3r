@@ -11,9 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/tomnomnom/linkheader"
 	"github.com/valyala/fasthttp"
 )
@@ -35,29 +34,27 @@ type response struct {
 	Items      []item `json:"items"`
 }
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan sources.URL {
-	domain := ftr.Domain
-
-	URLs := make(chan sources.URL)
+func (source *Source) Run(config sources.Configuration, domain string) (URLs chan sources.URL) {
+	URLs = make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
 
-		if len(keys.GitHub) == 0 {
+		if len(config.Keys.GitHub) == 0 {
 			return
 		}
 
-		tokens := NewTokenManager(keys.GitHub)
+		tokens := NewTokenManager(config.Keys.GitHub)
 
 		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%s&sort=created&order=asc", domain)
 
-		source.Enumerate(searchURL, domainRegexp(domain, ftr.IncludeSubdomains), tokens, ftr, URLs)
+		source.Enumerate(searchURL, domainRegexp(), tokens, URLs)
 	}()
 
 	return URLs
 }
 
-func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, ftr filter.Filter, URLs chan sources.URL) {
+func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, URLs chan sources.URL) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -90,7 +87,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		retryAfterSeconds, _ := strconv.ParseInt(string(res.Header.Peek("Retry-After")), 10, 64)
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchURL, domainRegexp, tokens, ftr, URLs)
+		source.Enumerate(searchURL, domainRegexp, tokens, URLs)
 	}
 
 	var results response
@@ -99,7 +96,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		return
 	}
 
-	err = proccesItems(results.Items, domainRegexp, source.Name(), ftr, URLs)
+	err = proccesItems(results.Items, domainRegexp, source.Name(), URLs)
 	if err != nil {
 		return
 	}
@@ -113,12 +110,12 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 				return
 			}
 
-			source.Enumerate(nextURL, domainRegexp, tokens, ftr, URLs)
+			source.Enumerate(nextURL, domainRegexp, tokens, URLs)
 		}
 	}
 }
 
-func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr filter.Filter, URLs chan sources.URL) (err error) {
+func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLs chan sources.URL) (err error) {
 	for _, item := range items {
 		var (
 			res *fasthttp.Response
@@ -139,22 +136,14 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr fi
 				}
 
 				for _, URL = range domainRegexp.FindAllString(normalizeContent(line), -1) {
-					var ok bool
-
-					if URL, ok = ftr.Examine(URL); ok {
-						URLs <- sources.URL{Source: name, Value: URL}
-					}
+					URLs <- sources.URL{Source: name, Value: URL}
 				}
 			}
 		}
 
 		for _, textMatch := range item.TextMatches {
 			for _, URL = range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
-				var ok bool
-
-				if URL, ok = ftr.Examine(URL); ok {
-					URLs <- sources.URL{Source: name, Value: URL}
-				}
+				URLs <- sources.URL{Source: name, Value: URL}
 			}
 		}
 	}
@@ -177,7 +166,7 @@ func rawContentURL(URL string) string {
 	return URL
 }
 
-func domainRegexp(_ string, _ bool) (URLRegex *regexp.Regexp) {
+func domainRegexp() (URLRegex *regexp.Regexp) {
 	URLRegex = regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`) //nolint:gocritic // To be looked at later
 
 	return URLRegex

@@ -1,79 +1,116 @@
 package xurlfind3r
 
 import (
-	"fmt"
-	"net/url"
+	"sync"
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/waybackrobots"
 )
 
-type Runner struct {
-	Collector *collector.Collector
+type Options struct {
+	Domain             string
+	IncludeSubdomains  bool
+	Sources            []string
+	Keys               sources.Keys
+	WaybackParseSource bool
+	WaybackParseRobots bool
 }
 
-func New(clr *collector.Collector) (runner *Runner) {
-	runner = &Runner{
-		Collector: clr,
+type Finder struct {
+	Domain               string
+	Sources              map[string]sources.Source
+	SourcesConfiguration sources.Configuration
+}
+
+func New(options *Options) (finder *Finder) {
+	finder = &Finder{
+		Domain:  options.Domain,
+		Sources: map[string]sources.Source{},
+		SourcesConfiguration: sources.Configuration{
+			Keys:               options.Keys,
+			IncludeSubdomains:  options.IncludeSubdomains,
+			WaybackParseRobots: options.WaybackParseRobots,
+			WaybackParseSource: options.WaybackParseSource,
+		},
+	}
+
+	for index := range options.Sources {
+		source := options.Sources[index]
+
+		switch source {
+		case "commoncrawl":
+			finder.Sources[source] = &commoncrawl.Source{}
+		case "github":
+			finder.Sources[source] = &github.Source{}
+		case "intelx":
+			finder.Sources[source] = &intelx.Source{}
+		case "otx":
+			finder.Sources[source] = &otx.Source{}
+		case "urlscan":
+			finder.Sources[source] = &urlscan.Source{}
+		case "wayback":
+			finder.Sources[source] = &wayback.Source{}
+		case "waybackrobots":
+			finder.Sources[source] = &waybackrobots.Source{}
+		}
 	}
 
 	return
 }
 
-func (runner *Runner) Run() (URLs chan sources.URL, err error) {
+func (finder *Finder) Find() (URLs chan sources.URL) {
 	URLs = make(chan sources.URL)
 
-	results := runner.Collector.Collect()
-
-	deDupMap := make(map[string]url.Values)
-	uniqueMap := make(map[string]sources.URL)
-
-	// Process the results in a separate goroutine
 	go func() {
 		defer close(URLs)
 
-		for result := range results {
-			// unique urls - If the url already exists in the unique map
-			if _, exists := uniqueMap[result.Value]; exists {
-				continue
-			}
+		wg := &sync.WaitGroup{}
+		seen := &sync.Map{}
 
-			parsedURL, err := hqurl.Parse(result.Value)
-			if err != nil {
-				continue
-			}
+		for name := range finder.Sources {
+			wg.Add(1)
 
-			// urls with query
-			if len(parsedURL.Query()) > 0 {
-				unique := false
+			source := finder.Sources[name]
 
-				key := fmt.Sprintf("%s://%s%s", parsedURL.Scheme, parsedURL.Host, parsedURL.Path)
+			go func(source sources.Source) {
+				defer wg.Done()
 
-				if _, exists := deDupMap[key]; exists {
-					for parameter := range parsedURL.Query() {
-						if _, exists := deDupMap[key][parameter]; !exists {
-							deDupMap[key][parameter] = []string{"xurlfind3r"}
-							unique = true
-						}
+				for res := range source.Run(finder.SourcesConfiguration, finder.Domain) {
+					value := res.Value
+
+					if value == "" {
+						continue
 					}
-				} else {
-					deDupMap[key] = parsedURL.Query()
-					unique = true
+
+					parsedURL, err := hqurl.Parse(value)
+					if err != nil {
+						continue
+					}
+
+					if !finder.SourcesConfiguration.IncludeSubdomains &&
+						parsedURL.Host != finder.Domain &&
+						parsedURL.Host != "www."+finder.Domain {
+						continue
+					}
+
+					_, loaded := seen.LoadOrStore(value, struct{}{})
+					if loaded {
+						continue
+					}
+
+					URLs <- res
 				}
-
-				if !unique {
-					continue
-				}
-			}
-
-			uniqueMap[parsedURL.String()] = sources.URL{
-				Source: result.Source,
-				Value:  parsedURL.String(),
-			}
-
-			URLs <- uniqueMap[parsedURL.String()]
+			}(source)
 		}
+
+		wg.Wait()
 	}()
 
 	return

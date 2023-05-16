@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
@@ -29,9 +28,7 @@ type response struct {
 	ActualSize int  `json:"actual_size"`
 }
 
-func (source *Source) Run(_ sources.Keys, ftr filter.Filter) (URLs chan sources.URL) {
-	domain := ftr.Domain
-
+func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sources.URL) {
 	URLs = make(chan sources.URL)
 
 	go func() {
@@ -55,9 +52,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) (URLs chan sources.
 			}
 
 			for _, i := range results.URLList {
-				if URL, ok := ftr.Examine(i.URL); ok {
-					URLs <- sources.URL{Source: source.Name(), Value: URL}
-				}
+				URLs <- sources.URL{Source: source.Name(), Value: i.URL}
 			}
 
 			if !results.HasNext {

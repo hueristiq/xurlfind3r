@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
@@ -34,9 +33,7 @@ type requestBody struct {
 
 type Source struct{}
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan sources.URL) {
-	domain := ftr.Domain
-
+func (source *Source) Run(config sources.Configuration, domain string) (URLs chan sources.URL) {
 	URLs = make(chan sources.URL)
 
 	go func() {
@@ -48,11 +45,11 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan sourc
 			res  *fasthttp.Response
 		)
 
-		if keys.IntelXKey == "" || keys.IntelXHost == "" {
+		if config.Keys.IntelXKey == "" || config.Keys.IntelXHost == "" {
 			return
 		}
 
-		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", keys.IntelXHost, keys.IntelXKey)
+		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", config.Keys.IntelXHost, config.Keys.IntelXKey)
 		reqBody := requestBody{
 			Term:       domain,
 			MaxResults: 100000,
@@ -76,7 +73,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan sourc
 			return
 		}
 
-		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", keys.IntelXHost, keys.IntelXKey, response.ID)
+		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", config.Keys.IntelXHost, config.Keys.IntelXKey, response.ID)
 		status := 0
 
 		for status == 0 || status == 3 {
@@ -94,14 +91,12 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan sourc
 			status = response.Status
 
 			for _, hostname := range response.Selectors {
-				if URL, ok := ftr.Examine(hostname.Selectvalue); ok {
-					URLs <- sources.URL{Source: source.Name(), Value: URL}
-				}
+				URLs <- sources.URL{Source: source.Name(), Value: hostname.Selectvalue}
 			}
 		}
 	}()
 
-	return URLs
+	return
 }
 
 func (source *Source) Name() string {

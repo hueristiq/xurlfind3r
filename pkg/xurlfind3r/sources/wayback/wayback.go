@@ -7,18 +7,15 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
 type Source struct{}
 
-func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
-	domain := ftr.Domain
-
-	URLs := make(chan sources.URL)
+func (source *Source) Run(config sources.Configuration, domain string) (URLs chan sources.URL) {
+	URLs = make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
@@ -28,7 +25,7 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
 			res *fasthttp.Response
 		)
 
-		if ftr.IncludeSubdomains {
+		if config.IncludeSubdomains {
 			domain = "*." + domain
 		}
 
@@ -55,16 +52,12 @@ func (source *Source) Run(_ sources.Keys, ftr filter.Filter) chan sources.URL {
 				URL = strings.TrimPrefix(URL, "25")
 				URL = strings.TrimPrefix(URL, "2f")
 
-				var ok bool
-
-				if URL, ok = ftr.Examine(URL); ok {
-					URLs <- sources.URL{Source: source.Name(), Value: URL}
-				}
+				URLs <- sources.URL{Source: source.Name(), Value: URL}
 			}
 		}
 	}()
 
-	return URLs
+	return
 }
 
 func (source *Source) Name() string {
