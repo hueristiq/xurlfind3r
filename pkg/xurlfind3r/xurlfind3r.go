@@ -11,7 +11,6 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/waybackrobots"
 )
 
 type Options struct {
@@ -57,8 +56,6 @@ func New(options *Options) (finder *Finder) {
 			finder.Sources[source] = &urlscan.Source{}
 		case "wayback":
 			finder.Sources[source] = &wayback.Source{}
-		case "waybackrobots":
-			finder.Sources[source] = &waybackrobots.Source{}
 		}
 	}
 

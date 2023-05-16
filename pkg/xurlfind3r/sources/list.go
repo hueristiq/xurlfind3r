@@ -7,5 +7,4 @@ var List = []string{
 	"otx",
 	"urlscan",
 	"wayback",
-	"waybackrobots",
 }

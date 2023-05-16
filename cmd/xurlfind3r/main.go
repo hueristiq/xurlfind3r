@@ -58,7 +58,7 @@ func init() {
 
 		h += "\nSOURCES:\n"
 		h += "      --list-sources bool         list available sources\n"
-		h += " -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback,waybackrobots)\n"
+		h += " -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)\n"
 
 		h += "\nCONFIGURATION:\n"
 		h += "      --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots\n"

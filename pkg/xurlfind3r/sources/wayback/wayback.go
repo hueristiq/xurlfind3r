@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"net/url"
-	"strings"
+	"regexp"
+	"sync"
 
+	hqratelimiter "github.com/hueristiq/hqgoutils/ratelimiter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
@@ -14,47 +15,73 @@ import (
 
 type Source struct{}
 
+var (
+	limiter = hqratelimiter.New(&hqratelimiter.Options{
+		RequestsPerMinute: 40,
+	})
+)
+
 func (source *Source) Run(config sources.Configuration, domain string) (URLs chan sources.URL) {
 	URLs = make(chan sources.URL)
 
 	go func() {
 		defer close(URLs)
 
-		var (
-			err error
-			res *fasthttp.Response
-		)
+		waybackURLs := make(chan string)
 
-		if config.IncludeSubdomains {
-			domain = "*." + domain
-		}
+		go func() {
+			defer close(waybackURLs)
 
-		res, err = httpclient.SimpleGet(fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&sources=txt&fl=original&collapse=urlkey", domain))
-		if err != nil {
-			return
-		}
+			var (
+				err error
+				res *fasthttp.Response
+			)
 
-		scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
-
-		for scanner.Scan() {
-			URL := scanner.Text()
-			if URL == "" {
-				continue
+			if config.IncludeSubdomains {
+				domain = "*." + domain
 			}
 
-			URL, err = url.QueryUnescape(URL)
+			limiter.Wait()
+
+			reqURL := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain)
+
+			res, err = httpclient.SimpleGet(reqURL)
 			if err != nil {
 				return
 			}
 
-			if URL != "" {
-				URL = strings.ToLower(URL)
-				URL = strings.TrimPrefix(URL, "25")
-				URL = strings.TrimPrefix(URL, "2f")
+			scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
+
+			for scanner.Scan() {
+				URL := scanner.Text()
+				if URL == "" {
+					continue
+				}
+
+				waybackURLs <- URL
+			}
+		}()
+
+		wg := &sync.WaitGroup{}
+		robotsRegex := regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`)
+
+		for URL := range waybackURLs {
+			wg.Add(1)
+
+			go func(URL string) {
+				defer wg.Done()
 
 				URLs <- sources.URL{Source: source.Name(), Value: URL}
-			}
+
+				if robotsRegex.MatchString(URL) {
+					for robotsURL := range parseWaybackRobots(URL) {
+						URLs <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
+					}
+				}
+			}(URL)
 		}
+
+		wg.Wait()
 	}()
 
 	return

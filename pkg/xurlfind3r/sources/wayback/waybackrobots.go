@@ -1,4 +1,4 @@
-package waybackrobots
+package wayback
 
 import (
 	"encoding/json"
@@ -10,43 +10,50 @@ import (
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
-type Source struct{}
-
-func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func parseWaybackRobots(URL string) (URLs chan string) {
+	URLs = make(chan string)
 
 	go func() {
 		defer close(URLs)
 
+		// retrieve snapshots
 		var (
 			err error
 			res *fasthttp.Response
 		)
 
-		res, err = httpclient.SimpleGet(fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s/robots.txt&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", domain))
+		limiter.Wait()
+
+		reqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", URL)
+
+		res, err = httpclient.SimpleGet(reqURL)
 		if err != nil {
 			return
 		}
 
-		robotsURLsRows := [][2]string{}
-
-		if err = json.Unmarshal(res.Body(), &robotsURLsRows); err != nil {
+		if res.Header.ContentLength() == 0 {
 			return
 		}
 
-		if len(robotsURLsRows) < 2 {
+		snapshots := [][2]string{}
+
+		if err = json.Unmarshal(res.Body(), &snapshots); err != nil {
 			return
 		}
 
-		robotsURLsRows = robotsURLsRows[1:]
+		if len(snapshots) < 2 {
+			return
+		}
 
+		snapshots = snapshots[1:]
+
+		// retrieve conteny
 		wg := &sync.WaitGroup{}
 
-		for _, row := range robotsURLsRows {
+		for _, row := range snapshots {
 			wg.Add(1)
 
 			go func(row [2]string) {
@@ -57,14 +64,30 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 					res *fasthttp.Response
 				)
 
-				res, err = httpclient.SimpleGet(fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1]))
+				limiter.Wait()
+
+				reqURL := fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1])
+
+				res, err = httpclient.SimpleGet(reqURL)
 				if err != nil {
+					return
+				}
+
+				content := string(res.Body())
+
+				if content == "" {
+					return
+				}
+
+				contentNotFoundFingerprint := "This page can't be displayed. Please use the correct URL address to access"
+
+				if strings.Contains(content, contentNotFoundFingerprint) {
 					return
 				}
 
 				pattern := regexp.MustCompile(`Disallow:\s?.+`)
 
-				disallowed := pattern.FindAllStringSubmatch(string(res.Body()), -1)
+				disallowed := pattern.FindAllStringSubmatch(content, -1)
 
 				if len(disallowed) < 1 {
 					return
@@ -106,7 +129,7 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 					endpoint = filepath.Join(parsedURL.Host, endpoint)
 					endpoint = parsedURL.Scheme + "://" + endpoint
 
-					URLs <- sources.URL{Source: source.Name(), Value: endpoint}
+					URLs <- endpoint
 				}
 			}(row)
 		}
@@ -115,8 +138,4 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 	}()
 
 	return
-}
-
-func (source *Source) Name() string {
-	return "waybackrobots"
 }

@@ -113,7 +113,6 @@ sources:
     - otx
     - urlscan
     - wayback
-    - waybackrobots
 keys:
     github:
         - d23a554bbc1aabb208c9acfbd2dd41ce7fc9db39
@@ -148,7 +147,7 @@ TARGET:
 
 SOURCES:
       --list-sources bool         list available sources
- -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback,waybackrobots)
+ -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)
 
 CONFIGURATION:
       --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots
