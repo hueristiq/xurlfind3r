@@ -2,7 +2,7 @@
 
 ![made with go](https://img.shields.io/badge/made%20with-Go-0000FF.svg) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/releases) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=0000FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0000FF.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![contribution](https://img.shields.io/badge/contributions-welcome-0000FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-`xurlfind3r` is a command-line interface (CLI) utility to fetch known URLs.
+`xurlfind3r` is a command-line interface (CLI) utility to find domains' known URLs passively from **[AlienVault's Open Threat Exchange](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)**, **[URLScan](https://urlscan.io/)**, and the **[Wayback Machine](https://archive.org/web/)**.
 
 ## Resource
 
