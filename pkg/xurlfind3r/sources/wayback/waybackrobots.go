@@ -1,16 +1,12 @@
 package wayback
 
 import (
-	"encoding/json"
-	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 
 	hqurl "github.com/hueristiq/hqgoutils/url"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
-	"github.com/valyala/fasthttp"
 )
 
 func parseWaybackRobots(URL string) (URLs chan string) {
@@ -21,34 +17,14 @@ func parseWaybackRobots(URL string) (URLs chan string) {
 
 		// retrieve snapshots
 		var (
-			err error
-			res *fasthttp.Response
+			err       error
+			snapshots [][2]string
 		)
 
-		limiter.Wait()
-
-		reqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&filter=statuscode:200&collapse=digest", URL)
-
-		res, err = httpclient.SimpleGet(reqURL)
+		snapshots, err = getWaybackSnapshots(URL)
 		if err != nil {
 			return
 		}
-
-		if res.Header.ContentLength() == 0 {
-			return
-		}
-
-		snapshots := [][2]string{}
-
-		if err = json.Unmarshal(res.Body(), &snapshots); err != nil {
-			return
-		}
-
-		if len(snapshots) < 2 {
-			return
-		}
-
-		snapshots = snapshots[1:]
 
 		// retrieve conteny
 		wg := &sync.WaitGroup{}
@@ -60,28 +36,12 @@ func parseWaybackRobots(URL string) (URLs chan string) {
 				defer wg.Done()
 
 				var (
-					err error
-					res *fasthttp.Response
+					err     error
+					content string
 				)
 
-				limiter.Wait()
-
-				reqURL := fmt.Sprintf("https://web.archive.org/web/%sif_/%s", row[0], row[1])
-
-				res, err = httpclient.SimpleGet(reqURL)
+				content, err = getWaybackContent(row)
 				if err != nil {
-					return
-				}
-
-				content := string(res.Body())
-
-				if content == "" {
-					return
-				}
-
-				contentNotFoundFingerprint := "This page can't be displayed. Please use the correct URL address to access"
-
-				if strings.Contains(content, contentNotFoundFingerprint) {
 					return
 				}
 

@@ -3,8 +3,10 @@ package wayback
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 
 	hqratelimiter "github.com/hueristiq/hqgoutils/ratelimiter"
@@ -33,27 +35,21 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 			defer close(waybackURLs)
 
 			var (
-				err error
-				res *fasthttp.Response
+				err     error
+				results []string
 			)
 
 			if config.IncludeSubdomains {
 				domain = "*." + domain
 			}
 
-			limiter.Wait()
-
-			reqURL := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain)
-
-			res, err = httpclient.SimpleGet(reqURL)
+			results, err = getWaybackURLs(domain)
 			if err != nil {
 				return
 			}
 
-			scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
-
-			for scanner.Scan() {
-				URL := scanner.Text()
+			for index := range results {
+				URL := results[index]
 				if URL == "" {
 					continue
 				}
@@ -83,6 +79,104 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 
 		wg.Wait()
 	}()
+
+	return
+}
+
+func getWaybackURLs(domain string) (URLs []string, err error) {
+	URLs = []string{}
+
+	var (
+		res *fasthttp.Response
+	)
+
+	limiter.Wait()
+
+	reqURL := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain)
+
+	res, err = httpclient.SimpleGet(reqURL)
+	if err != nil {
+		return
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
+
+	for scanner.Scan() {
+		URL := scanner.Text()
+		if URL == "" {
+			continue
+		}
+
+		URLs = append(URLs, URL)
+	}
+
+	if err = scanner.Err(); err != nil {
+		return
+	}
+
+	return
+}
+
+func getWaybackSnapshots(URL string) (snapshots [][2]string, err error) {
+	var (
+		res *fasthttp.Response
+	)
+
+	limiter.Wait()
+
+	reqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&collapse=digest", URL)
+
+	res, err = httpclient.SimpleGet(reqURL)
+	if err != nil {
+		return
+	}
+
+	if res.Header.ContentLength() == 0 {
+		return
+	}
+
+	if err = json.Unmarshal(res.Body(), &snapshots); err != nil {
+		return
+	}
+
+	if len(snapshots) < 2 {
+		return
+	}
+
+	snapshots = snapshots[1:]
+
+	return
+}
+
+func getWaybackContent(snapshot [2]string) (content string, err error) {
+	var (
+		timestamp = snapshot[0]
+		URL       = snapshot[1]
+		res       *fasthttp.Response
+	)
+
+	limiter.Wait()
+
+	reqURL := fmt.Sprintf("https://web.archive.org/web/%sif_/%s", timestamp, URL)
+
+	res, err = httpclient.SimpleGet(reqURL)
+	if err != nil {
+		return
+	}
+
+	content = string(res.Body())
+
+	if content == "" {
+		return
+	}
+
+	snapshotNotFoundFingerprint := "This page can't be displayed. Please use the correct URL address to access"
+
+	if strings.Contains(content, snapshotNotFoundFingerprint) {
+		err = fmt.Errorf(snapshotNotFoundFingerprint)
+
+		return
+	}
 
 	return
 }
