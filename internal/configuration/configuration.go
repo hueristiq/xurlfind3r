@@ -84,8 +84,7 @@ func Read() (configuration Configuration, err error) {
 
 func Write(configuration *Configuration) (err error) {
 	var (
-		file *os.File
-
+		file       *os.File
 		identation = 4
 	)
 

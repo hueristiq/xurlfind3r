@@ -35,6 +35,7 @@ var (
 )
 
 func init() {
+	// Handle command line arguments & flags
 	pflag.StringVarP(&domain, "domain", "d", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 	pflag.BoolVar(&listSources, "list-sources", false, "")
@@ -74,11 +75,13 @@ func init() {
 
 	pflag.Parse()
 
+	// Intialize logger
 	hqlog.DefaultLogger.SetMaxLevel(levels.LevelStr(verbosity))
 	hqlog.DefaultLogger.SetFormatter(formatter.NewCLI(&formatter.CLIOptions{
 		Colorize: !monochrome,
 	}))
 
+	// Handle configuration on initial run
 	var (
 		err    error
 		config configuration.Configuration
@@ -129,6 +132,7 @@ func main() {
 
 	keys := config.GetKeys()
 
+	// Handle sources listing
 	if listSources {
 		hqlog.Info().Msgf("current list of the available %v sources", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
 		hqlog.Info().Msg("sources marked with an * needs key or token")
@@ -153,6 +157,7 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Handle URLs finding
 	if verbosity != string(levels.LevelSilent) {
 		hqlog.Info().Msgf("finding URLs for %v.", au.Underline(domain).Bold())
 
@@ -173,7 +178,6 @@ func main() {
 	}
 
 	finder := xurlfind3r.New(options)
-
 	URLs := finder.Find()
 
 	if output != "" {
