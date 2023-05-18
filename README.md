@@ -124,11 +124,13 @@ keys:
 
 ## Usage
 
+To display help message for `xurlfind3r` use the `-h` flag:
+
 ```bash
 xurlfind3r -h
 ```
 
-This will display help for the tool.
+help message:
 
 ```
                  _  __ _           _ _____      
@@ -162,8 +164,8 @@ OUTPUT:
 
 ## Contribution
 
-[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! Check out the [contribution guidelines.](./CONTRIBUTING.md)
+[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! Check out the [contribution guidelines](./CONTRIBUTING.md).
 
 ## Licensing
 
-This utility is distributed under the [MIT license](./LICENSE)
+This utility is distributed under the [MIT license](./LICENSE).
