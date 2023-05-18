@@ -2,8 +2,6 @@ package main
 
 import (
 	"bufio"
-	"regexp"
-
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,10 +13,8 @@ import (
 	"github.com/hueristiq/hqgoutils/log/formatter"
 	"github.com/hueristiq/hqgoutils/log/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
-	"github.com/hueristiq/xurlfind3r/pkg/runner"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/imdario/mergo"
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/spf13/pflag"
@@ -27,28 +23,27 @@ import (
 var (
 	au aurora.Aurora
 
-	listSources bool
-
-	domain                         string
-	sourcesToUse, sourcesToExclude []string
-	includeSubdomains              bool
-	filterRegex                    string
-	output                         string
-
-	monochrome bool
-	verbosity  string
+	domain            string
+	includeSubdomains bool
+	listSources       bool
+	sourcesToUse      []string
+	skipWaybackRobots bool
+	skipWaybackSource bool
+	monochrome        bool
+	output            string
+	verbosity         string
 )
 
 func init() {
-	// parse flags
-	pflag.StringVarP(&domain, "domain", "d", "", "target domain")
-	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "include subdomains")
-	pflag.StringVarP(&filterRegex, "filter", "f", "", "URL filtering regex")
-	pflag.StringSliceVar(&sourcesToUse, "use-sources", []string{}, "comma(,) separated sources to use")
-	pflag.StringSliceVar(&sourcesToExclude, "exclude-sources", []string{}, "comma(,) separated sources to exclude")
-	pflag.BoolVar(&listSources, "list-sources", false, "list all the available sources")
-	pflag.BoolVarP(&monochrome, "monochrome", "m", false, "no colored output mode")
-	pflag.StringVarP(&output, "output", "o", "", "output file")
+	// Handle command line arguments & flags
+	pflag.StringVarP(&domain, "domain", "d", "", "")
+	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
+	pflag.BoolVar(&listSources, "list-sources", false, "")
+	pflag.StringSliceVarP(&sourcesToUse, "sources", "s", sources.List, "")
+	pflag.BoolVar(&skipWaybackRobots, "skip-wayback-robots", false, "")
+	pflag.BoolVar(&skipWaybackSource, "skip-wayback-source", false, "")
+	pflag.BoolVarP(&monochrome, "monochrome", "m", false, "")
+	pflag.StringVarP(&output, "output", "o", "", "")
 	pflag.StringVarP(&verbosity, "verbosity", "v", string(levels.LevelInfo), "")
 
 	pflag.CommandLine.SortFlags = false
@@ -58,18 +53,17 @@ func init() {
 		h := "USAGE:\n"
 		h += "  xurlfind3r [OPTIONS]\n"
 
-		h += "\nINPUT:\n"
+		h += "\nTARGET:\n"
 		h += "  -d, --domain string             target domain\n"
+		h += "      --include-subdomains bool   include domain's subdomains\n"
 
 		h += "\nSOURCES:\n"
-		h += "      --use-sources strings       comma(,) separated sources to use\n"
-		h += "      --exclude-sources strings   comma(,) separated sources to exclude\n"
-		h += "      --list-sources              list all the available sources\n"
+		h += "      --list-sources bool         list available sources\n"
+		h += " -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)\n"
 
-		h += "\nFILTER:\n"
-
-		h += "      --include-subdomains        include subdomains\n"
-		h += "  -f, --filter string             URL filtering regex\n"
+		h += "\nCONFIGURATION:\n"
+		h += "      --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots\n"
+		h += "      --skip-wayback-source bool  skip parsing wayback source code snapshots\n"
 
 		h += "\nOUTPUT:\n"
 		h += "  -m, --monochrome                no colored output mode\n"
@@ -81,43 +75,43 @@ func init() {
 
 	pflag.Parse()
 
-	// initialize logger
+	// Initialize logger
 	hqlog.DefaultLogger.SetMaxLevel(levels.LevelStr(verbosity))
 	hqlog.DefaultLogger.SetFormatter(formatter.NewCLI(&formatter.CLIOptions{
 		Colorize: !monochrome,
 	}))
 
-	// initialize configuration
+	// Handle configuration on initial run
 	var (
-		err  error
-		conf configuration.Configuration
+		err    error
+		config configuration.Configuration
 	)
 
 	_, err = os.Stat(configuration.ConfigurationFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			conf = configuration.Default
+			config = configuration.Default
 
-			if err = configuration.Write(&conf); err != nil {
+			if err = configuration.Write(&config); err != nil {
 				hqlog.Fatal().Msg(err.Error())
 			}
 		} else {
 			hqlog.Fatal().Msg(err.Error())
 		}
 	} else {
-		conf, err = configuration.Read()
+		config, err = configuration.Read()
 		if err != nil {
 			hqlog.Fatal().Msg(err.Error())
 		}
 
-		if conf.Version != configuration.VERSION {
-			if err = mergo.Merge(&conf, configuration.Default); err != nil {
+		if config.Version != configuration.VERSION {
+			if err = mergo.Merge(&config, configuration.Default); err != nil {
 				hqlog.Fatal().Msg(err.Error())
 			}
 
-			conf.Version = configuration.VERSION
+			config.Version = configuration.VERSION
 
-			if err = configuration.Write(&conf); err != nil {
+			if err = configuration.Write(&config); err != nil {
 				hqlog.Fatal().Msg(err.Error())
 			}
 		}
@@ -127,14 +121,6 @@ func init() {
 }
 
 func main() {
-	var (
-		keys  sources.Keys
-		regex *regexp.Regexp
-		ftr   filter.Filter
-		clr   *collector.Collector
-		rnr   *runner.Runner
-	)
-
 	if verbosity != string(levels.LevelSilent) {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 	}
@@ -144,8 +130,9 @@ func main() {
 		hqlog.Fatal().Msg(err.Error())
 	}
 
-	keys = config.GetKeys()
+	keys := config.GetKeys()
 
+	// Handle sources listing
 	if listSources {
 		hqlog.Info().Msgf("current list of the available %v sources", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
 		hqlog.Info().Msg("sources marked with an * needs key or token")
@@ -170,33 +157,28 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Handle URLs finding
 	if verbosity != string(levels.LevelSilent) {
-		hqlog.Info().Msgf("`fetching urls for %v", au.Underline(domain).Bold())
+		hqlog.Info().Msgf("finding URLs for %v.", au.Underline(domain).Bold())
 
 		if includeSubdomains {
-			hqlog.Info().Msg("`--include-subdomains` used: includes subdomains' urls")
+			hqlog.Info().Msg("`--include-subdomains` used: includes subdomains' URLs.")
 		}
 
 		hqlog.Print().Msg("")
 	}
 
-	if filterRegex != "" {
-		regex = regexp.MustCompile(filterRegex)
+	options := &xurlfind3r.Options{
+		Domain:             domain,
+		IncludeSubdomains:  includeSubdomains,
+		Sources:            sourcesToUse,
+		Keys:               keys,
+		ParseWaybackRobots: !skipWaybackRobots,
+		ParseWaybackSource: !skipWaybackSource,
 	}
 
-	ftr = filter.Filter{
-		Domain:            domain,
-		IncludeSubdomains: includeSubdomains,
-		ExcludeRegex:      regex,
-	}
-
-	clr = collector.New(sourcesToUse, sourcesToExclude, keys, ftr)
-	rnr = runner.New(clr)
-
-	URLs, err := rnr.Run()
-	if err != nil {
-		hqlog.Fatal().Msg(err.Error())
-	}
+	finder := xurlfind3r.New(options)
+	URLs := finder.Find()
 
 	if output != "" {
 		directory := filepath.Dir(output)

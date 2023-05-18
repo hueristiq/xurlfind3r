@@ -1,3 +1,4 @@
+// Package intelx implements functions to search URLs from intelx.
 package intelx
 
 import (
@@ -5,10 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
@@ -35,13 +34,11 @@ type requestBody struct {
 
 type Source struct{}
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan output.URL) {
-	domain := ftr.Domain
-
-	URLs = make(chan output.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
 		var (
 			err  error
@@ -49,13 +46,13 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 			res  *fasthttp.Response
 		)
 
-		if keys.IntelXKey == "" || keys.IntelXHost == "" {
+		if config.Keys.IntelXKey == "" || config.Keys.IntelXHost == "" {
 			return
 		}
 
-		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", keys.IntelXHost, keys.IntelXKey)
+		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", config.Keys.IntelXHost, config.Keys.IntelXKey)
 		reqBody := requestBody{
-			Term:       domain,
+			Term:       config.Domain,
 			MaxResults: 100000,
 			Media:      0,
 			Timeout:    20,
@@ -66,7 +63,7 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 			return
 		}
 
-		res, err = requests.SimplePost(searchURL, "application/json", body)
+		res, err = httpclient.SimplePost(searchURL, "application/json", body)
 		if err != nil {
 			return
 		}
@@ -77,11 +74,11 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 			return
 		}
 
-		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", keys.IntelXHost, keys.IntelXKey, response.ID)
+		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", config.Keys.IntelXHost, config.Keys.IntelXKey, response.ID)
 		status := 0
 
 		for status == 0 || status == 3 {
-			res, err = requests.Get(resultsURL, "", nil)
+			res, err = httpclient.Get(resultsURL, "", nil)
 			if err != nil {
 				return
 			}
@@ -95,14 +92,22 @@ func (source *Source) Run(keys sources.Keys, ftr filter.Filter) (URLs chan outpu
 			status = response.Status
 
 			for _, hostname := range response.Selectors {
-				if URL, ok := ftr.Examine(hostname.Selectvalue); ok {
-					URLs <- output.URL{Source: source.Name(), Value: URL}
+				URL := hostname.Selectvalue
+
+				if !sources.IsValid(URL) {
+					continue
 				}
+
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
+
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 		}
 	}()
 
-	return URLs
+	return
 }
 
 func (source *Source) Name() string {

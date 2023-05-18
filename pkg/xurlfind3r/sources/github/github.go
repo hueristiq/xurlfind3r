@@ -1,3 +1,4 @@
+// Package github implements functions to search URLsChannel from github.
 package github
 
 import (
@@ -11,10 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/filter"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/output"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/requests"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/tomnomnom/linkheader"
 	"github.com/valyala/fasthttp"
 )
@@ -36,29 +35,27 @@ type response struct {
 	Items      []item `json:"items"`
 }
 
-func (source *Source) Run(keys sources.Keys, ftr filter.Filter) chan output.URL {
-	domain := ftr.Domain
-
-	URLs := make(chan output.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
-		if len(keys.GitHub) == 0 {
+		if len(config.Keys.GitHub) == 0 {
 			return
 		}
 
-		tokens := NewTokenManager(keys.GitHub)
+		tokens := NewTokenManager(config.Keys.GitHub)
 
-		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%s&sort=created&order=asc", domain)
+		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%s&sort=created&order=asc", config.Domain)
 
-		source.Enumerate(searchURL, domainRegexp(domain, ftr.IncludeSubdomains), tokens, ftr, URLs)
+		source.Enumerate(searchURL, config.URLsRegex, tokens, URLsChannel, config)
 	}()
 
-	return URLs
+	return URLsChannel
 }
 
-func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, ftr filter.Filter, URLs chan output.URL) {
+func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -78,7 +75,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		res *fasthttp.Response
 	)
 
-	res, err = requests.Request(fasthttp.MethodGet, searchURL, "", headers, nil)
+	res, err = httpclient.Request(fasthttp.MethodGet, searchURL, "", headers, nil)
 
 	isForbidden := res != nil && res.StatusCode() == fasthttp.StatusForbidden
 
@@ -91,7 +88,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		retryAfterSeconds, _ := strconv.ParseInt(string(res.Header.Peek("Retry-After")), 10, 64)
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchURL, domainRegexp, tokens, ftr, URLs)
+		source.Enumerate(searchURL, domainRegexp, tokens, URLsChannel, config)
 	}
 
 	var results response
@@ -100,7 +97,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		return
 	}
 
-	err = proccesItems(results.Items, domainRegexp, source.Name(), ftr, URLs)
+	err = proccesItems(results.Items, domainRegexp, source.Name(), URLsChannel, config)
 	if err != nil {
 		return
 	}
@@ -114,19 +111,19 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 				return
 			}
 
-			source.Enumerate(nextURL, domainRegexp, tokens, ftr, URLs)
+			source.Enumerate(nextURL, domainRegexp, tokens, URLsChannel, config)
 		}
 	}
 }
 
-func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr filter.Filter, URLs chan output.URL) (err error) {
+func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLsChannel chan sources.URL, config *sources.Configuration) (err error) {
 	for _, item := range items {
 		var (
 			res *fasthttp.Response
 			URL string
 		)
 
-		res, err = requests.SimpleGet(rawContentURL(item.HTMLURL))
+		res, err = httpclient.SimpleGet(rawContentURL(item.HTMLURL))
 		if err != nil {
 			continue
 		}
@@ -140,22 +137,26 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, ftr fi
 				}
 
 				for _, URL = range domainRegexp.FindAllString(normalizeContent(line), -1) {
-					var ok bool
-
-					if URL, ok = ftr.Examine(URL); ok {
-						URLs <- output.URL{Source: name, Value: URL}
+					if !sources.IsValid(URL) {
+						continue
 					}
+
+					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+						return
+					}
+
+					URLsChannel <- sources.URL{Source: name, Value: URL}
 				}
 			}
 		}
 
 		for _, textMatch := range item.TextMatches {
 			for _, URL = range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
-				var ok bool
-
-				if URL, ok = ftr.Examine(URL); ok {
-					URLs <- output.URL{Source: name, Value: URL}
+				if !sources.IsValid(URL) {
+					continue
 				}
+
+				URLsChannel <- sources.URL{Source: name, Value: URL}
 			}
 		}
 	}
@@ -176,12 +177,6 @@ func rawContentURL(URL string) string {
 	URL = strings.ReplaceAll(URL, "/blob/", "/")
 
 	return URL
-}
-
-func domainRegexp(_ string, _ bool) (URLRegex *regexp.Regexp) {
-	URLRegex = regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`) //nolint:gocritic // To be looked at later
-
-	return URLRegex
 }
 
 func (source *Source) Name() string {

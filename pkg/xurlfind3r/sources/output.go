@@ -1,4 +1,4 @@
-package output
+package sources
 
 type URL struct {
 	Source string

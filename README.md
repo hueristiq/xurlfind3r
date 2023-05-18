@@ -2,7 +2,7 @@
 
 ![made with go](https://img.shields.io/badge/made%20with-Go-0000FF.svg) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/releases) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=0000FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0000FF.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![contribution](https://img.shields.io/badge/contributions-welcome-0000FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-`xurlfind3r` is a command-line interface (CLI) utility to fetch known URLs.
+`xurlfind3r` is a command-line interface (CLI) utility to find domain's known URLs passively from **[AlienVault's Open Threat Exchange](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)**, **[URLScan](https://urlscan.io/)**, and the **[Wayback Machine](https://archive.org/web/)**.
 
 ## Resource
 
@@ -14,22 +14,14 @@
 		* [`go build ...` the development Version](#go-build--the-development-version)
 * [Post Installation](#post-installation)
 * [Usage](#usage)
-	* [Examples](#examples)
-		* [Basic](#basic)
-		* [Regex filter URLs](#regex-filter-urls)
-		* [Include Subdomains' URLs](#include-subdomains-urls)
 * [Contribution](#contribution)
 * [Licensing](#licensing)
 
 ## Features
 
-* Fetches known URLs:-
-    * ... from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
-    * ... from parsing `robots.txt`, snapshots on the Wayback Machine, disallowed paths.
-* Reduces noise:-
-    * ... by xegex filtering URLs.
-    * ... by removing duplicate pages in the sense of URL patterns that are probably repetitive and points to the same web template.
-* Outputs to stdout, for piping, or file.
+* Fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
+* Parse URLs from `robots.txt` snapshots on the Wayback Machine.
+* Parse URLs from webpages snapshots on the Wayback Machine.
 
 ## Installation
 
@@ -109,12 +101,12 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 ## Post Installation
 
-xurlfind3r will work after [installation](#installation). However, to configure xurlfind3r to work with certain services - currently github - you will need to have setup API keys. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these services.
+`xurlfind3r` will work right after [installation](#installation). However, **[Github](https://github.com)** and **[Intelligence X](https://intelx.io)** require API keys to work. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format.
 
 Example:
 
 ```yaml
-version: 0.0.0
+version: 0.1.0
 sources:
     - commoncrawl
     - github
@@ -122,7 +114,6 @@ sources:
     - otx
     - urlscan
     - wayback
-    - waybackrobots
 keys:
     github:
         - d23a554bbc1aabb208c9acfbd2dd41ce7fc9db39
@@ -133,37 +124,37 @@ keys:
 
 ## Usage
 
-**DiSCLAIMER:** fetching urls from github is a bit slow.
+To display help message for `xurlfind3r` use the `-h` flag:
 
 ```bash
 xurlfind3r -h
 ```
 
-This will display help for the tool.
+help message:
 
 ```
                  _  __ _           _ _____      
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.0.0
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.1.0
 
-A CLI utility to fetch known URLs.
+A CLI utility to find domain's known URLs.
 
 USAGE:
   xurlfind3r [OPTIONS]
 
-INPUT:
+TARGET:
   -d, --domain string             target domain
+      --include-subdomains bool   include domain's subdomains
 
 SOURCES:
-      --use-sources strings       comma(,) separated sources to use
-      --exclude-sources strings   comma(,) separated sources to exclude
-      --list-sources              list all the available sources
+      --list-sources bool         list available sources
+ -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)
 
-FILTER:
-      --include-subdomains        include subdomains
-  -f, --filter string             URL filtering regex
+CONFIGURATION:
+      --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots
+      --skip-wayback-source bool  skip parsing wayback source code snapshots
 
 OUTPUT:
   -m, --monochrome                no colored output mode
@@ -171,30 +162,10 @@ OUTPUT:
   -v, --verbosity                 debug, info, warning, error, fatal or silent (default: info)
 ```
 
-### Examples
-
-#### Basic
-
-```bash
-xurlfind3r -d tesla.com
-```
-
-#### Regex filter URLs
-
-```bash
-xurlfind3r -d tesla.com -f ".(jpg|jpeg|gif|png|ico|css|eot|tif|tiff|ttf|woff|woff2)"
-```
-
-#### Include Subdomains' URLs
-
-```bash
-xurlfind3r -d tesla.com --include-subdomains
-```
-
 ## Contribution
 
-[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! Check out the [contribution guidelines.](./CONTRIBUTING.md)
+[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! Check out the [contribution guidelines](./CONTRIBUTING.md).
 
 ## Licensing
 
-This utility is distributed under the [MIT license](./LICENSE)
+This utility is distributed under the [MIT license](./LICENSE).

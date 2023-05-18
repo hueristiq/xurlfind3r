@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	hqlog "github.com/hueristiq/hqgoutils/log"
-	"github.com/hueristiq/xurlfind3r/pkg/runner/collector/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
 )
@@ -24,16 +24,12 @@ type Configuration struct {
 }
 
 const (
-	// NAME is this projet's name
-	NAME string = "xurlfind3r"
-	// VERSION is this projet's version
-	VERSION string = "0.0.0"
-	// DESCRIPTION is this projet's description
-	DESCRIPTION string = "A CLI utility to fetch known URLs."
+	NAME        string = "xurlfind3r"
+	VERSION     string = "0.1.0"
+	DESCRIPTION string = "A CLI utility to find domain's known URLs."
 )
 
 var (
-	// BANNER is this project's CLI display banner
 	BANNER = aurora.Sprintf(
 		aurora.BrightBlue(`
                  _  __ _           _ _____      
@@ -47,11 +43,8 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 		aurora.BrightYellow("v"+VERSION).Bold(),
 		aurora.BrightGreen(DESCRIPTION).Italic(),
 	)
-	// rootDirectoryName is Hueristiq's directory name on disk
-	rootDirectoryName = ".hueristiq"
-	// projectRootDirectoryName is current project's directory name on disk
+	rootDirectoryName        = ".hueristiq"
 	projectRootDirectoryName = NAME
-	// ProjectRootDirectoryPath is current project's directory path on disk
 	ProjectRootDirectoryPath = func(rootDirectoryName, projectRootDirectoryName string) string {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -60,9 +53,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 
 		return filepath.Join(home, rootDirectoryName, projectRootDirectoryName)
 	}(rootDirectoryName, projectRootDirectoryName)
-	// configurationFileName is current project's configuration file name
 	configurationFileName = "config.yaml"
-	// configurationFilePath is current project's configuration file path
 	ConfigurationFilePath = filepath.Join(ProjectRootDirectoryPath, configurationFileName)
 	Default               = Configuration{
 		Version: VERSION,
@@ -93,8 +84,7 @@ func Read() (configuration Configuration, err error) {
 
 func Write(configuration *Configuration) (err error) {
 	var (
-		file *os.File
-
+		file       *os.File
 		identation = 4
 	)
 
