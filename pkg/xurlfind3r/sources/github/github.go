@@ -1,3 +1,4 @@
+// Package github implements functions to search URLsChannel from github.
 package github
 
 import (
@@ -34,11 +35,11 @@ type response struct {
 	Items      []item `json:"items"`
 }
 
-func (source *Source) Run(config sources.Configuration, domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
 		if len(config.Keys.GitHub) == 0 {
 			return
@@ -46,15 +47,15 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 
 		tokens := NewTokenManager(config.Keys.GitHub)
 
-		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%s&sort=created&order=asc", domain)
+		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%s&sort=created&order=asc", config.Domain)
 
-		source.Enumerate(searchURL, domainRegexp(), tokens, URLs)
+		source.Enumerate(searchURL, config.URLsRegex, tokens, URLsChannel, config)
 	}()
 
-	return URLs
+	return URLsChannel
 }
 
-func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, URLs chan sources.URL) {
+func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -87,7 +88,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		retryAfterSeconds, _ := strconv.ParseInt(string(res.Header.Peek("Retry-After")), 10, 64)
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchURL, domainRegexp, tokens, URLs)
+		source.Enumerate(searchURL, domainRegexp, tokens, URLsChannel, config)
 	}
 
 	var results response
@@ -96,7 +97,7 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		return
 	}
 
-	err = proccesItems(results.Items, domainRegexp, source.Name(), URLs)
+	err = proccesItems(results.Items, domainRegexp, source.Name(), URLsChannel, config)
 	if err != nil {
 		return
 	}
@@ -110,12 +111,12 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 				return
 			}
 
-			source.Enumerate(nextURL, domainRegexp, tokens, URLs)
+			source.Enumerate(nextURL, domainRegexp, tokens, URLsChannel, config)
 		}
 	}
 }
 
-func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLs chan sources.URL) (err error) {
+func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLsChannel chan sources.URL, config *sources.Configuration) (err error) {
 	for _, item := range items {
 		var (
 			res *fasthttp.Response
@@ -136,14 +137,26 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLs c
 				}
 
 				for _, URL = range domainRegexp.FindAllString(normalizeContent(line), -1) {
-					URLs <- sources.URL{Source: name, Value: URL}
+					if !sources.IsValid(URL) {
+						continue
+					}
+
+					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+						return
+					}
+
+					URLsChannel <- sources.URL{Source: name, Value: URL}
 				}
 			}
 		}
 
 		for _, textMatch := range item.TextMatches {
 			for _, URL = range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
-				URLs <- sources.URL{Source: name, Value: URL}
+				if !sources.IsValid(URL) {
+					continue
+				}
+
+				URLsChannel <- sources.URL{Source: name, Value: URL}
 			}
 		}
 	}
@@ -164,12 +177,6 @@ func rawContentURL(URL string) string {
 	URL = strings.ReplaceAll(URL, "/blob/", "/")
 
 	return URL
-}
-
-func domainRegexp() (URLRegex *regexp.Regexp) {
-	URLRegex = regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`) //nolint:gocritic // To be looked at later
-
-	return URLRegex
 }
 
 func (source *Source) Name() string {

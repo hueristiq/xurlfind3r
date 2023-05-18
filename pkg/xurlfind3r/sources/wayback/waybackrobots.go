@@ -84,9 +84,12 @@ func parseWaybackRobots(URL string) (URLs chan string) {
 						}
 					}
 
-					parsedURL, _ := hqurl.Parse(row[1])
+					parsedURL, err := hqurl.Parse(row[1])
+					if err != nil {
+						continue
+					}
 
-					endpoint = filepath.Join(parsedURL.Host, endpoint)
+					endpoint = filepath.Join(parsedURL.Domain, endpoint)
 					endpoint = parsedURL.Scheme + "://" + endpoint
 
 					URLs <- endpoint

@@ -1,3 +1,4 @@
+// Package otx implements functions to search URLs from otx.
 package otx
 
 import (
@@ -28,11 +29,11 @@ type response struct {
 	ActualSize int  `json:"actual_size"`
 }
 
-func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
 		var (
 			err error
@@ -40,7 +41,7 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 		)
 
 		for page := 1; ; page++ {
-			res, err = httpclient.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page))
+			res, err = httpclient.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", config.Domain, 200, page))
 			if err != nil {
 				return
 			}
@@ -52,7 +53,17 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 			}
 
 			for _, i := range results.URLList {
-				URLs <- sources.URL{Source: source.Name(), Value: i.URL}
+				URL := i.URL
+
+				if !sources.IsValid(URL) {
+					continue
+				}
+
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
+
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
 			if !results.HasNext {

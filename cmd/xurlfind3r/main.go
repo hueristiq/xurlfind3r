@@ -75,7 +75,7 @@ func init() {
 
 	pflag.Parse()
 
-	// Intialize logger
+	// Initialize logger
 	hqlog.DefaultLogger.SetMaxLevel(levels.LevelStr(verbosity))
 	hqlog.DefaultLogger.SetFormatter(formatter.NewCLI(&formatter.CLIOptions{
 		Colorize: !monochrome,

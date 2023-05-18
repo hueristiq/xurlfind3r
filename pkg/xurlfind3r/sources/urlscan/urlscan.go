@@ -1,3 +1,4 @@
+// Package urlscan implements functions to search URLs from urlscan.
 package urlscan
 
 import (
@@ -19,18 +20,18 @@ type response struct {
 
 type Source struct{}
 
-func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
 		var (
 			err error
 			res *fasthttp.Response
 		)
 
-		res, err = httpclient.SimpleGet(fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s", domain))
+		res, err = httpclient.SimpleGet(fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s", config.Domain))
 		if err != nil {
 			return
 		}
@@ -44,7 +45,17 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 		}
 
 		for _, i := range results.Results {
-			URLs <- sources.URL{Source: source.Name(), Value: i.Page.URL}
+			URL := i.Page.URL
+
+			if !sources.IsValid(URL) {
+				continue
+			}
+
+			if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				return
+			}
+
+			URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 		}
 	}()
 

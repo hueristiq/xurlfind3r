@@ -1,3 +1,4 @@
+// Package commoncrawl implements functions to search URLs from commoncrawl.
 package commoncrawl
 
 import (
@@ -24,11 +25,11 @@ type Index struct {
 	CDX_API string `json:"cdx-API"` //nolint:revive,stylecheck // Is as is
 }
 
-func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
 		var (
 			err error
@@ -62,7 +63,7 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 					res     *fasthttp.Response
 				)
 
-				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, domain), "", headers)
+				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, config.Domain), "", headers)
 				if err != nil {
 					return
 				}
@@ -80,7 +81,21 @@ func (source *Source) Run(_ sources.Configuration, domain string) (URLs chan sou
 						return
 					}
 
-					URLs <- sources.URL{Source: source.Name(), Value: result.URL}
+					URL := result.URL
+
+					if !sources.IsValid(URL) {
+						return
+					}
+
+					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+						return
+					}
+
+					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				}
+
+				if scanner.Err() != nil {
+					return
 				}
 			}(commonCrawlIndex.CDX_API)
 		}

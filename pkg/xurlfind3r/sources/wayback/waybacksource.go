@@ -2,36 +2,25 @@ package wayback
 
 import (
 	"fmt"
-	"net/url"
+	"mime"
 	"regexp"
 	"strings"
 	"sync"
+
+	hqurl "github.com/hueristiq/hqgoutils/url"
 )
 
-var CT = map[string]bool{
-	"text/html":              true,
-	"application/json":       true,
-	"image/jpeg":             true,
-	"image/png":              true,
-	"text/css":               true,
-	"application/javascript": true,
-	"text/javascript":        true,
-	"text/template":          true,
-	"core/embed":             true,
-}
-var URLRegex = regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`)
-
-func parseWaybackSource(URL string) (URLs chan string) {
+func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string) {
 	URLs = make(chan string)
 
-	parsedURL1, err := url.Parse(URL)
+	parsedURL, err := hqurl.Parse(URL)
 	if err != nil {
 		return
 	}
 
-	// Create a regex to match URLs with specified host
-	r := fmt.Sprintf(`http(s)?://` + parsedURL1.Hostname() + `/[^\s]*`)
-	re := regexp.MustCompile(r)
+	escapedDomain := regexp.QuoteMeta(parsedURL.ETLDPlusOne)
+	pattern := fmt.Sprintf(`https?://([a-z0-9.-]*\.)?%s(/[a-zA-Z0-9()/*\-+_~:,.?#=]*)?`, escapedDomain)
+	re := regexp.MustCompile(pattern)
 
 	go func() {
 		defer close(URLs)
@@ -47,7 +36,7 @@ func parseWaybackSource(URL string) (URLs chan string) {
 			return
 		}
 
-		// retrieve conteny
+		// retrieve content
 		wg := &sync.WaitGroup{}
 
 		for _, row := range snapshots {
@@ -66,48 +55,52 @@ func parseWaybackSource(URL string) (URLs chan string) {
 					return
 				}
 
-				for _, URL = range URLRegex.FindAllString(content, -1) {
+				for _, sourceURL := range URLsRegex.FindAllString(content, -1) {
 					// remove beginning and ending quotes
-					URL = strings.Trim(URL, "\"")
-					URL = strings.Trim(URL, "'")
+					sourceURL = strings.Trim(sourceURL, "\"")
+					sourceURL = strings.Trim(sourceURL, "'")
+
+					// remove beginning and ending spaces
+					sourceURL = strings.Trim(sourceURL, " ")
 
 					// if URL starts with `//web.archive.org/web` append scheme i.e to process it as an absolute URL
-					if strings.HasPrefix(URL, "//web.archive.org/web") {
-						URL = "https:" + URL
+					if strings.HasPrefix(sourceURL, "//web.archive.org/web") {
+						sourceURL = "https:" + sourceURL
 					}
 
-					parsedURL, err := url.Parse(URL)
+					parsedSourceURL, err := hqurl.Parse(sourceURL)
 					if err != nil {
 						continue
 					}
 
-					if parsedURL.IsAbs() {
-						matches := re.FindAllString(URL, -1)
+					if parsedSourceURL.IsAbs() {
+						matches := re.FindAllString(sourceURL, -1)
 
 						for _, match := range matches {
 							URLs <- match
 						}
 					} else {
-						// ignore content types
-						if _, ignore := CT[URL]; ignore {
+						_, _, err := mime.ParseMediaType(sourceURL)
+						if err == nil {
 							continue
 						}
 
-						matches := re.FindAllString(URL, -1)
+						matches := re.FindAllString(sourceURL, -1)
 
 						for _, match := range matches {
 							URLs <- match
 						}
 
-						if len(matches) == 1 {
+						if len(matches) > 0 {
 							continue
 						}
 
 						// remove beginning slash
-						URL = strings.TrimLeft(URL, "/")
-						URL = fmt.Sprintf("%s://%s/%s", parsedURL1.Scheme, parsedURL1.Hostname(), URL)
+						sourceURL = strings.TrimLeft(sourceURL, "/")
 
-						URLs <- URL
+						sourceURL = fmt.Sprintf("%s://%s/%s", parsedURL.Scheme, parsedURL.Domain, sourceURL)
+
+						URLs <- sourceURL
 					}
 				}
 			}(row)

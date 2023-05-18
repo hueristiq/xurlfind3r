@@ -1,3 +1,4 @@
+// Package wayback implements functions to search URLs from wayback.
 package wayback
 
 import (
@@ -5,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -23,11 +23,11 @@ var (
 	})
 )
 
-func (source *Source) Run(config sources.Configuration, domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
 		waybackURLs := make(chan string)
 
@@ -40,10 +40,10 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 			)
 
 			if config.IncludeSubdomains {
-				domain = "*." + domain
+				config.Domain = "*." + config.Domain
 			}
 
-			results, err = getWaybackURLs(domain)
+			results, err = getWaybackURLs(config.Domain)
 			if err != nil {
 				return
 			}
@@ -59,8 +59,6 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 		}()
 
 		wg := &sync.WaitGroup{}
-		robotsRegex := regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`)
-		ignoreRegex := regexp.MustCompile(`(?i)\.(apng|bpm|png|bmp|gif|heif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|psd|raw|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf|css)(?:\?|#|$)`)
 
 		for URL := range waybackURLs {
 			wg.Add(1)
@@ -68,23 +66,49 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 			go func(URL string) {
 				defer wg.Done()
 
-				URLs <- sources.URL{Source: source.Name(), Value: URL}
+				if !sources.IsValid(URL) {
+					return
+				}
+
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
+
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 
 				if !config.ParseWaybackRobots && !config.ParseWaybackSource {
 					return
 				}
 
-				if ignoreRegex.MatchString(URL) {
+				if config.MediaURLsRegex.MatchString(URL) {
 					return
 				}
 
-				if config.ParseWaybackRobots && robotsRegex.MatchString(URL) {
+				if config.ParseWaybackRobots &&
+					config.RobotsURLsRegex.MatchString(URL) {
 					for robotsURL := range parseWaybackRobots(URL) {
-						URLs <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
+						if !sources.IsValid(robotsURL) {
+							continue
+						}
+
+						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+							return
+						}
+
+						URLsChannel <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
 					}
-				} else if config.ParseWaybackSource && !robotsRegex.MatchString(URL) {
-					for sourceURL := range parseWaybackSource(URL) {
-						URLs <- sources.URL{Source: source.Name() + ":source", Value: sourceURL}
+				} else if config.ParseWaybackSource &&
+					!config.RobotsURLsRegex.MatchString(URL) {
+					for sourceURL := range parseWaybackSource(URL, config.URLsRegex) {
+						if !sources.IsValid(sourceURL) {
+							continue
+						}
+
+						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+							return
+						}
+
+						URLsChannel <- sources.URL{Source: source.Name() + ":source", Value: sourceURL}
 					}
 				}
 			}(URL)
@@ -186,7 +210,7 @@ func getWaybackContent(snapshot [2]string) (content string, err error) {
 	snapshotNotFoundFingerprint := "This page can't be displayed. Please use the correct URL address to access"
 
 	if strings.Contains(content, snapshotNotFoundFingerprint) {
-		err = fmt.Errorf(snapshotNotFoundFingerprint)
+		err = fmt.Errorf("%s", snapshotNotFoundFingerprint)
 
 		return
 	}

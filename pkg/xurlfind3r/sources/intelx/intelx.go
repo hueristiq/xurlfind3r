@@ -1,3 +1,4 @@
+// Package intelx implements functions to search URLs from intelx.
 package intelx
 
 import (
@@ -33,11 +34,11 @@ type requestBody struct {
 
 type Source struct{}
 
-func (source *Source) Run(config sources.Configuration, domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+	URLsChannel = make(chan sources.URL)
 
 	go func() {
-		defer close(URLs)
+		defer close(URLsChannel)
 
 		var (
 			err  error
@@ -51,7 +52,7 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 
 		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", config.Keys.IntelXHost, config.Keys.IntelXKey)
 		reqBody := requestBody{
-			Term:       domain,
+			Term:       config.Domain,
 			MaxResults: 100000,
 			Media:      0,
 			Timeout:    20,
@@ -91,7 +92,17 @@ func (source *Source) Run(config sources.Configuration, domain string) (URLs cha
 			status = response.Status
 
 			for _, hostname := range response.Selectors {
-				URLs <- sources.URL{Source: source.Name(), Value: hostname.Selectvalue}
+				URL := hostname.Selectvalue
+
+				if !sources.IsValid(URL) {
+					continue
+				}
+
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
+
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 		}
 	}()
