@@ -18,8 +18,8 @@ type Options struct {
 	IncludeSubdomains  bool
 	Sources            []string
 	Keys               sources.Keys
-	WaybackParseSource bool
-	WaybackParseRobots bool
+	ParseWaybackRobots bool
+	ParseWaybackSource bool
 }
 
 type Finder struct {
@@ -35,8 +35,8 @@ func New(options *Options) (finder *Finder) {
 		SourcesConfiguration: sources.Configuration{
 			Keys:               options.Keys,
 			IncludeSubdomains:  options.IncludeSubdomains,
-			WaybackParseRobots: options.WaybackParseRobots,
-			WaybackParseSource: options.WaybackParseSource,
+			ParseWaybackRobots: options.ParseWaybackRobots,
+			ParseWaybackSource: options.ParseWaybackSource,
 		},
 	}
 

@@ -21,6 +21,7 @@
 
 * Fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
 * Parse URLs from `robots.txt` snapshots on the Wayback Machine.
+* Parse URLs from webpages snapshots on the Wayback Machine.
 
 ## Installation
 

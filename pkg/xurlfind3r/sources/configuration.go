@@ -10,6 +10,6 @@ type Keys struct {
 type Configuration struct {
 	Keys               Keys
 	IncludeSubdomains  bool
-	WaybackParseRobots bool
-	WaybackParseSource bool
+	ParseWaybackRobots bool
+	ParseWaybackSource bool
 }

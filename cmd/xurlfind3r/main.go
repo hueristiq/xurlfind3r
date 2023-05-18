@@ -168,8 +168,8 @@ func main() {
 		IncludeSubdomains:  includeSubdomains,
 		Sources:            sourcesToUse,
 		Keys:               keys,
-		WaybackParseRobots: !skipWaybackRobots,
-		WaybackParseSource: !skipWaybackSource,
+		ParseWaybackRobots: !skipWaybackRobots,
+		ParseWaybackSource: !skipWaybackSource,
 	}
 
 	finder := xurlfind3r.New(options)
