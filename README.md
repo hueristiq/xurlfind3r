@@ -106,7 +106,7 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 Example:
 
 ```yaml
-version: 0.0.0
+version: 0.1.0
 sources:
     - commoncrawl
     - github
@@ -137,7 +137,7 @@ help message:
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.0.0
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.1.0
 
 A CLI utility to find domain's known URLs.
 

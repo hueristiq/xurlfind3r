@@ -25,7 +25,7 @@ type Configuration struct {
 
 const (
 	NAME        string = "xurlfind3r"
-	VERSION     string = "0.0.0"
+	VERSION     string = "0.1.0"
 	DESCRIPTION string = "A CLI utility to find domain's known URLs."
 )
 
