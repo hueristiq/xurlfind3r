@@ -17,7 +17,6 @@
 * [Contribution](#contribution)
 * [Licensing](#licensing)
 * [Credits](#credits)
-	* [Alternatives](#alternatives)
 
 ## Features
 
@@ -174,8 +173,13 @@ This utility is distributed under the [MIT license](./LICENSE).
 
 ## Credits
 
-### Alternatives
+* Sources - Thanks to below platforms (Used as data sources in this project):
+	* Alien Vault OTX (otx.alienvault.com)
+	* Common Crawl (index.commoncrawl.org) - [Donate to CommonCrawl](https://commoncrawl.org/donate/)
+	* Github (github.com)
+	* Intelligence X (intelx.io)
+	* URLScan (urlscan.io)
+	* Wayback Machine (web.archive.org) - [Donate to InternetArchive](https://archive.org/donate)
+* Alternatives - Check out projects below, that may fit in your workflow:
 
-Check out alternatives below, that may fit in your workflow:
-
-[gau](https://github.com/tomnomnom/waybackurls) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)
+	[gau](https://github.com/tomnomnom/waybackurls) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)
