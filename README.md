@@ -8,8 +8,8 @@
 
 * [Features](#features)
 * [Installation](#installation)
-	* [Install release binaries](#install-release-binaries-without-go-installed)
-	* [Install source](#install-source-with-go-installed)
+	* [Install release binaries (Without Go Installed)](#install-release-binaries-without-go-installed)
+	* [Install source (With Go Installed)](#install-source-with-go-installed)
 		* [`go install ...`](#go-install)
 		* [`go build ...` the development Version](#go-build--the-development-version)
 * [Post Installation](#post-installation)
