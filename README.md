@@ -2,14 +2,14 @@
 
 ![made with go](https://img.shields.io/badge/made%20with-Go-0000FF.svg) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/releases) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=0000FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0000FF.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![contribution](https://img.shields.io/badge/contributions-welcome-0000FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-`xurlfind3r` is a command-line interface (CLI) utility to find domain's known URLs passively from **[AlienVault's Open Threat Exchange](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)**, **[URLScan](https://urlscan.io/)**, and the **[Wayback Machine](https://archive.org/web/)**.
+`xurlfind3r` is a command-line interface (CLI) utility to find domain's known URLs from **[AlienVault's Open Threat Exchange](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)**, **[URLScan](https://urlscan.io/)**, and the **[Wayback Machine](https://archive.org/web/)**.
 
 ## Resource
 
 * [Features](#features)
 * [Installation](#installation)
-	* [Install release binaries](#install-release-binaries)
-	* [Install source](#install-sources)
+	* [Install release binaries](#install-release-binaries-without-go-installed)
+	* [Install source](#install-source-with-go-installed)
 		* [`go install ...`](#go-install)
 		* [`go build ...` the development Version](#go-build--the-development-version)
 * [Post Installation](#post-installation)
@@ -20,13 +20,14 @@
 
 ## Features
 
-* Fetches known URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
-* Parse URLs from `robots.txt` snapshots on the Wayback Machine.
-* Parse URLs from webpages snapshots on the Wayback Machine.
+* Fetches URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
+* Parses URLs from `robots.txt` snapshots on the Wayback Machine.
+* Parses URLs from webpages snapshots on the Wayback Machine.
+* Cross-Platform (Windows, Linux & macOS)
 
 ## Installation
 
-### Install release binaries
+### Install release binaries (Without Go Installed)
 
 Visit the [releases page](https://github.com/hueristiq/xurlfind3r/releases) and find the appropriate archive for your operating system and architecture. Download the archive from your browser or copy its URL and retrieve it with `wget` or `curl`:
 
@@ -64,7 +65,7 @@ sudo mv xurlfind3r /usr/local/bin/
 
 **NOTE:** Windows users can follow [How to: Add Tool Locations to the PATH Environment Variable](https://msdn.microsoft.com/en-us/library/office/ee537574(v=office.14).aspx) in order to add `xurlfind3r` to their `PATH`.
 
-### Install source
+### Install source (With Go Installed)
 
 Before you install from source, you need to make sure that Go is installed on your system. You can install Go by following the official instructions for your operating system. For this, we will assume that Go is already installed.
 
@@ -165,7 +166,7 @@ OUTPUT:
 
 ## Contribution
 
-[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! Check out the [contribution guidelines](./CONTRIBUTING.md).
+[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! **Check out the [contribution guidelines](./CONTRIBUTING.md).**
 
 ## Licensing
 
