@@ -16,6 +16,8 @@
 * [Usage](#usage)
 * [Contribution](#contribution)
 * [Licensing](#licensing)
+* [Credits](#credits)
+	* [Alternatives](#alternatives)
 
 ## Features
 
@@ -169,3 +171,11 @@ OUTPUT:
 ## Licensing
 
 This utility is distributed under the [MIT license](./LICENSE).
+
+## Credits
+
+### Alternatives
+
+Check out alternatives below, that may fit in your workflow:
+
+[gau](https://github.com/tomnomnom/waybackurls) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)
