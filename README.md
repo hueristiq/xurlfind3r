@@ -14,7 +14,7 @@
 		* [`go build ...` the development Version](#go-build--the-development-version)
 * [Post Installation](#post-installation)
 * [Usage](#usage)
-* [Contribution](#contribution)
+* [Contributing](#contributing)
 * [Licensing](#licensing)
 * [Credits](#credits)
 
@@ -164,7 +164,7 @@ OUTPUT:
   -v, --verbosity                 debug, info, warning, error, fatal or silent (default: info)
 ```
 
-## Contribution
+## Contributing
 
 [Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! **Check out the [contribution guidelines](./CONTRIBUTING.md).**
 
