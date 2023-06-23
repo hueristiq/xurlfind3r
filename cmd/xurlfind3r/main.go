@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"dario.cat/mergo"
-	hqgolog "github.com/hueristiq/hqgolog"
+	"github.com/hueristiq/hqgolog"
 	"github.com/hueristiq/hqgolog/formatter"
 	"github.com/hueristiq/hqgolog/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"

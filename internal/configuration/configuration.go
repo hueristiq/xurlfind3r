@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	hqgolog "github.com/hueristiq/hqgolog"
+	"github.com/hueristiq/hqgolog"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
