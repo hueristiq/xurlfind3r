@@ -3,13 +3,13 @@ package sources
 import (
 	"net/mail"
 
-	hqurl "github.com/hueristiq/hqgoutils/url"
+	"github.com/hueristiq/hqgourl"
 )
 
 func IsValid(URL string) (isValid bool) {
 	var err error
 
-	_, err = hqurl.Parse(URL)
+	_, err = hqgourl.Parse(URL)
 	if err != nil {
 		return
 	}
@@ -25,7 +25,7 @@ func IsValid(URL string) (isValid bool) {
 }
 
 func IsInScope(URL, domain string, includeSubdomains bool) (isInScope bool) {
-	parsedURL, err := hqurl.Parse(URL)
+	parsedURL, err := hqgourl.Parse(URL)
 	if err != nil {
 		return
 	}
