@@ -20,6 +20,7 @@ type response struct {
 		} `json:"page"`
 		Sort []interface{} `json:"sort"`
 	} `json:"results"`
+	Status  int  `json:"status"`
 	Total   int  `json:"total"`
 	Took    int  `json:"took"`
 	HasMore bool `json:"has_more"`
@@ -46,6 +47,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			headers["API-Key"] = config.Keys.URLScan[0]
 		}
 
+	PAGINATE:
 		for {
 			baseURL := "https://urlscan.io/api/v1/search/"
 			params := url.Values{}
@@ -69,6 +71,10 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 			if err = json.Unmarshal(body, &results); err != nil {
 				return
+			}
+
+			if results.Status == 429 {
+				break PAGINATE
 			}
 
 			for _, i := range results.Results {
