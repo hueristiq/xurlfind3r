@@ -23,11 +23,71 @@ type Configuration struct {
 	Keys    Keys     `yaml:"keys"`
 }
 
+func (configuration *Configuration) GetKeys() sources.Keys {
+	keys := sources.Keys{}
+
+	if len(configuration.Keys.Github) > 0 {
+		keys.GitHub = configuration.Keys.Github
+	}
+
+	intelxKeysCount := len(configuration.Keys.Intelx)
+	if intelxKeysCount > 0 {
+		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)] //nolint:gosec // Works perfectly
+		parts := strings.Split(intelxKeys, ":")
+
+		if len(parts) == 2 {
+			keys.IntelXHost = parts[0]
+			keys.IntelXKey = parts[1]
+		}
+	}
+
+	return keys
+}
+
+func (configuration *Configuration) Write(path string) (err error) {
+	var (
+		file       *os.File
+		identation = 4
+	)
+
+	directory := filepath.Dir(path)
+
+	if _, err = os.Stat(directory); os.IsNotExist(err) {
+		if directory != "" {
+			if err = os.MkdirAll(directory, os.ModePerm); err != nil {
+				return
+			}
+		}
+	}
+
+	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	if err != nil {
+		return
+	}
+
+	defer file.Close()
+
+	enc := yaml.NewEncoder(file)
+	enc.SetIndent(identation)
+	err = enc.Encode(&configuration)
+
+	return
+}
+
 const (
 	NAME        string = "xurlfind3r"
 	VERSION     string = "0.1.0"
 	DESCRIPTION string = "A CLI utility to find domain's known URLs."
 )
+
+var Default = Configuration{
+	Version: VERSION,
+	Sources: sources.List,
+	Keys: Keys{
+		Github: []string{},
+		Intelx: []string{},
+	},
+}
 
 var (
 	BANNER = aurora.Sprintf(
@@ -55,80 +115,23 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 	}(rootDirectoryName, projectRootDirectoryName)
 	configurationFileName = "config.yaml"
 	ConfigurationFilePath = filepath.Join(ProjectRootDirectoryPath, configurationFileName)
-	Default               = Configuration{
-		Version: VERSION,
-		Sources: sources.List,
-		Keys: Keys{
-			Github: []string{},
-			Intelx: []string{},
-		},
-	}
 )
 
-func Read() (configuration Configuration, err error) {
+func Read(path string) (configuration Configuration, err error) {
 	var (
 		file *os.File
 	)
 
-	file, err = os.Open(ConfigurationFilePath)
+	file, err = os.Open(path)
 	if err != nil {
 		return
 	}
 
 	defer file.Close()
 
-	err = yaml.NewDecoder(file).Decode(&configuration)
-
-	return
-}
-
-func Write(configuration *Configuration) (err error) {
-	var (
-		file       *os.File
-		identation = 4
-	)
-
-	directory := filepath.Dir(ConfigurationFilePath)
-
-	if _, err = os.Stat(directory); os.IsNotExist(err) {
-		if directory != "" {
-			if err = os.MkdirAll(directory, os.ModePerm); err != nil {
-				return
-			}
-		}
-	}
-
-	file, err = os.OpenFile(ConfigurationFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
+	if err = yaml.NewDecoder(file).Decode(&configuration); err != nil {
 		return
 	}
 
-	defer file.Close()
-
-	enc := yaml.NewEncoder(file)
-	enc.SetIndent(identation)
-	err = enc.Encode(&configuration)
-
 	return
-}
-
-func (configuration *Configuration) GetKeys() sources.Keys {
-	keys := sources.Keys{}
-
-	if len(configuration.Keys.Github) > 0 {
-		keys.GitHub = configuration.Keys.Github
-	}
-
-	intelxKeysCount := len(configuration.Keys.Intelx)
-	if intelxKeysCount > 0 {
-		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)] //nolint:gosec // Works perfectly
-		parts := strings.Split(intelxKeys, ":")
-
-		if len(parts) == 2 {
-			keys.IntelXHost = parts[0]
-			keys.IntelXKey = parts[1]
-		}
-	}
-
-	return keys
 }

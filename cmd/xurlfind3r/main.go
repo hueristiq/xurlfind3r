@@ -23,25 +23,33 @@ import (
 var (
 	au aurora.Aurora
 
+	YAMLConfigFile string
+
 	domain            string
 	includeSubdomains bool
+
 	listSources       bool
 	sourcesToUse      []string
 	skipWaybackRobots bool
 	skipWaybackSource bool
-	monochrome        bool
-	output            string
-	verbosity         string
+
+	monochrome bool
+	output     string
+	verbosity  string
 )
 
 func init() {
 	// Handle command line arguments & flags
+	pflag.StringVarP(&YAMLConfigFile, "configuration", "c", configuration.ConfigurationFilePath, "")
+
 	pflag.StringVarP(&domain, "domain", "d", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
+
 	pflag.BoolVar(&listSources, "list-sources", false, "")
 	pflag.StringSliceVarP(&sourcesToUse, "sources", "s", sources.List, "")
 	pflag.BoolVar(&skipWaybackRobots, "skip-wayback-robots", false, "")
 	pflag.BoolVar(&skipWaybackSource, "skip-wayback-source", false, "")
+
 	pflag.BoolVarP(&monochrome, "monochrome", "m", false, "")
 	pflag.StringVarP(&output, "output", "o", "", "")
 	pflag.StringVarP(&verbosity, "verbosity", "v", string(levels.LevelInfo), "")
@@ -53,15 +61,16 @@ func init() {
 		h := "USAGE:\n"
 		h += "  xurlfind3r [OPTIONS]\n"
 
+		h += "\nCONFIGURATION:\n"
+		h += fmt.Sprintf(" -c   --configuration string      configuration file path (default: %s)\n", configuration.ConfigurationFilePath)
+
 		h += "\nTARGET:\n"
 		h += "  -d, --domain string             target domain\n"
 		h += "      --include-subdomains bool   include domain's subdomains\n"
 
 		h += "\nSOURCES:\n"
 		h += "      --list-sources bool         list available sources\n"
-		h += " -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)\n"
-
-		h += "\nCONFIGURATION:\n"
+		h += " -s   --sources string            comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)\n"
 		h += "      --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots\n"
 		h += "      --skip-wayback-source bool  skip parsing wayback source code snapshots\n"
 
@@ -81,25 +90,25 @@ func init() {
 		Colorize: !monochrome,
 	}))
 
-	// Handle configuration on initial run
+	// Create or update configuration
 	var (
 		err    error
 		config configuration.Configuration
 	)
 
-	_, err = os.Stat(configuration.ConfigurationFilePath)
+	_, err = os.Stat(YAMLConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			config = configuration.Default
 
-			if err = configuration.Write(&config); err != nil {
+			if err = config.Write(YAMLConfigFile); err != nil {
 				hqgolog.Fatal().Msg(err.Error())
 			}
 		} else {
 			hqgolog.Fatal().Msg(err.Error())
 		}
 	} else {
-		config, err = configuration.Read()
+		config, err = configuration.Read(YAMLConfigFile)
 		if err != nil {
 			hqgolog.Fatal().Msg(err.Error())
 		}
@@ -111,7 +120,7 @@ func init() {
 
 			config.Version = configuration.VERSION
 
-			if err = configuration.Write(&config); err != nil {
+			if err = config.Write(YAMLConfigFile); err != nil {
 				hqgolog.Fatal().Msg(err.Error())
 			}
 		}
@@ -125,7 +134,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 	}
 
-	config, err := configuration.Read()
+	config, err := configuration.Read(YAMLConfigFile)
 	if err != nil {
 		hqgolog.Fatal().Msg(err.Error())
 	}
