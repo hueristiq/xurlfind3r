@@ -9,6 +9,7 @@ type Keys struct {
 	Intelx     string   `json:"intelx"` // unused, add for the purpose of adding an asterisk `*` on listing sources
 	IntelXHost string   `json:"intelXHost"`
 	IntelXKey  string   `json:"intelXKey"`
+	URLScan    []string `json:"urlscan"`
 }
 
 type Configuration struct {

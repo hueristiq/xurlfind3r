@@ -13,8 +13,9 @@ import (
 )
 
 type Keys struct {
-	Github []string `yaml:"github"`
-	Intelx []string `yaml:"intelx"`
+	Github  []string `yaml:"github"`
+	Intelx  []string `yaml:"intelx"`
+	URLScan []string `yaml:"urlscan"`
 }
 
 type Configuration struct {
@@ -26,10 +27,12 @@ type Configuration struct {
 func (configuration *Configuration) GetKeys() sources.Keys {
 	keys := sources.Keys{}
 
+	// Github
 	if len(configuration.Keys.Github) > 0 {
 		keys.GitHub = configuration.Keys.Github
 	}
 
+	// IntelX
 	intelxKeysCount := len(configuration.Keys.Intelx)
 	if intelxKeysCount > 0 {
 		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)] //nolint:gosec // Works perfectly
@@ -39,6 +42,11 @@ func (configuration *Configuration) GetKeys() sources.Keys {
 			keys.IntelXHost = parts[0]
 			keys.IntelXKey = parts[1]
 		}
+	}
+
+	// URLScan
+	if len(configuration.Keys.URLScan) > 0 {
+		keys.URLScan = configuration.Keys.URLScan
 	}
 
 	return keys
@@ -84,8 +92,9 @@ var Default = Configuration{
 	Version: VERSION,
 	Sources: sources.List,
 	Keys: Keys{
-		Github: []string{},
-		Intelx: []string{},
+		Github:  []string{},
+		Intelx:  []string{},
+		URLScan: []string{},
 	},
 }
 
