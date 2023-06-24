@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"dario.cat/mergo"
 	"github.com/hueristiq/hqgolog"
 	"github.com/hueristiq/hqgolog/formatter"
 	"github.com/hueristiq/hqgolog/levels"
@@ -39,14 +38,17 @@ var (
 )
 
 func init() {
-	// Handle command line arguments & flags
-	pflag.StringVarP(&YAMLConfigFile, "configuration", "c", configuration.ConfigurationFilePath, "")
+	// defaults
+	defaultYAMLConfigFile := "~/.huristiq/xurlfind3r/config.yaml"
+
+	// Handle CLI arguments, flags & help message (pflag)
+	pflag.StringVarP(&YAMLConfigFile, "configuration", "c", defaultYAMLConfigFile, "")
 
 	pflag.StringVarP(&domain, "domain", "d", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 
-	pflag.BoolVar(&listSources, "list-sources", false, "")
-	pflag.StringSliceVarP(&sourcesToUse, "sources", "s", sources.List, "")
+	pflag.BoolVarP(&listSources, "sources", "s", false, "")
+	pflag.StringSliceVarP(&sourcesToUse, "use", "u", sources.List, "")
 	pflag.BoolVar(&skipWaybackRobots, "skip-wayback-robots", false, "")
 	pflag.BoolVar(&skipWaybackSource, "skip-wayback-source", false, "")
 
@@ -62,21 +64,21 @@ func init() {
 		h += "  xurlfind3r [OPTIONS]\n"
 
 		h += "\nCONFIGURATION:\n"
-		h += fmt.Sprintf(" -c   --configuration string      configuration file path (default: %s)\n", configuration.ConfigurationFilePath)
+		h += fmt.Sprintf(" -c   --configuration string      configuration file path (default: %s)\n", defaultYAMLConfigFile)
 
-		h += "\nTARGET:\n"
-		h += "  -d, --domain string             target domain\n"
-		h += "      --include-subdomains bool   include domain's subdomains\n"
+		h += "\nSCOPE:\n"
+		h += "  -d, --domain string             (sub)domain to match URLs\n"
+		h += "      --include-subdomains bool   match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
-		h += "      --list-sources bool         list available sources\n"
-		h += " -s   --sources string            comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)\n"
-		h += "      --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots\n"
-		h += "      --skip-wayback-source bool  skip parsing wayback source code snapshots\n"
+		h += " -s,  --sources bool              list sources\n"
+		h += " -u   --use string                sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)\n"
+		h += "      --skip-wayback-robots bool  with wayback, skip parsing robots.txt snapshots\n"
+		h += "      --skip-wayback-source bool  with wayback, skip parsing source code snapshots\n"
 
 		h += "\nOUTPUT:\n"
-		h += "  -m, --monochrome                no colored output mode\n"
-		h += "  -o, --output string             output file to write found URLs\n"
+		h += "  -m, --monochrome                no color mode\n"
+		h += "  -o, --output string             output URLs file path\n"
 		h += fmt.Sprintf("  -v, --verbosity                 debug, info, warning, error, fatal or silent (default: %s)\n\n", string(levels.LevelInfo))
 
 		fmt.Fprintln(os.Stderr, h)
@@ -84,67 +86,48 @@ func init() {
 
 	pflag.Parse()
 
-	// Initialize logger
+	// Initialize logger (hqgolog)
 	hqgolog.DefaultLogger.SetMaxLevel(levels.LevelStr(verbosity))
 	hqgolog.DefaultLogger.SetFormatter(formatter.NewCLI(&formatter.CLIOptions{
 		Colorize: !monochrome,
 	}))
 
-	// Create or update configuration
-	var (
-		err    error
-		config configuration.Configuration
-	)
-
-	_, err = os.Stat(YAMLConfigFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			config = configuration.Default
-
-			if err = config.Write(YAMLConfigFile); err != nil {
-				hqgolog.Fatal().Msg(err.Error())
-			}
-		} else {
-			hqgolog.Fatal().Msg(err.Error())
-		}
-	} else {
-		config, err = configuration.Read(YAMLConfigFile)
+	// Create | Update configuration
+	if strings.HasPrefix(YAMLConfigFile, "~") {
+		home, err := os.UserHomeDir()
 		if err != nil {
 			hqgolog.Fatal().Msg(err.Error())
 		}
 
-		if config.Version != configuration.VERSION {
-			if err = mergo.Merge(&config, configuration.Default); err != nil {
-				hqgolog.Fatal().Msg(err.Error())
-			}
+		YAMLConfigFile = strings.Replace(YAMLConfigFile, "~", home, 1)
+	}
 
-			config.Version = configuration.VERSION
-
-			if err = config.Write(YAMLConfigFile); err != nil {
-				hqgolog.Fatal().Msg(err.Error())
-			}
-		}
+	if err := configuration.CreateUpdate(YAMLConfigFile); err != nil {
+		hqgolog.Fatal().Msg(err.Error())
 	}
 
 	au = aurora.NewAurora(!monochrome)
 }
 
 func main() {
+	// Print Banner
 	if verbosity != string(levels.LevelSilent) {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 	}
 
+	// Read in configuration
 	config, err := configuration.Read(YAMLConfigFile)
 	if err != nil {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
+	// Get sources' keys from configuration
 	keys := config.GetKeys()
 
-	// Handle sources listing
+	// List suported sources
 	if listSources {
-		hqgolog.Info().Msgf("current list of the available %v sources", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
-		hqgolog.Info().Msg("sources marked with an * needs key or token")
+		hqgolog.Info().Msgf("listing %v current supported sources", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
+		hqgolog.Info().Msgf("sources with %v needs a key or token", au.Underline("*").Bold())
 		hqgolog.Print().Msg("")
 
 		needsKey := make(map[string]interface{})
@@ -163,10 +146,11 @@ func main() {
 		}
 
 		hqgolog.Print().Msg("")
+
 		os.Exit(0)
 	}
 
-	// Handle URLs finding
+	// Find URLs
 	if verbosity != string(levels.LevelSilent) {
 		hqgolog.Info().Msgf("finding URLs for %v.", au.Underline(domain).Bold())
 
@@ -185,11 +169,11 @@ func main() {
 		ParseWaybackRobots: !skipWaybackRobots,
 		ParseWaybackSource: !skipWaybackSource,
 	}
-
 	finder := xurlfind3r.New(options)
 	URLs := finder.Find()
 
 	if output != "" {
+		// Create output file path directory
 		directory := filepath.Dir(output)
 
 		if _, err := os.Stat(directory); os.IsNotExist(err) {
@@ -198,6 +182,7 @@ func main() {
 			}
 		}
 
+		// Create output file
 		file, err := os.OpenFile(output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			hqgolog.Fatal().Msg(err.Error())
@@ -205,6 +190,7 @@ func main() {
 
 		defer file.Close()
 
+		// Write URLs output file and print on screen
 		writer := bufio.NewWriter(file)
 
 		for URL := range URLs {
@@ -221,6 +207,7 @@ func main() {
 			hqgolog.Fatal().Msg(err.Error())
 		}
 	} else {
+		// Print URLs on screen
 		for URL := range URLs {
 			if verbosity == string(levels.LevelSilent) {
 				hqgolog.Print().Msg(URL.Value)

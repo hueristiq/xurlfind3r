@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/hueristiq/hqgolog"
+	"dario.cat/mergo"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
@@ -54,11 +54,11 @@ func (configuration *Configuration) GetKeys() sources.Keys {
 
 func (configuration *Configuration) Write(path string) (err error) {
 	var (
-		file       *os.File
-		identation = 4
+		file *os.File
 	)
 
 	directory := filepath.Dir(path)
+	identation := 4
 
 	if _, err = os.Stat(directory); os.IsNotExist(err) {
 		if directory != "" {
@@ -88,16 +88,6 @@ const (
 	DESCRIPTION string = "A CLI utility to find domain's known URLs."
 )
 
-var Default = Configuration{
-	Version: VERSION,
-	Sources: sources.List,
-	Keys: Keys{
-		Github:  []string{},
-		Intelx:  []string{},
-		URLScan: []string{},
-	},
-}
-
 var (
 	BANNER = aurora.Sprintf(
 		aurora.BrightBlue(`
@@ -112,19 +102,57 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 		aurora.BrightYellow("v"+VERSION).Bold(),
 		aurora.BrightGreen(DESCRIPTION).Italic(),
 	)
-	rootDirectoryName        = ".hueristiq"
-	projectRootDirectoryName = NAME
-	ProjectRootDirectoryPath = func(rootDirectoryName, projectRootDirectoryName string) string {
-		home, err := os.UserHomeDir()
+)
+
+func CreateUpdate(path string) (err error) {
+	var (
+		config Configuration
+	)
+
+	defaultConfig := Configuration{
+		Version: VERSION,
+		Sources: sources.List,
+		Keys: Keys{
+			Github:  []string{},
+			Intelx:  []string{},
+			URLScan: []string{},
+		},
+	}
+
+	_, err = os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			config = defaultConfig
+
+			if err = config.Write(path); err != nil {
+				return
+			}
+		} else {
+			return
+		}
+	} else {
+		config, err = Read(path)
 		if err != nil {
-			hqgolog.Fatal().Msg(err.Error())
+			return
 		}
 
-		return filepath.Join(home, rootDirectoryName, projectRootDirectoryName)
-	}(rootDirectoryName, projectRootDirectoryName)
-	configurationFileName = "config.yaml"
-	ConfigurationFilePath = filepath.Join(ProjectRootDirectoryPath, configurationFileName)
-)
+		if config.Version != VERSION ||
+			len(config.Sources) != len(sources.List) {
+			if err = mergo.Merge(&config, defaultConfig); err != nil {
+				return
+			}
+
+			config.Version = VERSION
+			config.Sources = sources.List
+
+			if err = config.Write(path); err != nil {
+				return
+			}
+		}
+	}
+
+	return
+}
 
 func Read(path string) (configuration Configuration, err error) {
 	var (
