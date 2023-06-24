@@ -42,7 +42,7 @@ var (
 
 func init() {
 	// defaults
-	defaultYAMLConfigFile := "~/.huristiq/xurlfind3r/config.yaml"
+	defaultYAMLConfigFile := "~/.hueristiq/xurlfind3r/config.yaml"
 
 	// Handle CLI arguments, flags & help message (pflag)
 	pflag.StringVarP(&YAMLConfigFile, "configuration", "c", defaultYAMLConfigFile, "")
@@ -131,9 +131,6 @@ func main() {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
-	// Get sources' keys from configuration
-	keys := config.GetKeys()
-
 	// List suported sources
 	if listSources {
 		hqgolog.Info().Msgf("listing %v current supported sources", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
@@ -141,7 +138,7 @@ func main() {
 		hqgolog.Print().Msg("")
 
 		needsKey := make(map[string]interface{})
-		keysElem := reflect.ValueOf(&keys).Elem()
+		keysElem := reflect.ValueOf(&config.Keys).Elem()
 
 		for i := 0; i < keysElem.NumField(); i++ {
 			needsKey[strings.ToLower(keysElem.Type().Field(i).Name)] = keysElem.Field(i).Interface()
@@ -175,7 +172,7 @@ func main() {
 		Domain:             domain,
 		IncludeSubdomains:  includeSubdomains,
 		Sources:            sourcesToUse,
-		Keys:               keys,
+		Keys:               config.Keys,
 		ParseWaybackRobots: !skipWaybackRobots,
 		ParseWaybackSource: !skipWaybackSource,
 		FilterPattern:      filterPattern,

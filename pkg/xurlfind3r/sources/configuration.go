@@ -16,9 +16,7 @@ type Configuration struct {
 }
 
 type Keys struct {
-	GitHub     []string `json:"github"`
-	Intelx     []string `json:"intelx"` // unused, add for the purpose of adding an asterisk `*` on listing sources
-	IntelXHost string   `json:"intelXHost"`
-	IntelXKey  string   `json:"intelXKey"`
-	URLScan    []string `json:"urlscan"`
+	GitHub  []string `yaml:"github"`
+	Intelx  []string `yaml:"intelx"`
+	URLScan []string `yaml:"urlscan"`
 }

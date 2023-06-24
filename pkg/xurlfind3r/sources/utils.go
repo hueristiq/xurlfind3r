@@ -1,10 +1,28 @@
 package sources
 
 import (
+	"math/rand"
 	"net/mail"
+	"time"
 
 	"github.com/hueristiq/hqgourl"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func PickRandom[T any](v []T) (picked T) {
+	length := len(v)
+
+	if length == 0 {
+		return
+	}
+
+	picked = v[rand.Intn(length)]
+
+	return
+}
 
 func IsValid(URL string) (isValid bool) {
 	var err error

@@ -43,8 +43,13 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			}
 		)
 
+		key := sources.PickRandom(config.Keys.URLScan)
+		if key == "" {
+			return
+		}
+
 		if len(config.Keys.URLScan) > 0 {
-			headers["API-Key"] = config.Keys.URLScan[0]
+			headers["API-Key"] = key
 		}
 
 	PAGINATE:

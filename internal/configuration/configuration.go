@@ -1,10 +1,8 @@
 package configuration
 
 import (
-	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"dario.cat/mergo"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
@@ -13,37 +11,9 @@ import (
 )
 
 type Configuration struct {
-	Version string   `yaml:"version"`
-	Sources []string `yaml:"sources"`
-	Keys    Keys     `yaml:"keys"`
-}
-
-func (configuration *Configuration) GetKeys() sources.Keys {
-	keys := sources.Keys{}
-
-	// Github
-	if len(configuration.Keys.Github) > 0 {
-		keys.GitHub = configuration.Keys.Github
-	}
-
-	// IntelX
-	intelxKeysCount := len(configuration.Keys.Intelx)
-	if intelxKeysCount > 0 {
-		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)] //nolint:gosec // Works perfectly
-		parts := strings.Split(intelxKeys, ":")
-
-		if len(parts) == 2 {
-			keys.IntelXHost = parts[0]
-			keys.IntelXKey = parts[1]
-		}
-	}
-
-	// URLScan
-	if len(configuration.Keys.URLScan) > 0 {
-		keys.URLScan = configuration.Keys.URLScan
-	}
-
-	return keys
+	Version string       `yaml:"version"`
+	Sources []string     `yaml:"sources"`
+	Keys    sources.Keys `yaml:"keys"`
 }
 
 func (configuration *Configuration) Write(path string) (err error) {
@@ -76,12 +46,6 @@ func (configuration *Configuration) Write(path string) (err error) {
 	return
 }
 
-type Keys struct {
-	Github  []string `yaml:"github"`
-	Intelx  []string `yaml:"intelx"`
-	URLScan []string `yaml:"urlscan"`
-}
-
 const (
 	NAME    string = "xurlfind3r"
 	VERSION string = "0.1.0"
@@ -108,8 +72,8 @@ func CreateUpdate(path string) (err error) {
 	defaultConfig := Configuration{
 		Version: VERSION,
 		Sources: sources.List,
-		Keys: Keys{
-			Github:  []string{},
+		Keys: sources.Keys{
+			GitHub:  []string{},
 			Intelx:  []string{},
 			URLScan: []string{},
 		},
