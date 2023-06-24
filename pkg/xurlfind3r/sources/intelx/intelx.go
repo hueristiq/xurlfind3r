@@ -42,13 +42,14 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		defer close(URLsChannel)
 
 		var (
+			key  string
 			err  error
 			res  *fasthttp.Response
 			body []byte
 		)
 
-		key := sources.PickRandom(config.Keys.Intelx)
-		if key == "" {
+		key, err = sources.PickRandom(config.Keys.Intelx)
+		if key == "" || err != nil {
 			return
 		}
 

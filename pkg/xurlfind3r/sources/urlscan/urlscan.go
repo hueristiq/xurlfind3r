@@ -35,6 +35,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		defer close(URLsChannel)
 
 		var (
+			key         string
 			err         error
 			res         *fasthttp.Response
 			searchAfter []interface{}
@@ -43,8 +44,8 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			}
 		)
 
-		key := sources.PickRandom(config.Keys.URLScan)
-		if key == "" {
+		key, err = sources.PickRandom(config.Keys.URLScan)
+		if key == "" || err != nil {
 			return
 		}
 
@@ -52,7 +53,6 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			headers["API-Key"] = key
 		}
 
-	PAGINATE:
 		for {
 			baseURL := "https://urlscan.io/api/v1/search/"
 			params := url.Values{}
@@ -79,7 +79,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			}
 
 			if results.Status == 429 {
-				break PAGINATE
+				break
 			}
 
 			for _, i := range results.Results {
