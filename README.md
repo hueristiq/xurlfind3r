@@ -14,6 +14,9 @@
 		* [`go build ...` the development Version](#go-build--the-development-version)
 * [Post Installation](#post-installation)
 * [Usage](#usage)
+	* [Basic](#basic)
+	* [Filter Regex](#filter-regex)
+	* [Match Regex](#match-regex)
 * [Contributing](#contributing)
 * [Licensing](#licensing)
 * [Credits](#credits)
@@ -23,6 +26,7 @@
 * Fetches URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
 * Parses URLs from `robots.txt` snapshots on the Wayback Machine.
 * Parses URLs from webpages snapshots on the Wayback Machine.
+* Supports URLs match and filter
 * Cross-Platform (Windows, Linux & macOS)
 
 ## Installation
@@ -103,9 +107,9 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 ## Post Installation
 
-`xurlfind3r` will work right after [installation](#installation). However, **[Github](https://github.com)** and **[Intelligence X](https://intelx.io)** require API keys to work. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format.
+`xurlfind3r` will work right after [installation](#installation). However, **[Github](https://github.com)** and **[Intelligence X](https://intelx.io)** require API keys to work, **[URLScan](https://urlscan.io)** supports API key but not required. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these source from which one of them will be used.
 
-Example:
+Example `config.yaml`:
 
 ```yaml
 version: 0.1.0
@@ -122,6 +126,8 @@ keys:
         - asdsd54bbc1aabb208c9acfbd2dd41ce7fc9db39
     intelx:
         - 2.intelx.io:00000000-0000-0000-0000-000000000000
+    urlscan:
+        - d4c85d34-e425-446e-d4ab-f5a3412acbe8
 ```
 
 ## Usage
@@ -141,27 +147,52 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.1.0
 
-A CLI utility to find domain's known URLs.
-
 USAGE:
   xurlfind3r [OPTIONS]
 
-TARGET:
-  -d, --domain string             target domain
-      --include-subdomains bool   include domain's subdomains
+CONFIGURATION:
+ -c   --configuration string      configuration file path (default: ~/.hueristiq/xurlfind3r/config.yaml)
+
+SCOPE:
+  -d, --domain string             (sub)domain to match URLs
+      --include-subdomains bool   match subdomain's URLs
 
 SOURCES:
-      --list-sources bool         list available sources
- -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)
+ -s,  --sources bool              list sources
+ -u   --use string                sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)
+      --skip-wayback-robots bool  with wayback, skip parsing robots.txt snapshots
+      --skip-wayback-source bool  with wayback, skip parsing source code snapshots
 
-CONFIGURATION:
-      --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots
-      --skip-wayback-source bool  skip parsing wayback source code snapshots
+FILTER & MATCH:
+  -f, --filter string             regex to filter URLs
+  -m, --match string              regex to match URLs
 
 OUTPUT:
-  -m, --monochrome                no colored output mode
-  -o, --output string             output file to write found URLs
+      --no-color                  no color mode
+  -o, --output string             output URLs file path
   -v, --verbosity                 debug, info, warning, error, fatal or silent (default: info)
+```
+
+### Examples
+
+#### Basic
+
+```bash
+xurlfind3r -d hackerone.com --include-subdomains
+```
+
+#### Filter Regex
+
+```bash
+# filter images
+xurlfind3r -d hackerone.com --include-subdomains -f '`^https?://[^/]*?/.*\.(jpg|jpeg|png|gif|bmp)(\?[^\s]*)?$`'
+```
+
+#### Match Regex
+
+```bash
+# match js URLs
+xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[^\s]*)?$'
 ```
 
 ## Contributing
