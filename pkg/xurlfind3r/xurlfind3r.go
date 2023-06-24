@@ -35,9 +35,9 @@ func New(options *Options) (finder *Finder, err error) {
 	finder = &Finder{
 		Sources: map[string]sources.Source{},
 		SourcesConfiguration: &sources.Configuration{
-			Keys:               options.Keys,
 			Domain:             options.Domain,
 			IncludeSubdomains:  options.IncludeSubdomains,
+			Keys:               options.Keys,
 			ParseWaybackRobots: options.ParseWaybackRobots,
 			ParseWaybackSource: options.ParseWaybackSource,
 			URLsRegex:          regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`), //nolint:gocritic // Works so far

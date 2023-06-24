@@ -12,12 +12,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Keys struct {
-	Github  []string `yaml:"github"`
-	Intelx  []string `yaml:"intelx"`
-	URLScan []string `yaml:"urlscan"`
-}
-
 type Configuration struct {
 	Version string   `yaml:"version"`
 	Sources []string `yaml:"sources"`
@@ -82,10 +76,15 @@ func (configuration *Configuration) Write(path string) (err error) {
 	return
 }
 
+type Keys struct {
+	Github  []string `yaml:"github"`
+	Intelx  []string `yaml:"intelx"`
+	URLScan []string `yaml:"urlscan"`
+}
+
 const (
-	NAME        string = "xurlfind3r"
-	VERSION     string = "0.1.0"
-	DESCRIPTION string = "A CLI utility to find domain's known URLs."
+	NAME    string = "xurlfind3r"
+	VERSION string = "0.1.0"
 )
 
 var (
@@ -96,11 +95,8 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 \ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
-
-%s
 `).Bold(),
 		aurora.BrightYellow("v"+VERSION).Bold(),
-		aurora.BrightGreen(DESCRIPTION).Italic(),
 	)
 )
 
