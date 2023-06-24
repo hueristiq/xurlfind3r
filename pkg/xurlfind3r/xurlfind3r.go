@@ -20,14 +20,18 @@ type Options struct {
 	Keys               sources.Keys
 	ParseWaybackRobots bool
 	ParseWaybackSource bool
+	FilterPattern      string
+	Matchattern        string
 }
 
 type Finder struct {
 	Sources              map[string]sources.Source
 	SourcesConfiguration *sources.Configuration
+	FilterRegex          *regexp.Regexp
+	MatchRegex           *regexp.Regexp
 }
 
-func New(options *Options) (finder *Finder) {
+func New(options *Options) (finder *Finder, err error) {
 	finder = &Finder{
 		Sources: map[string]sources.Source{},
 		SourcesConfiguration: &sources.Configuration{
@@ -40,6 +44,20 @@ func New(options *Options) (finder *Finder) {
 			MediaURLsRegex:     regexp.MustCompile(`(?i)\.(apng|bpm|png|bmp|gif|heif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|psd|raw|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf|css)(?:\?|#|$)`),
 			RobotsURLsRegex:    regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`),
 		},
+	}
+
+	if options.FilterPattern != "" {
+		finder.FilterRegex, err = regexp.Compile(options.FilterPattern)
+		if err != nil {
+			return
+		}
+	}
+
+	if options.Matchattern != "" {
+		finder.MatchRegex, err = regexp.Compile(options.Matchattern)
+		if err != nil {
+			return
+		}
 	}
 
 	for index := range options.Sources {
@@ -85,6 +103,16 @@ func (finder *Finder) Find() (URLs chan sources.URL) {
 					_, loaded := seen.LoadOrStore(value, struct{}{})
 					if loaded {
 						continue
+					}
+
+					if finder.MatchRegex != nil {
+						if !finder.MatchRegex.MatchString(URL.Value) {
+							continue
+						}
+					} else if finder.FilterRegex != nil && finder.MatchRegex == nil {
+						if finder.FilterRegex.MatchString(URL.Value) {
+							continue
+						}
 					}
 
 					URLs <- URL

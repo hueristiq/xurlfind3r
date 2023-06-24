@@ -32,6 +32,9 @@ var (
 	skipWaybackRobots bool
 	skipWaybackSource bool
 
+	filterPattern string
+	matchPattern  string
+
 	monochrome bool
 	output     string
 	verbosity  string
@@ -52,7 +55,10 @@ func init() {
 	pflag.BoolVar(&skipWaybackRobots, "skip-wayback-robots", false, "")
 	pflag.BoolVar(&skipWaybackSource, "skip-wayback-source", false, "")
 
-	pflag.BoolVarP(&monochrome, "monochrome", "m", false, "")
+	pflag.StringVarP(&filterPattern, "filter", "f", "", "")
+	pflag.StringVarP(&matchPattern, "match", "m", "", "")
+
+	pflag.BoolVar(&monochrome, "no-color", false, "")
 	pflag.StringVarP(&output, "output", "o", "", "")
 	pflag.StringVarP(&verbosity, "verbosity", "v", string(levels.LevelInfo), "")
 
@@ -76,8 +82,12 @@ func init() {
 		h += "      --skip-wayback-robots bool  with wayback, skip parsing robots.txt snapshots\n"
 		h += "      --skip-wayback-source bool  with wayback, skip parsing source code snapshots\n"
 
+		h += "\nFILTER & MATCH:\n"
+		h += "  -f, --filter string             regex to filter URLs\n"
+		h += "  -m, --match string              regex to match URLs\n"
+
 		h += "\nOUTPUT:\n"
-		h += "  -m, --monochrome                no color mode\n"
+		h += "      --no-color                  no color mode\n"
 		h += "  -o, --output string             output URLs file path\n"
 		h += fmt.Sprintf("  -v, --verbosity                 debug, info, warning, error, fatal or silent (default: %s)\n\n", string(levels.LevelInfo))
 
@@ -168,8 +178,15 @@ func main() {
 		Keys:               keys,
 		ParseWaybackRobots: !skipWaybackRobots,
 		ParseWaybackSource: !skipWaybackSource,
+		FilterPattern:      filterPattern,
+		Matchattern:        matchPattern,
 	}
-	finder := xurlfind3r.New(options)
+
+	finder, err := xurlfind3r.New(options)
+	if err != nil {
+		hqgolog.Fatal().Msg(err.Error())
+	}
+
 	URLs := finder.Find()
 
 	if output != "" {
