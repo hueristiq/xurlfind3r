@@ -22,7 +22,8 @@ import (
 var (
 	au aurora.Aurora
 
-	domain            string
+	domain string
+
 	includeSubdomains bool
 
 	listSources       bool
@@ -46,10 +47,11 @@ func init() {
 
 	// Handle CLI arguments, flags & help message (pflag)
 	pflag.StringVarP(&domain, "domain", "d", "", "")
+
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 
 	pflag.BoolVarP(&listSources, "sources", "s", false, "")
-	pflag.StringSliceVarP(&sourcesToUse, "use", "u", sources.List, "")
+	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", sources.List, "")
 	pflag.BoolVar(&skipWaybackRobots, "skip-wayback-robots", false, "")
 	pflag.BoolVar(&skipWaybackSource, "skip-wayback-source", false, "")
 
@@ -69,24 +71,26 @@ func init() {
 		h := "USAGE:\n"
 		h += "  xurlfind3r [OPTIONS]\n"
 
+		h += "\nTARGET:\n"
+		h += " -d, --domain string              (sub)domain to match URLs\n"
+
 		h += "\nSCOPE:\n"
-		h += "  -d, --domain string             (sub)domain to match URLs\n"
-		h += "      --include-subdomains bool   match subdomain's URLs\n"
+		h += "     --include-subdomains bool    match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
 		h += " -s,  --sources bool              list sources\n"
-		h += fmt.Sprintf(" -u   --use string                sources to use (default: %s)\n", strings.Join(sources.List, ","))
+		h += fmt.Sprintf(" -u,  --use-sources string        sources to use (default: %s)\n", strings.Join(sources.List, ","))
 		h += "      --skip-wayback-robots bool  with wayback, skip parsing robots.txt snapshots\n"
 		h += "      --skip-wayback-source bool  with wayback, skip parsing source code snapshots\n"
 
 		h += "\nFILTER & MATCH:\n"
-		h += "  -f, --filter string             regex to filter URLs\n"
-		h += "  -m, --match string              regex to match URLs\n"
+		h += " -f, --filter string              regex to filter URLs\n"
+		h += " -m, --match string               regex to match URLs\n"
 
 		h += "\nOUTPUT:\n"
-		h += "      --no-color bool             no color mode\n"
-		h += "  -o, --output string             output URLs file path\n"
-		h += fmt.Sprintf("  -v, --verbosity string          debug, info, warning, error, fatal or silent (default: %s)\n", string(levels.LevelInfo))
+		h += "     --no-color bool              no color mode\n"
+		h += " -o, --output string              output URLs file path\n"
+		h += fmt.Sprintf(" -v, --verbosity string           debug, info, warning, error, fatal or silent (default: %s)\n", string(levels.LevelInfo))
 
 		h += "\nCONFIGURATION:\n"
 		h += fmt.Sprintf(" -c,  --configuration string      configuration file path (default: %s)\n", defaultYAMLConfigFile)
