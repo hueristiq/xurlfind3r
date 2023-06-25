@@ -70,7 +70,7 @@ func init() {
 		h += "  xurlfind3r [OPTIONS]\n"
 
 		h += "\nCONFIGURATION:\n"
-		h += fmt.Sprintf(" -c   --configuration string      configuration file path (default: %s)\n", defaultYAMLConfigFile)
+		h += fmt.Sprintf(" -c,  --configuration string      configuration file path (default: %s)\n", defaultYAMLConfigFile)
 
 		h += "\nSCOPE:\n"
 		h += "  -d, --domain string             (sub)domain to match URLs\n"
@@ -87,9 +87,9 @@ func init() {
 		h += "  -m, --match string              regex to match URLs\n"
 
 		h += "\nOUTPUT:\n"
-		h += "      --no-color                  no color mode\n"
+		h += "      --no-color bool             no color mode\n"
 		h += "  -o, --output string             output URLs file path\n"
-		h += fmt.Sprintf("  -v, --verbosity                 debug, info, warning, error, fatal or silent (default: %s)\n\n", string(levels.LevelInfo))
+		h += fmt.Sprintf("  -v, --verbosity string          debug, info, warning, error, fatal or silent (default: %s)\n\n", string(levels.LevelInfo))
 
 		fmt.Fprintln(os.Stderr, h)
 	}
