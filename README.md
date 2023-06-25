@@ -118,7 +118,7 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 Example `config.yaml`:
 
 ```yaml
-version: 0.1.0
+version: 0.2.0
 sources:
     - bevigil
     - commoncrawl
@@ -154,7 +154,7 @@ help message:
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.1.0
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.2.0
 
 USAGE:
   xurlfind3r [OPTIONS]
