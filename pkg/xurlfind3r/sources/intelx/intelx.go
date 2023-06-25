@@ -4,6 +4,7 @@ package intelx
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
@@ -16,13 +17,13 @@ type searchResponseType struct {
 	Status int    `json:"status"`
 }
 
-type selectorType struct {
-	Selectvalue string `json:"selectorvalue"`
-}
-
 type searchResultType struct {
 	Selectors []selectorType `json:"selectors"`
 	Status    int            `json:"status"`
+}
+
+type selectorType struct {
+	Selectvalue string `json:"selectorvalue"`
 }
 
 type requestBody struct {
@@ -41,16 +42,26 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		defer close(URLsChannel)
 
 		var (
+			key  string
 			err  error
-			body []byte
 			res  *fasthttp.Response
+			body []byte
 		)
 
-		if config.Keys.IntelXKey == "" || config.Keys.IntelXHost == "" {
+		key, err = sources.PickRandom(config.Keys.Intelx)
+		if key == "" || err != nil {
 			return
 		}
 
-		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", config.Keys.IntelXHost, config.Keys.IntelXKey)
+		parts := strings.Split(key, ":")
+		intelXHost := parts[0]
+		intelXKey := parts[1]
+
+		if intelXKey == "" || intelXHost == "" {
+			return
+		}
+
+		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", intelXHost, intelXKey)
 		reqBody := requestBody{
 			Term:       config.Domain,
 			MaxResults: 100000,
@@ -74,7 +85,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			return
 		}
 
-		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", config.Keys.IntelXHost, config.Keys.IntelXKey, response.ID)
+		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, response.ID)
 		status := 0
 
 		for status == 0 || status == 3 {

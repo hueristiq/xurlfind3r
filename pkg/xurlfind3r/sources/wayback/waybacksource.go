@@ -7,13 +7,13 @@ import (
 	"strings"
 	"sync"
 
-	hqurl "github.com/hueristiq/hqgoutils/url"
+	"github.com/hueristiq/hqgourl"
 )
 
 func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string) {
 	URLs = make(chan string)
 
-	parsedURL, err := hqurl.Parse(URL)
+	parsedURL, err := hqgourl.Parse(URL)
 	if err != nil {
 		return
 	}
@@ -68,7 +68,7 @@ func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string)
 						sourceURL = "https:" + sourceURL
 					}
 
-					parsedSourceURL, err := hqurl.Parse(sourceURL)
+					parsedSourceURL, err := hqgourl.Parse(sourceURL)
 					if err != nil {
 						continue
 					}

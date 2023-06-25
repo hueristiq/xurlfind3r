@@ -1,94 +1,28 @@
 package configuration
 
 import (
-	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 
-	hqlog "github.com/hueristiq/hqgoutils/log"
+	"dario.cat/mergo"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
 )
 
-type Keys struct {
-	Github []string `yaml:"github"`
-	Intelx []string `yaml:"intelx"`
-}
-
 type Configuration struct {
-	Version string   `yaml:"version"`
-	Sources []string `yaml:"sources"`
-	Keys    Keys     `yaml:"keys"`
+	Version string       `yaml:"version"`
+	Sources []string     `yaml:"sources"`
+	Keys    sources.Keys `yaml:"keys"`
 }
 
-const (
-	NAME        string = "xurlfind3r"
-	VERSION     string = "0.1.0"
-	DESCRIPTION string = "A CLI utility to find domain's known URLs."
-)
-
-var (
-	BANNER = aurora.Sprintf(
-		aurora.BrightBlue(`
-                 _  __ _           _ _____      
-__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
-\ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
- >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
-
-%s
-`).Bold(),
-		aurora.BrightYellow("v"+VERSION).Bold(),
-		aurora.BrightGreen(DESCRIPTION).Italic(),
-	)
-	rootDirectoryName        = ".hueristiq"
-	projectRootDirectoryName = NAME
-	ProjectRootDirectoryPath = func(rootDirectoryName, projectRootDirectoryName string) string {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			hqlog.Fatal().Msg(err.Error())
-		}
-
-		return filepath.Join(home, rootDirectoryName, projectRootDirectoryName)
-	}(rootDirectoryName, projectRootDirectoryName)
-	configurationFileName = "config.yaml"
-	ConfigurationFilePath = filepath.Join(ProjectRootDirectoryPath, configurationFileName)
-	Default               = Configuration{
-		Version: VERSION,
-		Sources: sources.List,
-		Keys: Keys{
-			Github: []string{},
-			Intelx: []string{},
-		},
-	}
-)
-
-func Read() (configuration Configuration, err error) {
+func (configuration *Configuration) Write(path string) (err error) {
 	var (
 		file *os.File
 	)
 
-	file, err = os.Open(ConfigurationFilePath)
-	if err != nil {
-		return
-	}
-
-	defer file.Close()
-
-	err = yaml.NewDecoder(file).Decode(&configuration)
-
-	return
-}
-
-func Write(configuration *Configuration) (err error) {
-	var (
-		file       *os.File
-		identation = 4
-	)
-
-	directory := filepath.Dir(ConfigurationFilePath)
+	directory := filepath.Dir(path)
+	identation := 4
 
 	if _, err = os.Stat(directory); os.IsNotExist(err) {
 		if directory != "" {
@@ -98,7 +32,7 @@ func Write(configuration *Configuration) (err error) {
 		}
 	}
 
-	file, err = os.OpenFile(ConfigurationFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
 		return
 	}
@@ -112,23 +46,90 @@ func Write(configuration *Configuration) (err error) {
 	return
 }
 
-func (configuration *Configuration) GetKeys() sources.Keys {
-	keys := sources.Keys{}
+const (
+	NAME    string = "xurlfind3r"
+	VERSION string = "0.2.0"
+)
 
-	if len(configuration.Keys.Github) > 0 {
-		keys.GitHub = configuration.Keys.Github
+var (
+	BANNER = aurora.Sprintf(
+		aurora.BrightBlue(`
+                 _  __ _           _ _____      
+__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+\ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
+ >  <| |_| | |  | |  _| | | | | (_| |___) | |
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
+`).Bold(),
+		aurora.BrightYellow("v"+VERSION).Bold(),
+	)
+)
+
+func CreateUpdate(path string) (err error) {
+	var (
+		config Configuration
+	)
+
+	defaultConfig := Configuration{
+		Version: VERSION,
+		Sources: sources.List,
+		Keys: sources.Keys{
+			Bevigil: []string{},
+			GitHub:  []string{},
+			Intelx:  []string{},
+			URLScan: []string{},
+		},
 	}
 
-	intelxKeysCount := len(configuration.Keys.Intelx)
-	if intelxKeysCount > 0 {
-		intelxKeys := configuration.Keys.Intelx[rand.Intn(intelxKeysCount)] //nolint:gosec // Works perfectly
-		parts := strings.Split(intelxKeys, ":")
+	_, err = os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			config = defaultConfig
 
-		if len(parts) == 2 {
-			keys.IntelXHost = parts[0]
-			keys.IntelXKey = parts[1]
+			if err = config.Write(path); err != nil {
+				return
+			}
+		} else {
+			return
+		}
+	} else {
+		config, err = Read(path)
+		if err != nil {
+			return
+		}
+
+		if config.Version != VERSION ||
+			len(config.Sources) != len(sources.List) {
+			if err = mergo.Merge(&config, defaultConfig); err != nil {
+				return
+			}
+
+			config.Version = VERSION
+			config.Sources = sources.List
+
+			if err = config.Write(path); err != nil {
+				return
+			}
 		}
 	}
 
-	return keys
+	return
+}
+
+func Read(path string) (configuration Configuration, err error) {
+	var (
+		file *os.File
+	)
+
+	file, err = os.Open(path)
+	if err != nil {
+		return
+	}
+
+	defer file.Close()
+
+	if err = yaml.NewDecoder(file).Decode(&configuration); err != nil {
+		return
+	}
+
+	return
 }

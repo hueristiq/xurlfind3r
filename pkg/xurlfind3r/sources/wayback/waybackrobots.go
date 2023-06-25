@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	hqurl "github.com/hueristiq/hqgoutils/url"
+	"github.com/hueristiq/hqgourl"
 )
 
 func parseWaybackRobots(URL string) (URLs chan string) {
@@ -84,7 +84,7 @@ func parseWaybackRobots(URL string) (URLs chan string) {
 						}
 					}
 
-					parsedURL, err := hqurl.Parse(row[1])
+					parsedURL, err := hqgourl.Parse(row[1])
 					if err != nil {
 						continue
 					}

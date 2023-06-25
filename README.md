@@ -2,7 +2,7 @@
 
 ![made with go](https://img.shields.io/badge/made%20with-Go-0000FF.svg) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/releases) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=0000FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0000FF.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![contribution](https://img.shields.io/badge/contributions-welcome-0000FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-`xurlfind3r` is a command-line interface (CLI) utility to find domain's known URLs from **[AlienVault's Open Threat Exchange](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)**, **[URLScan](https://urlscan.io/)**, and the **[Wayback Machine](https://archive.org/web/)**.
+`xurlfind3r` is a command-line interface (CLI) utility to find domain's known URLs from curated passive online sources.
 
 ## Resource
 
@@ -14,16 +14,26 @@
 		* [`go build ...` the development Version](#go-build--the-development-version)
 * [Post Installation](#post-installation)
 * [Usage](#usage)
-* [Contribution](#contribution)
+	* [Basic](#basic)
+	* [Filter Regex](#filter-regex)
+	* [Match Regex](#match-regex)
+* [Contributing](#contributing)
 * [Licensing](#licensing)
-* [Credits](#credits)
 
 ## Features
 
-* Fetches URLs from **[AlienVault's OTX](https://otx.alienvault.com/)**, **[Common Crawl](https://commoncrawl.org/)**, **[URLScan](https://urlscan.io/)**, **[Github](https://github.com)**, **[Intelligence X](https://intelx.io)** and the **[Wayback Machine](https://archive.org/web/)**.
-* Parses URLs from `robots.txt` snapshots on the Wayback Machine.
-* Parses URLs from webpages snapshots on the Wayback Machine.
+* Fetches URLs from curated passive sources to maximize results:
+	* **[AlienVault's OTX](https://otx.alienvault.com/)**
+	* **[BeVigil](https://bevigil.com)**
+	* **[Common Crawl](https://commoncrawl.org/)**
+	* **[URLScan](https://urlscan.io/)**
+	* **[Github](https://github.com)**
+	* **[Intelligence X](https://intelx.io)**
+	* **[Wayback Machine](https://archive.org/web/)**
+* With Wayback Machine, Parses URLs from `robots.txt` snapshots.
+* With Wayback Machine, Parses URLs from webpages' snapshots.
 * Cross-Platform (Windows, Linux & macOS)
+* Supports URLs match and filter
 
 ## Installation
 
@@ -103,13 +113,14 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 ## Post Installation
 
-`xurlfind3r` will work right after [installation](#installation). However, **[Github](https://github.com)** and **[Intelligence X](https://intelx.io)** require API keys to work. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format.
+`xurlfind3r` will work right after [installation](#installation). However, **[BeVigil](https://bevigil.com)**, **[Github](https://github.com)** and **[Intelligence X](https://intelx.io)** require API keys to work, **[URLScan](https://urlscan.io)** supports API key but not required. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these source from which one of them will be used.
 
-Example:
+Example `config.yaml`:
 
 ```yaml
-version: 0.1.0
+version: 0.2.0
 sources:
+    - bevigil
     - commoncrawl
     - github
     - intelx
@@ -117,11 +128,15 @@ sources:
     - urlscan
     - wayback
 keys:
+    bevigil:
+        - awA5nvpKU3N8ygkZ
     github:
         - d23a554bbc1aabb208c9acfbd2dd41ce7fc9db39
         - asdsd54bbc1aabb208c9acfbd2dd41ce7fc9db39
     intelx:
         - 2.intelx.io:00000000-0000-0000-0000-000000000000
+    urlscan:
+        - d4c85d34-e425-446e-d4ab-f5a3412acbe8
 ```
 
 ## Usage
@@ -139,48 +154,63 @@ help message:
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.1.0
-
-A CLI utility to find domain's known URLs.
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.2.0
 
 USAGE:
   xurlfind3r [OPTIONS]
 
 TARGET:
-  -d, --domain string             target domain
-      --include-subdomains bool   include domain's subdomains
+ -d, --domain string              (sub)domain to match URLs
+
+SCOPE:
+     --include-subdomains bool    match subdomain's URLs
 
 SOURCES:
-      --list-sources bool         list available sources
- -s   --sources strings           comma(,) separated sources to use (default: commoncrawl,github,intelx,otx,urlscan,wayback)
+ -s,  --sources bool              list sources
+ -u,  --use-sources string        sources to use (default: bevigil,commoncrawl,github,intelx,otx,urlscan,wayback)
+      --skip-wayback-robots bool  with wayback, skip parsing robots.txt snapshots
+      --skip-wayback-source bool  with wayback, skip parsing source code snapshots
 
-CONFIGURATION:
-      --skip-wayback-robots bool  skip parsing wayback robots.txt snapshots
-      --skip-wayback-source bool  skip parsing wayback source code snapshots
+FILTER & MATCH:
+ -f, --filter string              regex to filter URLs
+ -m, --match string               regex to match URLs
 
 OUTPUT:
-  -m, --monochrome                no colored output mode
-  -o, --output string             output file to write found URLs
-  -v, --verbosity                 debug, info, warning, error, fatal or silent (default: info)
+     --no-color bool              no color mode
+ -o, --output string              output URLs file path
+ -v, --verbosity string           debug, info, warning, error, fatal or silent (default: info)
+
+CONFIGURATION:
+ -c,  --configuration string      configuration file path (default: ~/.hueristiq/xurlfind3r/config.yaml)
+
 ```
 
-## Contribution
+### Examples
+
+#### Basic
+
+```bash
+xurlfind3r -d hackerone.com --include-subdomains
+```
+
+#### Filter Regex
+
+```bash
+# filter images
+xurlfind3r -d hackerone.com --include-subdomains -f '`^https?://[^/]*?/.*\.(jpg|jpeg|png|gif|bmp)(\?[^\s]*)?$`'
+```
+
+#### Match Regex
+
+```bash
+# match js URLs
+xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[^\s]*)?$'
+```
+
+## Contributing
 
 [Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! **Check out the [contribution guidelines](./CONTRIBUTING.md).**
 
 ## Licensing
 
 This utility is distributed under the [MIT license](./LICENSE).
-
-## Credits
-
-* Sources - Thanks to below platforms (Used as data sources in this project):
-	* Alien Vault OTX (otx.alienvault.com)
-	* Common Crawl (index.commoncrawl.org) - [Donate to CommonCrawl](https://commoncrawl.org/donate/)
-	* Github (github.com)
-	* Intelligence X (intelx.io)
-	* URLScan (urlscan.io)
-	* Wayback Machine (web.archive.org) - [Donate to InternetArchive](https://archive.org/donate)
-* Alternatives - Check out projects below, that may fit in your workflow:
-
-	[gau](https://github.com/tomnomnom/waybackurls) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)

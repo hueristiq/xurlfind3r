@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
@@ -20,20 +21,24 @@ type Options struct {
 	Keys               sources.Keys
 	ParseWaybackRobots bool
 	ParseWaybackSource bool
+	FilterPattern      string
+	Matchattern        string
 }
 
 type Finder struct {
 	Sources              map[string]sources.Source
 	SourcesConfiguration *sources.Configuration
+	FilterRegex          *regexp.Regexp
+	MatchRegex           *regexp.Regexp
 }
 
-func New(options *Options) (finder *Finder) {
+func New(options *Options) (finder *Finder, err error) {
 	finder = &Finder{
 		Sources: map[string]sources.Source{},
 		SourcesConfiguration: &sources.Configuration{
-			Keys:               options.Keys,
 			Domain:             options.Domain,
 			IncludeSubdomains:  options.IncludeSubdomains,
+			Keys:               options.Keys,
 			ParseWaybackRobots: options.ParseWaybackRobots,
 			ParseWaybackSource: options.ParseWaybackSource,
 			URLsRegex:          regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`), //nolint:gocritic // Works so far
@@ -42,10 +47,26 @@ func New(options *Options) (finder *Finder) {
 		},
 	}
 
+	if options.FilterPattern != "" {
+		finder.FilterRegex, err = regexp.Compile(options.FilterPattern)
+		if err != nil {
+			return
+		}
+	}
+
+	if options.Matchattern != "" {
+		finder.MatchRegex, err = regexp.Compile(options.Matchattern)
+		if err != nil {
+			return
+		}
+	}
+
 	for index := range options.Sources {
 		source := options.Sources[index]
 
 		switch source {
+		case "bevigil":
+			finder.Sources[source] = &bevigil.Source{}
 		case "commoncrawl":
 			finder.Sources[source] = &commoncrawl.Source{}
 		case "github":
@@ -85,6 +106,16 @@ func (finder *Finder) Find() (URLs chan sources.URL) {
 					_, loaded := seen.LoadOrStore(value, struct{}{})
 					if loaded {
 						continue
+					}
+
+					if finder.MatchRegex != nil {
+						if !finder.MatchRegex.MatchString(URL.Value) {
+							continue
+						}
+					} else if finder.FilterRegex != nil && finder.MatchRegex == nil {
+						if finder.FilterRegex.MatchString(URL.Value) {
+							continue
+						}
 					}
 
 					URLs <- URL

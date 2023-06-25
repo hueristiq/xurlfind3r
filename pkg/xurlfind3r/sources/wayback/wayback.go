@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	hqratelimiter "github.com/hueristiq/hqgoutils/ratelimiter"
+	"github.com/hueristiq/hqgolimit"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
@@ -18,7 +18,7 @@ import (
 type Source struct{}
 
 var (
-	limiter = hqratelimiter.New(&hqratelimiter.Options{
+	limiter = hqgolimit.New(&hqgolimit.Options{
 		RequestsPerMinute: 40,
 	})
 )
