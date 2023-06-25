@@ -1,6 +1,7 @@
 package sources
 
 var List = []string{
+	"bevigil",
 	"commoncrawl",
 	"github",
 	"intelx",

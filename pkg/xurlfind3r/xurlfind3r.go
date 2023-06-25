@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
@@ -64,6 +65,8 @@ func New(options *Options) (finder *Finder, err error) {
 		source := options.Sources[index]
 
 		switch source {
+		case "bevigil":
+			finder.Sources[source] = &bevigil.Source{}
 		case "commoncrawl":
 			finder.Sources[source] = &commoncrawl.Source{}
 		case "github":
