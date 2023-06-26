@@ -26,9 +26,9 @@
 	* **[AlienVault's OTX](https://otx.alienvault.com/)**
 	* **[BeVigil](https://bevigil.com)**
 	* **[Common Crawl](https://commoncrawl.org/)**
-	* **[URLScan](https://urlscan.io/)**
 	* **[Github](https://github.com)**
 	* **[Intelligence X](https://intelx.io)**
+	* **[URLScan](https://urlscan.io/)**
 	* **[Wayback Machine](https://archive.org/web/)**
 * With Wayback Machine, Parses URLs from `robots.txt` snapshots.
 * With Wayback Machine, Parses URLs from webpages' snapshots.
