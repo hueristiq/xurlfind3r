@@ -11,7 +11,7 @@ require (
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80
-	github.com/valyala/fasthttp v1.47.0
+	github.com/valyala/fasthttp v1.48.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
