@@ -10,9 +10,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Source struct{}
-
-type response struct {
+type Response struct {
 	URLList []struct {
 		Domain   string `json:"domain"`
 		URL      string `json:"url"`
@@ -29,44 +27,50 @@ type response struct {
 	ActualSize int  `json:"actual_size"`
 }
 
+type Source struct{}
+
 func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			err error
-			res *fasthttp.Response
-		)
-
 		for page := 1; ; page++ {
-			res, err = httpclient.SimpleGet(fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", config.Domain, 200, page))
+			var (
+				err error
+			)
+
+			reqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", config.Domain, 200, page)
+
+			var res *fasthttp.Response
+
+			res, err = httpclient.SimpleGet(reqURL)
 			if err != nil {
 				return
 			}
 
-			var results response
+			var data Response
 
-			if err = json.Unmarshal(res.Body(), &results); err != nil {
+			if err = json.Unmarshal(res.Body(), &data); err != nil {
 				return
 			}
 
-			for _, i := range results.URLList {
-				URL := i.URL
+			for index := range data.URLList {
+				URL := data.URLList[index].URL
+				// URL := i.URL
 
-				if !sources.IsValid(URL) {
-					continue
-				}
+				// if !sources.IsValid(URL) {
+				// 	continue
+				// }
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-					return
-				}
+				// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				// 	return
+				// }
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
-			if !results.HasNext {
+			if !data.HasNext {
 				break
 			}
 		}

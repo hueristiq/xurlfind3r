@@ -12,7 +12,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type searchResponseType struct {
+type SearchResponse struct {
 	ID     string `json:"id"`
 	Status int    `json:"status"`
 }
@@ -42,10 +42,12 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		defer close(URLsChannel)
 
 		var (
-			key  string
-			err  error
-			res  *fasthttp.Response
+			err error
+			key string
+
 			body []byte
+
+			res *fasthttp.Response
 		)
 
 		key, err = sources.PickRandom(config.Keys.Intelx)
@@ -62,14 +64,14 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		}
 
 		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", intelXHost, intelXKey)
-		reqBody := requestBody{
+		searchReqBody := requestBody{
 			Term:       config.Domain,
 			MaxResults: 100000,
 			Media:      0,
 			Timeout:    20,
 		}
 
-		body, err = json.Marshal(reqBody)
+		body, err = json.Marshal(searchReqBody)
 		if err != nil {
 			return
 		}
@@ -79,7 +81,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			return
 		}
 
-		var response searchResponseType
+		var response SearchResponse
 
 		if err = json.Unmarshal(res.Body(), &response); err != nil {
 			return
@@ -105,13 +107,13 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			for _, hostname := range response.Selectors {
 				URL := hostname.Selectvalue
 
-				if !sources.IsValid(URL) {
-					continue
-				}
+				// if !sources.IsValid(URL) {
+				// 	continue
+				// }
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-					return
-				}
+				// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				// 	return
+				// }
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}

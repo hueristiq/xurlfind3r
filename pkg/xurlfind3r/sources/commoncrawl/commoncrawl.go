@@ -13,17 +13,17 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Source struct{}
+type API struct {
+	ID  string `json:"id"`
+	API string `json:"cdx-API"`
+}
 
-type CDXAPIResult struct {
+type Response struct {
 	URL   string `json:"url"`
 	Error string `json:"error"`
 }
 
-type Index struct {
-	ID      string `json:"id"`
-	CDX_API string `json:"cdx-API"` //nolint:revive,stylecheck // Is as is
-}
+type Source struct{}
 
 func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
@@ -33,37 +33,42 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 		var (
 			err error
-			res *fasthttp.Response
 		)
+
+		var res *fasthttp.Response
 
 		res, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
 			return
 		}
 
-		var commonCrawlIndexes []Index
+		var APIs []API
 
-		if err = json.Unmarshal(res.Body(), &commonCrawlIndexes); err != nil {
+		if err = json.Unmarshal(res.Body(), &APIs); err != nil {
 			return
 		}
 
 		wg := new(sync.WaitGroup)
 
-		for index := range commonCrawlIndexes {
+		for index := range APIs {
 			wg.Add(1)
 
-			commonCrawlIndex := commonCrawlIndexes[index]
+			API := APIs[index]
 
 			go func(API string) {
 				defer wg.Done()
 
 				var (
-					err     error
-					headers = map[string]string{"Host": "index.commoncrawl.org"}
-					res     *fasthttp.Response
+					err error
+					// headers = map[string]string{"Host": "index.commoncrawl.org"}
+					// res *fasthttp.Response
 				)
 
-				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, config.Domain), "", headers)
+				reqHeaders := map[string]string{"Host": "index.commoncrawl.org"}
+
+				var res *fasthttp.Response
+
+				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, config.Domain), "", reqHeaders)
 				if err != nil {
 					return
 				}
@@ -71,25 +76,25 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
 
 				for scanner.Scan() {
-					var result CDXAPIResult
+					var data Response
 
-					if err = json.Unmarshal(scanner.Bytes(), &result); err != nil {
+					if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {
 						return
 					}
 
-					if result.Error != "" {
+					if data.Error != "" {
 						return
 					}
 
-					URL := result.URL
+					URL := data.URL
 
-					if !sources.IsValid(URL) {
-						return
-					}
+					// if !sources.IsValid(URL) {
+					// 	return
+					// }
 
-					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-						return
-					}
+					// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					// 	return
+					// }
 
 					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 				}
@@ -97,7 +102,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				if scanner.Err() != nil {
 					return
 				}
-			}(commonCrawlIndex.CDX_API)
+			}(API.API)
 		}
 
 		wg.Wait()

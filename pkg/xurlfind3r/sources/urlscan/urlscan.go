@@ -4,13 +4,14 @@ package urlscan
 import (
 	"encoding/json"
 	"net/url"
+	"strings"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
-type response struct {
+type Response struct {
 	Results []struct {
 		Page struct {
 			Domain   string `json:"domain"`
@@ -35,13 +36,13 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		defer close(URLsChannel)
 
 		var (
-			key         string
-			err         error
-			res         *fasthttp.Response
+			err error
+			key string
+
 			searchAfter []interface{}
-			headers     = map[string]string{
-				"Content-Type": "application/json",
-			}
+
+			// res     *fasthttp.Response
+			resData Response
 		)
 
 		key, err = sources.PickRandom(config.Keys.URLScan)
@@ -49,8 +50,12 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			return
 		}
 
+		reqHeaders := map[string]string{
+			"Content-Type": "application/json",
+		}
+
 		if len(config.Keys.URLScan) > 0 {
-			headers["API-Key"] = key
+			reqHeaders["API-Key"] = key
 		}
 
 		for {
@@ -65,42 +70,47 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 			reqURL := baseURL + "?" + params.Encode()
 
-			res, err = httpclient.Request(fasthttp.MethodGet, reqURL, "", headers, nil)
+			var res *fasthttp.Response
+
+			res, err = httpclient.Request(fasthttp.MethodGet, reqURL, "", reqHeaders, nil)
 			if err != nil {
 				return
 			}
 
-			body := res.Body()
+			var data Response
 
-			var results response
-
-			if err = json.Unmarshal(body, &results); err != nil {
+			if err = json.Unmarshal(res.Body(), &data); err != nil {
 				return
 			}
 
-			if results.Status == 429 {
+			if data.Status == 429 {
 				break
 			}
 
-			for _, i := range results.Results {
-				URL := i.Page.URL
+			for index := range data.Results {
+				URL := data.Results[index].Page.URL
 
-				if !sources.IsValid(URL) {
-					continue
+				if data.Results[index].Page.Domain == config.Domain ||
+					strings.HasSuffix(data.Results[index].Page.Domain, config.Domain) {
+					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 				}
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-					return
-				}
+				// if !sources.IsValid(URL) {
+				// 	continue
+				// }
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				// 	return
+				// }
+
+				// URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
-			if !results.HasMore {
+			if !resData.HasMore {
 				break
 			}
 
-			lastResult := results.Results[len(results.Results)-1]
+			lastResult := resData.Results[len(resData.Results)-1]
 			searchAfter = lastResult.Sort
 		}
 	}()

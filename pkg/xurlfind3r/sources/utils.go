@@ -37,7 +37,9 @@ func PickRandom[T any](v []T) (picked T, err error) {
 }
 
 func IsValid(URL string) (isValid bool) {
-	var err error
+	var (
+		err error
+	)
 
 	_, err = hqgourl.Parse(URL)
 	if err != nil {

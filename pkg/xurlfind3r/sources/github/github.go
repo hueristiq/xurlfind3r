@@ -137,13 +137,13 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLsCh
 				}
 
 				for _, URL = range domainRegexp.FindAllString(normalizeContent(line), -1) {
-					if !sources.IsValid(URL) {
-						continue
-					}
+					// if !sources.IsValid(URL) {
+					// 	continue
+					// }
 
-					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-						return
-					}
+					// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					// 	return
+					// }
 
 					URLsChannel <- sources.URL{Source: name, Value: URL}
 				}
@@ -152,9 +152,9 @@ func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLsCh
 
 		for _, textMatch := range item.TextMatches {
 			for _, URL = range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
-				if !sources.IsValid(URL) {
-					continue
-				}
+				// if !sources.IsValid(URL) {
+				// 	continue
+				// }
 
 				URLsChannel <- sources.URL{Source: name, Value: URL}
 			}
