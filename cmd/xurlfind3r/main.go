@@ -14,7 +14,6 @@ import (
 	"github.com/hueristiq/hqgolog/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/spf13/pflag"
 )
@@ -22,12 +21,12 @@ import (
 var (
 	au aurora.Aurora
 
-	domain string
-
+	domain            string
 	includeSubdomains bool
 
 	listSources        bool
 	sourcesToUse       []string
+	sourcesToExclude   []string
 	parseWaybackRobots bool
 	parseWaybackSource bool
 
@@ -50,7 +49,8 @@ func init() {
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 
 	pflag.BoolVarP(&listSources, "sources", "s", false, "")
-	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", sources.List, "")
+	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
+	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
 	pflag.BoolVar(&parseWaybackRobots, "parse-wayback-robots", false, "")
 	pflag.BoolVar(&parseWaybackSource, "parse-wayback-source", false, "")
 
@@ -75,8 +75,9 @@ func init() {
 		h += "     --include-subdomains bool    match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
-		h += " -s,  --sources bool              list sources\n"
-		h += fmt.Sprintf(" -u,  --use-sources strings       sources to use (default: %s)\n", strings.Join(sources.List, ","))
+		h += " -s,  --sources bool              list supported sources\n"
+		h += " -u,  --use-sources strings       comma(,) separated sources to use\n"
+		h += " -e,  --exclude-sources strings   comma(,) separated sources to exclude\n"
 		h += "      --parse-wayback-robots bool with wayback, parse robots.txt snapshots\n"
 		h += "      --parse-wayback-source bool with wayback, parse source code snapshots\n"
 
@@ -172,7 +173,8 @@ func main() {
 	options := &xurlfind3r.Options{
 		Domain:             domain,
 		IncludeSubdomains:  includeSubdomains,
-		Sources:            sourcesToUse,
+		SourcesToUSe:       sourcesToUse,
+		SourcesToExclude:   sourcesToExclude,
 		Keys:               config.Keys,
 		ParseWaybackRobots: parseWaybackRobots,
 		ParseWaybackSource: parseWaybackSource,

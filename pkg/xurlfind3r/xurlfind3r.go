@@ -17,7 +17,8 @@ import (
 type Options struct {
 	Domain             string
 	IncludeSubdomains  bool
-	Sources            []string
+	SourcesToUSe       []string
+	SourcesToExclude   []string
 	Keys               sources.Keys
 	ParseWaybackRobots bool
 	ParseWaybackSource bool
@@ -61,8 +62,13 @@ func New(options *Options) (finder *Finder, err error) {
 		}
 	}
 
-	for index := range options.Sources {
-		source := options.Sources[index]
+	// Sources To Use
+	if len(options.SourcesToUSe) < 1 {
+		options.SourcesToUSe = sources.List
+	}
+
+	for index := range options.SourcesToUSe {
+		source := options.SourcesToUSe[index]
 
 		switch source {
 		case "bevigil":
@@ -80,6 +86,13 @@ func New(options *Options) (finder *Finder, err error) {
 		case "wayback":
 			finder.Sources[source] = &wayback.Source{}
 		}
+	}
+
+	// Sources To Exclude
+	for index := range options.SourcesToExclude {
+		source := options.SourcesToExclude[index]
+
+		delete(finder.Sources, source)
 	}
 
 	return
