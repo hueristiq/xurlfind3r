@@ -26,10 +26,10 @@ var (
 
 	includeSubdomains bool
 
-	listSources       bool
-	sourcesToUse      []string
-	skipWaybackRobots bool
-	skipWaybackSource bool
+	listSources        bool
+	sourcesToUse       []string
+	parseWaybackRobots bool
+	parseWaybackSource bool
 
 	filterPattern string
 	matchPattern  string
@@ -47,13 +47,12 @@ func init() {
 
 	// Handle CLI arguments, flags & help message (pflag)
 	pflag.StringVarP(&domain, "domain", "d", "", "")
-
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 
 	pflag.BoolVarP(&listSources, "sources", "s", false, "")
 	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", sources.List, "")
-	pflag.BoolVar(&skipWaybackRobots, "skip-wayback-robots", false, "")
-	pflag.BoolVar(&skipWaybackSource, "skip-wayback-source", false, "")
+	pflag.BoolVar(&parseWaybackRobots, "parse-wayback-robots", false, "")
+	pflag.BoolVar(&parseWaybackSource, "parse-wayback-source", false, "")
 
 	pflag.StringVarP(&filterPattern, "filter", "f", "", "")
 	pflag.StringVarP(&matchPattern, "match", "m", "", "")
@@ -72,16 +71,14 @@ func init() {
 		h += "  xurlfind3r [OPTIONS]\n"
 
 		h += "\nTARGET:\n"
-		h += " -d, --domain string              (sub)domain to match URLs\n"
-
-		h += "\nSCOPE:\n"
+		h += " -d, --domain string              domain to match URLs\n"
 		h += "     --include-subdomains bool    match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
 		h += " -s,  --sources bool              list sources\n"
-		h += fmt.Sprintf(" -u,  --use-sources string        sources to use (default: %s)\n", strings.Join(sources.List, ","))
-		h += "      --skip-wayback-robots bool  with wayback, skip parsing robots.txt snapshots\n"
-		h += "      --skip-wayback-source bool  with wayback, skip parsing source code snapshots\n"
+		h += fmt.Sprintf(" -u,  --use-sources strings       sources to use (default: %s)\n", strings.Join(sources.List, ","))
+		h += "      --parse-wayback-robots bool with wayback, parse robots.txt snapshots\n"
+		h += "      --parse-wayback-source bool with wayback, parse source code snapshots\n"
 
 		h += "\nFILTER & MATCH:\n"
 		h += " -f, --filter string              regex to filter URLs\n"
@@ -177,8 +174,8 @@ func main() {
 		IncludeSubdomains:  includeSubdomains,
 		Sources:            sourcesToUse,
 		Keys:               config.Keys,
-		ParseWaybackRobots: !skipWaybackRobots,
-		ParseWaybackSource: !skipWaybackSource,
+		ParseWaybackRobots: parseWaybackRobots,
+		ParseWaybackSource: parseWaybackSource,
 		FilterPattern:      filterPattern,
 		Matchattern:        matchPattern,
 	}
