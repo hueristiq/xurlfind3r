@@ -18,22 +18,22 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Source struct{}
+type Response struct {
+	TotalCount int    `json:"total_count"`
+	Items      []Item `json:"items"`
+}
 
-type textMatch struct {
+type Item struct {
+	Name        string      `json:"name"`
+	HTMLURL     string      `json:"html_url"`
+	TextMatches []TextMatch `json:"text_matches"`
+}
+
+type TextMatch struct {
 	Fragment string `json:"fragment"`
 }
 
-type item struct {
-	Name        string      `json:"name"`
-	HTMLURL     string      `json:"html_url"`
-	TextMatches []textMatch `json:"text_matches"`
-}
-
-type response struct {
-	TotalCount int    `json:"total_count"`
-	Items      []item `json:"items"`
-}
+type Source struct{}
 
 func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
@@ -47,7 +47,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 		tokens := NewTokenManager(config.Keys.GitHub)
 
-		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%s&sort=created&order=asc", config.Domain)
+		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", config.Domain)
 
 		source.Enumerate(searchURL, config.URLsRegex, tokens, URLsChannel, config)
 	}()
@@ -55,7 +55,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 	return URLsChannel
 }
 
-func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
+func (source *Source) Enumerate(searchURL string, URLsRegex *regexp.Regexp, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -66,43 +66,96 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 		}
 	}
 
-	var (
-		err     error
-		headers = map[string]string{
-			"Accept":        "application/vnd.github.v3.text-match+json",
-			"Authorization": "token " + token.Hash,
-		}
-		res *fasthttp.Response
-	)
+	reqHeaders := map[string]string{
+		"Accept":        "application/vnd.github.v3.text-match+json",
+		"Authorization": "token " + token.Hash,
+	}
 
-	res, err = httpclient.Request(fasthttp.MethodGet, searchURL, "", headers, nil)
+	searchRes, err := httpclient.Request(fasthttp.MethodGet, searchURL, "", reqHeaders, nil)
 
-	isForbidden := res != nil && res.StatusCode() == fasthttp.StatusForbidden
+	isForbidden := searchRes != nil && searchRes.StatusCode() == fasthttp.StatusForbidden
 
 	if err != nil && !isForbidden {
 		return
 	}
 
-	ratelimitRemaining, _ := strconv.ParseInt(string(res.Header.Peek("X-Ratelimit-Remaining")), 10, 64)
+	ratelimitRemaining, _ := strconv.ParseInt(string(searchRes.Header.Peek("X-Ratelimit-Remaining")), 10, 64)
+
 	if isForbidden && ratelimitRemaining == 0 {
-		retryAfterSeconds, _ := strconv.ParseInt(string(res.Header.Peek("Retry-After")), 10, 64)
+		retryAfterSeconds, _ := strconv.ParseInt(string(searchRes.Header.Peek("Retry-After")), 10, 64)
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchURL, domainRegexp, tokens, URLsChannel, config)
+		source.Enumerate(searchURL, URLsRegex, tokens, URLsChannel, config)
 	}
 
-	var results response
+	var searchResData Response
 
-	if err = json.Unmarshal(res.Body(), &results); err != nil {
+	if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
 		return
 	}
 
-	err = proccesItems(results.Items, domainRegexp, source.Name(), URLsChannel, config)
-	if err != nil {
-		return
+	// Process Items
+	for index := range searchResData.Items {
+		item := searchResData.Items[index]
+
+		reqURL := getRawContentURL(item.HTMLURL)
+
+		var contentRes *fasthttp.Response
+
+		contentRes, err = httpclient.SimpleGet(reqURL)
+		if err != nil {
+			continue
+		}
+
+		if contentRes.StatusCode() != fasthttp.StatusOK {
+			continue
+		}
+
+		scanner := bufio.NewScanner(bytes.NewReader(contentRes.Body()))
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				continue
+			}
+
+			URLs := URLsRegex.FindAllString(normalizeContent(line), -1)
+
+			for index := range URLs {
+				URL := URLs[index]
+				URL = fixURL(URL)
+
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
+
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+			}
+		}
+
+		if scanner.Err() != nil {
+			return
+		}
+
+		for index := range item.TextMatches {
+			textMatch := item.TextMatches[index]
+
+			URLs := URLsRegex.FindAllString(normalizeContent(textMatch.Fragment), -1)
+
+			for index := range URLs {
+				URL := URLs[index]
+				URL = fixURL(URL)
+
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
+
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+			}
+		}
 	}
 
-	linksHeader := linkheader.Parse(string(res.Header.Peek("Link")))
+	linksHeader := linkheader.Parse(string(searchRes.Header.Peek("Link")))
 
 	for _, link := range linksHeader {
 		if link.Rel == "next" {
@@ -111,72 +164,123 @@ func (source *Source) Enumerate(searchURL string, domainRegexp *regexp.Regexp, t
 				return
 			}
 
-			source.Enumerate(nextURL, domainRegexp, tokens, URLsChannel, config)
+			source.Enumerate(nextURL, URLsRegex, tokens, URLsChannel, config)
 		}
 	}
 }
 
-func proccesItems(items []item, domainRegexp *regexp.Regexp, name string, URLsChannel chan sources.URL, config *sources.Configuration) (err error) {
-	for _, item := range items {
-		var (
-			res *fasthttp.Response
-			URL string
-		)
+func getRawContentURL(URL string) (rawContentURL string) {
+	rawContentURL = URL
+	rawContentURL = strings.ReplaceAll(rawContentURL, "https://github.com/", "https://raw.githubusercontent.com/")
+	rawContentURL = strings.ReplaceAll(rawContentURL, "/blob/", "/")
 
-		res, err = httpclient.SimpleGet(rawContentURL(item.HTMLURL))
-		if err != nil {
-			continue
+	return
+}
+
+func normalizeContent(content string) (normalizedContent string) {
+	normalizedContent = content
+	normalizedContent, _ = url.QueryUnescape(normalizedContent)
+	normalizedContent = strings.ReplaceAll(normalizedContent, "\\t", "")
+	normalizedContent = strings.ReplaceAll(normalizedContent, "\\n", "")
+
+	return
+}
+
+func fixURL(URL string) (fixedURL string) {
+	fixedURL = URL
+
+	// ',",`,
+	quotes := []rune{'\'', '"', '`'}
+
+	for i := range quotes {
+		quote := quotes[i]
+
+		indexOfQuote := findUnbalancedQuote(URL, quote)
+		if indexOfQuote <= len(fixedURL) && indexOfQuote >= 0 {
+			fixedURL = fixedURL[:indexOfQuote]
 		}
+	}
 
-		if res.StatusCode() == fasthttp.StatusOK {
-			scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
-			for scanner.Scan() {
-				line := scanner.Text()
-				if line == "" {
-					continue
-				}
+	// (),[],{}
+	parentheses := []struct {
+		Opening, Closing rune
+	}{
+		{'[', ']'},
+		{'(', ')'},
+		{'{', '}'},
+	}
 
-				for _, URL = range domainRegexp.FindAllString(normalizeContent(line), -1) {
-					// if !sources.IsValid(URL) {
-					// 	continue
-					// }
+	for i := range parentheses {
+		parenthesis := parentheses[i]
 
-					// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-					// 	return
-					// }
-
-					URLsChannel <- sources.URL{Source: name, Value: URL}
-				}
-			}
+		indexOfParenthesis := findUnbalancedBracket(URL, parenthesis.Opening, parenthesis.Closing)
+		if indexOfParenthesis <= len(fixedURL) && indexOfParenthesis >= 0 {
+			fixedURL = fixedURL[:indexOfParenthesis]
 		}
+	}
 
-		for _, textMatch := range item.TextMatches {
-			for _, URL = range domainRegexp.FindAllString(normalizeContent(textMatch.Fragment), -1) {
-				// if !sources.IsValid(URL) {
-				// 	continue
-				// }
-
-				URLsChannel <- sources.URL{Source: name, Value: URL}
-			}
-		}
+	// ;
+	indexOfComma := strings.Index(fixedURL, ";")
+	if indexOfComma <= len(fixedURL) && indexOfComma >= 0 {
+		fixedURL = fixedURL[:indexOfComma]
 	}
 
 	return
 }
 
-func normalizeContent(content string) string {
-	content, _ = url.QueryUnescape(content)
-	content = strings.ReplaceAll(content, "\\t", "")
-	content = strings.ReplaceAll(content, "\\n", "")
+func findUnbalancedQuote(s string, quoteChar rune) int {
+	insideQuotes := false
 
-	return content
+	for _, ch := range s {
+		if ch == quoteChar {
+			if insideQuotes {
+				insideQuotes = false
+			} else {
+				insideQuotes = true
+			}
+		}
+	}
+
+	// If still inside quotes at the end of the string,
+	// find the index of the opening quote
+	if insideQuotes {
+		for i, ch := range s {
+			if ch == quoteChar {
+				return i
+			}
+		}
+	}
+
+	return -1 // return -1 if all quotes are balanced
 }
 
-func rawContentURL(URL string) string {
-	URL = strings.ReplaceAll(URL, "https://github.com/", "https://raw.githubusercontent.com/")
-	URL = strings.ReplaceAll(URL, "/blob/", "/")
+func findUnbalancedBracket(s string, openChar, closeChar rune) int {
+	openCount := 0
 
-	return URL
+	var firstOpenIndex int
+
+	for i, ch := range s {
+		if ch == openChar {
+			if openCount == 0 {
+				firstOpenIndex = i
+			}
+
+			openCount++
+		} else if ch == closeChar {
+			openCount--
+
+			if openCount < 0 {
+				return i // Found an unbalanced closing bracket
+			}
+		}
+	}
+
+	// If there are unmatched opening brackets
+	if openCount > 0 {
+		return firstOpenIndex
+	}
+
+	return -1 // All brackets are balanced
 }
 
 func (source *Source) Name() string {

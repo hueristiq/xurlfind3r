@@ -29,6 +29,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 	go func() {
 		defer close(URLsChannel)
 
+		// Get wayback URLs
 		waybackURLs := make(chan string)
 
 		go func() {
@@ -58,6 +59,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			}
 		}()
 
+		// Process wayback Snapshots
 		wg := &sync.WaitGroup{}
 
 		for URL := range waybackURLs {
@@ -65,10 +67,6 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 			go func(URL string) {
 				defer wg.Done()
-
-				if !sources.IsValid(URL) {
-					return
-				}
 
 				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
 					return
@@ -86,11 +84,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 				if config.ParseWaybackRobots &&
 					config.RobotsURLsRegex.MatchString(URL) {
-					for robotsURL := range parseWaybackRobots(URL) {
-						if !sources.IsValid(robotsURL) {
-							continue
-						}
-
+					for robotsURL := range parseWaybackRobots(config, URL) {
 						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
 							return
 						}
@@ -99,11 +93,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 					}
 				} else if config.ParseWaybackSource &&
 					!config.RobotsURLsRegex.MatchString(URL) {
-					for sourceURL := range parseWaybackSource(URL, config.URLsRegex) {
-						if !sources.IsValid(sourceURL) {
-							continue
-						}
-
+					for sourceURL := range parseWaybackSource(config, URL) {
 						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
 							return
 						}

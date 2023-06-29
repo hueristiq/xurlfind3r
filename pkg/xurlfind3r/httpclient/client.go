@@ -3,7 +3,6 @@ package httpclient
 import (
 	"fmt"
 
-	"github.com/corpix/uarand"
 	"github.com/valyala/fasthttp"
 )
 
@@ -25,14 +24,21 @@ func httpRequestWrapper(req *fasthttp.Request) (res *fasthttp.Response, err erro
 	return
 }
 
-func Request(method, URL, cookies string, headers map[string]string, body []byte) (*fasthttp.Response, error) {
+func Request(method, URL, cookies string, headers map[string]string, body []byte) (res *fasthttp.Response, err error) {
 	req := fasthttp.AcquireRequest()
 
 	req.SetRequestURI(URL)
 	req.SetBody(body)
 	req.Header.SetMethod(method)
 
-	req.Header.Set("User-Agent", uarand.GetRandom())
+	var agent string
+
+	agent, err = UserAgent()
+	if err != nil {
+		return
+	}
+
+	req.Header.Set("User-Agent", agent)
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en")
 	req.Header.Set("Connection", "close")

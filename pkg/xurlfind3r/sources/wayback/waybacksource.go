@@ -3,59 +3,45 @@ package wayback
 import (
 	"fmt"
 	"mime"
-	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/hueristiq/hqgourl"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string) {
-	URLs = make(chan string)
-
-	parsedURL, err := hqgourl.Parse(URL)
-	if err != nil {
-		return
-	}
-
-	escapedDomain := regexp.QuoteMeta(parsedURL.ETLDPlusOne)
-	pattern := fmt.Sprintf(`https?://([a-z0-9.-]*\.)?%s(/[a-zA-Z0-9()/*\-+_~:,.?#=]*)?`, escapedDomain)
-	re := regexp.MustCompile(pattern)
+func parseWaybackSource(config *sources.Configuration, URL string) (sourceURLs chan string) {
+	sourceURLs = make(chan string)
 
 	go func() {
-		defer close(URLs)
+		defer close(sourceURLs)
 
 		// retrieve snapshots
-		var (
-			err       error
-			snapshots [][2]string
-		)
-
-		snapshots, err = getWaybackSnapshots(URL)
+		snapshots, err := getWaybackSnapshots(URL)
 		if err != nil {
 			return
 		}
 
-		// retrieve content
+		// retrieve and parse snapshots' content for robotsURLs
 		wg := &sync.WaitGroup{}
 
-		for _, row := range snapshots {
+		for index := range snapshots {
+			row := snapshots[index]
+
 			wg.Add(1)
 
 			go func(row [2]string) {
 				defer wg.Done()
 
-				var (
-					err     error
-					content string
-				)
-
-				content, err = getWaybackContent(row)
+				content, err := getWaybackContent(row)
 				if err != nil {
 					return
 				}
 
-				for _, sourceURL := range URLsRegex.FindAllString(content, -1) {
+				links := config.LinkFinderRegex.FindAllString(content, -1)
+
+				for index := range links {
+					sourceURL := links[index]
 					// remove beginning and ending quotes
 					sourceURL = strings.Trim(sourceURL, "\"")
 					sourceURL = strings.Trim(sourceURL, "'")
@@ -74,10 +60,10 @@ func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string)
 					}
 
 					if parsedSourceURL.IsAbs() {
-						matches := re.FindAllString(sourceURL, -1)
+						matches := config.URLsRegex.FindAllString(sourceURL, -1)
 
 						for _, match := range matches {
-							URLs <- match
+							sourceURLs <- match
 						}
 					} else {
 						_, _, err := mime.ParseMediaType(sourceURL)
@@ -85,10 +71,10 @@ func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string)
 							continue
 						}
 
-						matches := re.FindAllString(sourceURL, -1)
+						matches := config.URLsRegex.FindAllString(sourceURL, -1)
 
 						for _, match := range matches {
-							URLs <- match
+							sourceURLs <- match
 						}
 
 						if len(matches) > 0 {
@@ -98,9 +84,9 @@ func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string)
 						// remove beginning slash
 						sourceURL = strings.TrimLeft(sourceURL, "/")
 
-						sourceURL = fmt.Sprintf("%s://%s/%s", parsedURL.Scheme, parsedURL.Domain, sourceURL)
+						sourceURL = fmt.Sprintf("%s://%s/%s", parsedSourceURL.Scheme, parsedSourceURL.Domain, sourceURL)
 
-						URLs <- sourceURL
+						sourceURLs <- sourceURL
 					}
 				}
 			}(row)

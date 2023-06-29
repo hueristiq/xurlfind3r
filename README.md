@@ -160,16 +160,15 @@ USAGE:
   xurlfind3r [OPTIONS]
 
 TARGET:
- -d, --domain string              (sub)domain to match URLs
-
-SCOPE:
+ -d, --domain string              domain to match URLs
      --include-subdomains bool    match subdomain's URLs
 
 SOURCES:
- -s,  --sources bool              list sources
- -u,  --use-sources string        sources to use (default: bevigil,commoncrawl,github,intelx,otx,urlscan,wayback)
-      --skip-wayback-robots bool  with wayback, skip parsing robots.txt snapshots
-      --skip-wayback-source bool  with wayback, skip parsing source code snapshots
+ -s,  --sources bool              list supported sources
+ -u,  --use-sources strings       comma(,) separated sources to use
+ -e,  --exclude-sources strings   comma(,) separated sources to exclude
+      --parse-wayback-robots bool with wayback, parse robots.txt snapshots
+      --parse-wayback-source bool with wayback, parse source code snapshots
 
 FILTER & MATCH:
  -f, --filter string              regex to filter URLs
@@ -183,6 +182,7 @@ OUTPUT:
 CONFIGURATION:
  -c,  --configuration string      configuration file path (default: ~/.hueristiq/xurlfind3r/config.yaml)
 
+pflag: help requested
 ```
 
 ### Examples

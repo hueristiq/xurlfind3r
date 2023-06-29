@@ -49,28 +49,23 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				return
 			}
 
-			var data Response
+			var resData Response
 
-			if err = json.Unmarshal(res.Body(), &data); err != nil {
+			if err = json.Unmarshal(res.Body(), &resData); err != nil {
 				return
 			}
 
-			for index := range data.URLList {
-				URL := data.URLList[index].URL
-				// URL := i.URL
+			for index := range resData.URLList {
+				URL := resData.URLList[index].URL
 
-				// if !sources.IsValid(URL) {
-				// 	continue
-				// }
-
-				// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-				// 	return
-				// }
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
-			if !data.HasNext {
+			if !resData.HasNext {
 				break
 			}
 		}

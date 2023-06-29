@@ -35,16 +35,16 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			err error
 		)
 
-		var res *fasthttp.Response
+		var indexesRes *fasthttp.Response
 
-		res, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
+		indexesRes, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
 			return
 		}
 
 		var APIs []API
 
-		if err = json.Unmarshal(res.Body(), &APIs); err != nil {
+		if err = json.Unmarshal(indexesRes.Body(), &APIs); err != nil {
 			return
 		}
 
@@ -60,20 +60,18 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 				var (
 					err error
-					// headers = map[string]string{"Host": "index.commoncrawl.org"}
-					// res *fasthttp.Response
 				)
 
-				reqHeaders := map[string]string{"Host": "index.commoncrawl.org"}
+				contentReqHeaders := map[string]string{"Host": "index.commoncrawl.org"}
 
-				var res *fasthttp.Response
+				var contentRes *fasthttp.Response
 
-				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, config.Domain), "", reqHeaders)
+				contentRes, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, config.Domain), "", contentReqHeaders)
 				if err != nil {
 					return
 				}
 
-				scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
+				scanner := bufio.NewScanner(bytes.NewReader(contentRes.Body()))
 
 				for scanner.Scan() {
 					var data Response
@@ -88,13 +86,9 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 					URL := data.URL
 
-					// if !sources.IsValid(URL) {
-					// 	return
-					// }
-
-					// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-					// 	return
-					// }
+					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+						return
+					}
 
 					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 				}

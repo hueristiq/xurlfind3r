@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
-	"net/mail"
 
 	"github.com/hueristiq/hqgourl"
 )
@@ -32,26 +31,6 @@ func PickRandom[T any](v []T) (picked T, err error) {
 
 	// Return the element at the random index
 	picked = v[index]
-
-	return
-}
-
-func IsValid(URL string) (isValid bool) {
-	var (
-		err error
-	)
-
-	_, err = hqgourl.Parse(URL)
-	if err != nil {
-		return
-	}
-
-	_, err = mail.ParseAddress(URL)
-	if err == nil {
-		return
-	}
-
-	isValid = true
 
 	return
 }

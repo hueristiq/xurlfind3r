@@ -21,46 +21,38 @@ import (
 var (
 	au aurora.Aurora
 
-	domain            string
-	includeSubdomains bool
-
+	domain             string
+	includeSubdomains  bool
 	listSources        bool
 	sourcesToUse       []string
 	sourcesToExclude   []string
 	parseWaybackRobots bool
 	parseWaybackSource bool
-
-	filterPattern string
-	matchPattern  string
-
-	monochrome bool
-	output     string
-	verbosity  string
-
-	YAMLConfigFile string
+	filterPattern      string
+	matchPattern       string
+	monochrome         bool
+	output             string
+	verbosity          string
+	YAMLConfigFile     string
 )
 
 func init() {
 	// defaults
-	defaultYAMLConfigFile := "~/.hueristiq/xurlfind3r/config.yaml"
+	defaultYAMLConfigFile := fmt.Sprintf("~/.hueristiq/%s/config.yaml", configuration.NAME)
 
 	// Handle CLI arguments, flags & help message (pflag)
 	pflag.StringVarP(&domain, "domain", "d", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
-
 	pflag.BoolVarP(&listSources, "sources", "s", false, "")
 	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
 	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
 	pflag.BoolVar(&parseWaybackRobots, "parse-wayback-robots", false, "")
 	pflag.BoolVar(&parseWaybackSource, "parse-wayback-source", false, "")
-
 	pflag.StringVarP(&filterPattern, "filter", "f", "", "")
 	pflag.StringVarP(&matchPattern, "match", "m", "", "")
-
 	pflag.BoolVar(&monochrome, "no-color", false, "")
 	pflag.StringVarP(&output, "output", "o", "", "")
 	pflag.StringVarP(&verbosity, "verbosity", "v", string(levels.LevelInfo), "")
-
 	pflag.StringVarP(&YAMLConfigFile, "configuration", "c", defaultYAMLConfigFile, "")
 
 	pflag.CommandLine.SortFlags = false
@@ -104,7 +96,7 @@ func init() {
 		Colorize: !monochrome,
 	}))
 
-	// Create | Update configuration
+	// Create or Update configuration
 	if strings.HasPrefix(YAMLConfigFile, "~") {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -164,7 +156,7 @@ func main() {
 		hqgolog.Info().Msgf("finding URLs for %v.", au.Underline(domain).Bold())
 
 		if includeSubdomains {
-			hqgolog.Info().Msg("`--include-subdomains` used: includes subdomains' URLs.")
+			hqgolog.Info().Msg("`--include-subdomains` used: match subdomain's URLs.")
 		}
 
 		hqgolog.Print().Msg("")

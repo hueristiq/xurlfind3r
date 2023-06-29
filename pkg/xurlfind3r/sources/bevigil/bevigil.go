@@ -24,8 +24,9 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 		var (
 			err error
-			key string
 		)
+
+		var key string
 
 		key, err = sources.PickRandom(config.Keys.Bevigil)
 		if key == "" || err != nil {
@@ -55,6 +56,10 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 		for index := range data.URLs {
 			URL := data.URLs[index]
+
+			if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				return
+			}
 
 			URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 		}

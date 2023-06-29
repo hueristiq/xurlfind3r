@@ -10,6 +10,7 @@ type Configuration struct {
 	Keys               Keys
 	ParseWaybackRobots bool
 	ParseWaybackSource bool
+	LinkFinderRegex    *regexp.Regexp
 	URLsRegex          *regexp.Regexp
 	MediaURLsRegex     *regexp.Regexp
 	RobotsURLsRegex    *regexp.Regexp

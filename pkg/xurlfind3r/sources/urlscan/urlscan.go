@@ -35,17 +35,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			err error
-			key string
-
-			searchAfter []interface{}
-
-			// res     *fasthttp.Response
-			resData Response
-		)
-
-		key, err = sources.PickRandom(config.Keys.URLScan)
+		key, err := sources.PickRandom(config.Keys.URLScan)
 		if key == "" || err != nil {
 			return
 		}
@@ -57,6 +47,8 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		if len(config.Keys.URLScan) > 0 {
 			reqHeaders["API-Key"] = key
 		}
+
+		var searchAfter []interface{}
 
 		for {
 			baseURL := "https://urlscan.io/api/v1/search/"
@@ -77,33 +69,29 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				return
 			}
 
-			var data Response
+			var resData Response
 
-			if err = json.Unmarshal(res.Body(), &data); err != nil {
+			if err = json.Unmarshal(res.Body(), &resData); err != nil {
 				return
 			}
 
-			if data.Status == 429 {
+			if resData.Status == 429 {
 				break
 			}
 
-			for index := range data.Results {
-				URL := data.Results[index].Page.URL
+			for index := range resData.Results {
+				URL := resData.Results[index].Page.URL
 
-				if data.Results[index].Page.Domain == config.Domain ||
-					strings.HasSuffix(data.Results[index].Page.Domain, config.Domain) {
-					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				if resData.Results[index].Page.Domain != config.Domain ||
+					!strings.HasSuffix(resData.Results[index].Page.Domain, config.Domain) {
+					continue
 				}
 
-				// if !sources.IsValid(URL) {
-				// 	continue
-				// }
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
 
-				// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-				// 	return
-				// }
-
-				// URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
 			if !resData.HasMore {

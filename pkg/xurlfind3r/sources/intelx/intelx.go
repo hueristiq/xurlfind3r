@@ -4,6 +4,7 @@ package intelx
 import (
 	"encoding/json"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -43,12 +44,9 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 		var (
 			err error
-			key string
-
-			body []byte
-
-			res *fasthttp.Response
 		)
+
+		var key string
 
 		key, err = sources.PickRandom(config.Keys.Intelx)
 		if key == "" || err != nil {
@@ -56,6 +54,10 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		}
 
 		parts := strings.Split(key, ":")
+		if len(parts) != 2 {
+			return
+		}
+
 		intelXHost := parts[0]
 		intelXKey := parts[1]
 
@@ -71,23 +73,27 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			Timeout:    20,
 		}
 
+		var body []byte
+
 		body, err = json.Marshal(searchReqBody)
 		if err != nil {
 			return
 		}
+
+		var res *fasthttp.Response
 
 		res, err = httpclient.SimplePost(searchURL, "application/json", body)
 		if err != nil {
 			return
 		}
 
-		var response SearchResponse
+		var resData SearchResponse
 
-		if err = json.Unmarshal(res.Body(), &response); err != nil {
+		if err = json.Unmarshal(res.Body(), &resData); err != nil {
 			return
 		}
 
-		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, response.ID)
+		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, resData.ID)
 		status := 0
 
 		for status == 0 || status == 3 {
@@ -96,29 +102,36 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				return
 			}
 
-			var response searchResultType
+			var resData searchResultType
 
-			if err = json.Unmarshal(res.Body(), &response); err != nil {
+			if err = json.Unmarshal(res.Body(), &resData); err != nil {
 				return
 			}
 
-			status = response.Status
+			status = resData.Status
 
-			for _, hostname := range response.Selectors {
+			for _, hostname := range resData.Selectors {
 				URL := hostname.Selectvalue
 
-				// if !sources.IsValid(URL) {
-				// 	continue
-				// }
+				if isEmail(URL) {
+					continue
+				}
 
-				// if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-				// 	return
-				// }
+				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					return
+				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 		}
 	}()
+
+	return
+}
+
+func isEmail(URL string) (isEmail bool) {
+	_, err := mail.ParseAddress(URL)
+	isEmail = err == nil
 
 	return
 }
