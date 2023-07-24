@@ -43,7 +43,7 @@ func init() {
 	// Handle CLI arguments, flags & help message (pflag)
 	pflag.StringVarP(&domain, "domain", "d", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
-	pflag.BoolVarP(&listSources, "sources", "s", false, "")
+	pflag.BoolVar(&listSources, "sources", false, "")
 	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
 	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
 	pflag.BoolVar(&parseWaybackRobots, "parse-wayback-robots", false, "")
@@ -62,28 +62,30 @@ func init() {
 		h := "USAGE:\n"
 		h += "  xurlfind3r [OPTIONS]\n"
 
-		h += "\nTARGET:\n"
-		h += " -d, --domain string              domain to match URLs\n"
-		h += "     --include-subdomains bool    match subdomain's URLs\n"
+		h += "\nINPUT:\n"
+		h += " -d, --domain string                 domain to match URLs\n"
+
+		h += "\nSCOPE:\n"
+		h += "     --include-subdomains bool       match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
-		h += " -s,  --sources bool              list supported sources\n"
-		h += " -u,  --use-sources strings       comma(,) separated sources to use\n"
-		h += " -e,  --exclude-sources strings   comma(,) separated sources to exclude\n"
-		h += "      --parse-wayback-robots bool with wayback, parse robots.txt snapshots\n"
-		h += "      --parse-wayback-source bool with wayback, parse source code snapshots\n"
+		h += "      --sources bool                 list supported sources\n"
+		h += " -u,  --use-sources string[]         comma(,) separated sources to use\n"
+		h += " -e,  --exclude-sources string[]     comma(,) separated sources to exclude\n"
+		h += "      --parse-wayback-robots bool    with wayback, parse robots.txt snapshots\n"
+		h += "      --parse-wayback-source bool    with wayback, parse source code snapshots\n"
 
 		h += "\nFILTER & MATCH:\n"
-		h += " -f, --filter string              regex to filter URLs\n"
-		h += " -m, --match string               regex to match URLs\n"
+		h += " -f, --filter string                 regex to filter URLs\n"
+		h += " -m, --match string                  regex to match URLs\n"
 
 		h += "\nOUTPUT:\n"
-		h += "     --no-color bool              no color mode\n"
-		h += " -o, --output string              output URLs file path\n"
-		h += fmt.Sprintf(" -v, --verbosity string           debug, info, warning, error, fatal or silent (default: %s)\n", string(levels.LevelInfo))
+		h += "     --no-color bool                 disable colored output\n"
+		h += " -o, --output string                 output URLs file path\n"
+		h += fmt.Sprintf(" -v, --verbosity string              debug, info, warning, error, fatal or silent (default: %s)\n", string(levels.LevelInfo))
 
 		h += "\nCONFIGURATION:\n"
-		h += fmt.Sprintf(" -c,  --configuration string      configuration file path (default: %s)\n", defaultYAMLConfigFile)
+		h += fmt.Sprintf(" -c,  --configuration string         configuration file path (default: %s)\n", defaultYAMLConfigFile)
 
 		fmt.Fprintln(os.Stderr, h)
 	}
@@ -127,8 +129,8 @@ func main() {
 
 	// List suported sources
 	if listSources {
-		hqgolog.Info().Msgf("listing %v current supported sources", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
-		hqgolog.Info().Msgf("sources with %v needs a key or token", au.Underline("*").Bold())
+		hqgolog.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
+		hqgolog.Info().Msgf("sources marked with %v need key(s) or token(s) to work.", au.Underline("*").Bold())
 		hqgolog.Print().Msg("")
 
 		needsKey := make(map[string]interface{})

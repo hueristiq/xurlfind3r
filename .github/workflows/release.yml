@@ -26,8 +26,10 @@ jobs:
                 name: Run GoReleaser
                 uses: goreleaser/goreleaser-action@v4
                 with:
-                    args: "release --clean"
+                    distribution: goreleaser
                     version: latest
+                    args: "release --clean"
+                    workdir: .
                 env:
                     GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
                     SLACK_WEBHOOK: "${{ secrets.SLACK_WEBHOOK }}"

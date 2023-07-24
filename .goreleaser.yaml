@@ -39,8 +39,6 @@ archives:
         id: tgz
         builds: [xurlfind3r-cli]
         format: tar.gz
-        replacements:
-            darwin: macOS
         format_overrides:
             -
                 goos: windows
