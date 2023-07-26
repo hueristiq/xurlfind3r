@@ -130,21 +130,21 @@ func init() {
 }
 
 func main() {
-	// Print Banner
+	// Print Banner.
 	if verbosity != string(levels.LevelSilent) {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 	}
 
-	// Read in configuration
+	// Read in configuration.
 	config, err := configuration.Read(YAMLConfigFile)
 	if err != nil {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
-	// List suported sources
+	// If listSources: List suported sources & exit.
 	if listSources {
 		hqgolog.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
-		hqgolog.Info().Msgf("sources marked with %v need key(s) or token(s) to work.", au.Underline("*").Bold())
+		hqgolog.Info().Msgf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold())
 		hqgolog.Print().Msg("")
 
 		needsKey := make(map[string]interface{})
@@ -154,11 +154,11 @@ func main() {
 			needsKey[strings.ToLower(keysElem.Type().Field(i).Name)] = keysElem.Field(i).Interface()
 		}
 
-		for _, source := range config.Sources {
+		for i, source := range config.Sources {
 			if _, ok := needsKey[source]; ok {
-				hqgolog.Print().Msgf("> %s *", source)
+				hqgolog.Print().Msgf("%d. %s *", i+1, source)
 			} else {
-				hqgolog.Print().Msgf("> %s", source)
+				hqgolog.Print().Msgf("%d. %s", i+1, source)
 			}
 		}
 
@@ -167,55 +167,85 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Load input domains.
 	domains := make(chan string, threads)
 
-	// Load input domains
 	go func() {
 		defer close(domains)
 
+		wg := &sync.WaitGroup{}
+
 		// input domains: slice
-		for _, domain := range domainsSlice {
-			domains <- domain
+		if len(domainsSlice) > 0 {
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+
+				for _, domain := range domainsSlice {
+					domains <- domain
+				}
+			}()
 		}
 
 		// input domains: file
 		if domainsListFilePath != "" {
-			file, err := os.Open(domainsListFilePath)
-			if err != nil {
-				hqgolog.Error().Msg(err.Error())
-			}
+			wg.Add(1)
 
-			scanner := bufio.NewScanner(file)
+			go func() {
+				defer wg.Done()
 
-			for scanner.Scan() {
-				domain := scanner.Text()
+				file, err := os.Open(domainsListFilePath)
+				if err != nil {
+					hqgolog.Error().Msg(err.Error())
 
-				if domain != "" {
-					domains <- domain
+					return
 				}
-			}
 
-			if err := scanner.Err(); err != nil {
-				hqgolog.Error().Msg(err.Error())
-			}
+				scanner := bufio.NewScanner(file)
+
+				for scanner.Scan() {
+					domain := scanner.Text()
+
+					if domain != "" {
+						domains <- domain
+					}
+				}
+
+				if err := scanner.Err(); err != nil {
+					hqgolog.Error().Msg(err.Error())
+
+					return
+				}
+			}()
 		}
 
 		// input domains: stdin
 		if hasStdin() {
-			scanner := bufio.NewScanner(os.Stdin)
+			wg.Add(1)
 
-			for scanner.Scan() {
-				domain := scanner.Text()
+			go func() {
+				defer wg.Done()
 
-				if domain != "" {
-					domains <- domain
+				scanner := bufio.NewScanner(os.Stdin)
+
+				for scanner.Scan() {
+					domain := scanner.Text()
+
+					if domain != "" {
+						domains <- domain
+					}
 				}
-			}
 
-			if err := scanner.Err(); err != nil {
-				hqgolog.Error().Msg(err.Error())
-			}
+				if err := scanner.Err(); err != nil {
+					hqgolog.Error().Msg(err.Error())
+
+					return
+				}
+			}()
 		}
+
+		wg.Wait()
 	}()
 
 	// Find and output URLs.
@@ -271,18 +301,20 @@ func main() {
 
 				switch {
 				case output != "":
-					processURLs(consolidatedWriter, URLs, verbosity)
+					outputURLs(consolidatedWriter, URLs, verbosity)
 				case outputDirectory != "":
 					domainFile, err := os.OpenFile(filepath.Join(outputDirectory, domain+".txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 					if err != nil {
-						hqgolog.Fatal().Msg(err.Error())
+						hqgolog.Error().Msg(err.Error())
+
+						return
 					}
 
 					domainWriter := bufio.NewWriter(domainFile)
 
-					processURLs(domainWriter, URLs, verbosity)
+					outputURLs(domainWriter, URLs, verbosity)
 				default:
-					processURLs(nil, URLs, verbosity)
+					outputURLs(nil, URLs, verbosity)
 				}
 			}
 		}()
@@ -311,7 +343,7 @@ func mkdir(path string) {
 	}
 }
 
-func processURLs(writer *bufio.Writer, URLs chan sources.URL, verbosity string) {
+func outputURLs(writer *bufio.Writer, URLs chan sources.URL, verbosity string) {
 	for URL := range URLs {
 		if verbosity == string(levels.LevelSilent) {
 			hqgolog.Print().Msg(URL.Value)
