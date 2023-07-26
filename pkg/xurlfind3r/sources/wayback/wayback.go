@@ -1,4 +1,3 @@
-// Package wayback implements functions to search URLs from wayback.
 package wayback
 
 import (
@@ -30,32 +29,25 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 	go func() {
 		defer close(URLsChannel)
 
-		// Get wayback URLs
 		waybackURLs := make(chan string)
 
 		go func() {
 			defer close(waybackURLs)
 
-			var (
-				err     error
-				results []string
-			)
-
 			if config.IncludeSubdomains {
 				domain = "*." + domain
 			}
 
-			results, err = getWaybackURLs(domain)
+			var err error
+
+			var URLs []string
+
+			URLs, err = getWaybackURLs(domain)
 			if err != nil {
 				return
 			}
 
-			for index := range results {
-				URL := results[index]
-				if URL == "" {
-					continue
-				}
-
+			for _, URL := range URLs {
 				waybackURLs <- URL
 			}
 		}()
@@ -63,7 +55,6 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 		mediaURLRegex := regexp.MustCompile(`(?i)\.(apng|bpm|png|bmp|gif|heif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|psd|raw|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf)(?:\?|#|$)`)
 		robotsURLsRegex := regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`)
 
-		// Process wayback Snapshots
 		wg := &sync.WaitGroup{}
 
 		for URL := range waybackURLs {
@@ -117,20 +108,18 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 func getWaybackURLs(domain string) (URLs []string, err error) {
 	URLs = []string{}
 
-	var (
-		res *fasthttp.Response
-	)
-
 	limiter.Wait()
 
-	reqURL := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain)
+	getURLsReqURL := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain)
 
-	res, err = httpclient.SimpleGet(reqURL)
+	var getURLsRes *fasthttp.Response
+
+	getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
 	if err != nil {
 		return
 	}
 
-	scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
+	scanner := bufio.NewScanner(bytes.NewReader(getURLsRes.Body()))
 
 	for scanner.Scan() {
 		URL := scanner.Text()
@@ -149,24 +138,22 @@ func getWaybackURLs(domain string) (URLs []string, err error) {
 }
 
 func getWaybackSnapshots(URL string) (snapshots [][2]string, err error) {
-	var (
-		res *fasthttp.Response
-	)
-
 	limiter.Wait()
 
-	reqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&collapse=digest", URL)
+	getSnapshotsReqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&collapse=digest", URL)
 
-	res, err = httpclient.SimpleGet(reqURL)
+	var getSnapshotsRes *fasthttp.Response
+
+	getSnapshotsRes, err = httpclient.SimpleGet(getSnapshotsReqURL)
 	if err != nil {
 		return
 	}
 
-	if res.Header.ContentLength() == 0 {
+	if getSnapshotsRes.Header.ContentLength() == 0 {
 		return
 	}
 
-	if err = json.Unmarshal(res.Body(), &snapshots); err != nil {
+	if err = json.Unmarshal(getSnapshotsRes.Body(), &snapshots); err != nil {
 		return
 	}
 
@@ -183,19 +170,20 @@ func getWaybackContent(snapshot [2]string) (content string, err error) {
 	var (
 		timestamp = snapshot[0]
 		URL       = snapshot[1]
-		res       *fasthttp.Response
 	)
 
 	limiter.Wait()
 
-	reqURL := fmt.Sprintf("https://web.archive.org/web/%sif_/%s", timestamp, URL)
+	getSnapshotContentReqURL := fmt.Sprintf("https://web.archive.org/web/%sif_/%s", timestamp, URL)
 
-	res, err = httpclient.SimpleGet(reqURL)
+	var getSnapshotContentRes *fasthttp.Response
+
+	getSnapshotContentRes, err = httpclient.SimpleGet(getSnapshotContentReqURL)
 	if err != nil {
 		return
 	}
 
-	content = string(res.Body())
+	content = string(getSnapshotContentRes.Body())
 
 	if content == "" {
 		return

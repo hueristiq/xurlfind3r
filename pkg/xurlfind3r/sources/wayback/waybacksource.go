@@ -36,9 +36,7 @@ func parseWaybackSource(domain, URL string) (sourceURLs chan string) {
 
 		wg := &sync.WaitGroup{}
 
-		for index := range snapshots {
-			row := snapshots[index]
-
+		for _, row := range snapshots {
 			wg.Add(1)
 
 			go func(row [2]string) {

@@ -13,23 +13,19 @@ import (
 func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan string) {
 	robotsURLs = make(chan string)
 
-	robotsEntryRegex := regexp.MustCompile(`Disallow:\s?.+`)
+	robotsEntryRegex := regexp.MustCompile(`(Allow|Disallow):\s?.+`)
 
 	go func() {
 		defer close(robotsURLs)
 
-		// retrieve snapshots
 		snapshots, err := getWaybackSnapshots(URL)
 		if err != nil {
 			return
 		}
 
-		// retrieve and parse snapshots' content for robotsURLs
 		wg := &sync.WaitGroup{}
 
-		for index := range snapshots {
-			row := snapshots[index]
-
+		for _, row := range snapshots {
 			wg.Add(1)
 
 			go func(row [2]string) {
@@ -40,22 +36,22 @@ func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan s
 					return
 				}
 
-				disallowed := robotsEntryRegex.FindAllStringSubmatch(content, -1)
+				matches := robotsEntryRegex.FindAllStringSubmatch(content, -1)
 
-				if len(disallowed) < 1 {
+				if len(matches) < 1 {
 					return
 				}
 
-				for index := range disallowed {
-					entry := disallowed[index]
+				for _, match := range matches {
+					entry := match[0]
 
-					temp := strings.Split(entry[0], "Disallow:")
+					temp := strings.Split(entry, ": ")
 
 					if len(temp) <= 1 {
 						continue
 					}
 
-					robotsURL := strings.Trim(temp[1], " ")
+					robotsURL := temp[1]
 
 					if robotsURL == "/" || robotsURL == "*" || robotsURL == "" {
 						continue
@@ -66,16 +62,12 @@ func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan s
 					for strings.HasPrefix(robotsURL, "/") {
 						if len(robotsURL) >= 1 {
 							robotsURL = robotsURL[1:] // Ex. /*/test or /*/*/demo
-						} else {
-							continue
 						}
 					}
 
 					for strings.HasSuffix(robotsURL, "/") {
 						if len(robotsURL) >= 1 {
 							robotsURL = robotsURL[0 : len(robotsURL)-1]
-						} else {
-							continue
 						}
 					}
 
