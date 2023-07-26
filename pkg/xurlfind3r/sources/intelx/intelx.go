@@ -1,13 +1,12 @@
-// Package intelx implements functions to search URLs from intelx.
 package intelx
 
 import (
 	"encoding/json"
 	"fmt"
-	"net/mail"
 	"strings"
 	"time"
 
+	"github.com/hueristiq/hqgourl"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
@@ -16,6 +15,7 @@ import (
 type searchRequest struct {
 	Term       string        `json:"term"`
 	Timeout    time.Duration `json:"timeout"`
+	Target     int           `json:"target"`
 	MaxResults int           `json:"maxresults"`
 	Media      int           `json:"media"`
 }
@@ -24,7 +24,7 @@ type searchResponse struct {
 	Status int    `json:"status"`
 }
 
-type resultsResponse struct {
+type getResultsResponse struct {
 	Selectors []struct {
 		Selectvalue string `json:"selectorvalue"`
 	} `json:"selectors"`
@@ -60,57 +60,66 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 			return
 		}
 
-		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", intelXHost, intelXKey)
+		searchReqURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", intelXHost, intelXKey)
 		searchReqBody := searchRequest{
-			Term:       domain,
+			Term:       "*" + domain,
 			MaxResults: 100000,
 			Media:      0,
+			Target:     3, // 1 = Domains | 2 = Emails | 3 = URLs
 			Timeout:    20,
 		}
 
-		var body []byte
+		var searchReqBodyBytes []byte
 
-		body, err = json.Marshal(searchReqBody)
+		searchReqBodyBytes, err = json.Marshal(searchReqBody)
 		if err != nil {
 			return
 		}
 
-		var res *fasthttp.Response
+		var searchRes *fasthttp.Response
 
-		res, err = httpclient.SimplePost(searchURL, "application/json", body)
+		searchRes, err = httpclient.SimplePost(searchReqURL, "application/json", searchReqBodyBytes)
 		if err != nil {
 			return
 		}
 
-		var searchResponseData searchResponse
+		var searchResData searchResponse
 
-		if err = json.Unmarshal(res.Body(), &searchResponseData); err != nil {
+		if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
 			return
 		}
 
-		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, searchResponseData.ID)
+		getResultsReqURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, searchResData.ID)
 		status := 0
 
 		for status == 0 || status == 3 {
-			res, err = httpclient.Get(resultsURL, "", nil)
+			var getResultsRes *fasthttp.Response
+
+			getResultsRes, err = httpclient.Get(getResultsReqURL, "", nil)
 			if err != nil {
 				return
 			}
 
-			var resultsResponseData resultsResponse
+			var getResultsResData getResultsResponse
 
-			if err = json.Unmarshal(res.Body(), &resultsResponseData); err != nil {
+			if err = json.Unmarshal(getResultsRes.Body(), &getResultsResData); err != nil {
 				return
 			}
 
-			status = resultsResponseData.Status
+			status = getResultsResData.Status
 
-			for _, hostname := range resultsResponseData.Selectors {
+			for _, hostname := range getResultsResData.Selectors {
 				URL := hostname.Selectvalue
+				URL = sources.FixURL(URL)
 
-				if isEmail(URL) {
-					continue
+				parsedURL, err := hqgourl.Parse(URL)
+				if err != nil {
+					return
 				}
+
+				parsedURL.Path = strings.Split(parsedURL.Path, ":")[0]
+
+				URL = parsedURL.String()
 
 				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					continue
@@ -120,13 +129,6 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 			}
 		}
 	}()
-
-	return
-}
-
-func isEmail(URL string) (isEmail bool) {
-	_, err := mail.ParseAddress(URL)
-	isEmail = err == nil
 
 	return
 }

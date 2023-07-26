@@ -115,7 +115,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 		URLs := mdExtractor.FindAllString(string(getRawContentRes.Body()), -1)
 
 		for _, URL := range URLs {
-			URL = fixURL(URL)
+			URL = sources.FixURL(URL)
 
 			parsedURL, err := hqgourl.Parse(URL)
 			if err != nil {
@@ -135,7 +135,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 			URLs := mdExtractor.FindAllString(textMatch.Fragment, -1)
 
 			for _, URL := range URLs {
-				URL = fixURL(URL)
+				URL = sources.FixURL(URL)
 
 				parsedURL, err := hqgourl.Parse(URL)
 				if err != nil {
