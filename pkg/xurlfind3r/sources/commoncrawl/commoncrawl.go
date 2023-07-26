@@ -90,7 +90,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					URL := getURLsResData.URL
 
 					if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
-						return
+						continue
 					}
 
 					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}

@@ -90,7 +90,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					robotsURLsRegex.MatchString(URL) {
 					for robotsURL := range parseWaybackRobots(config, URL) {
 						if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
-							return
+							continue
 						}
 
 						URLsChannel <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
@@ -99,7 +99,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					!robotsURLsRegex.MatchString(URL) {
 					for sourceURL := range parseWaybackSource(domain, URL) {
 						if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
-							return
+							continue
 						}
 
 						URLsChannel <- sources.URL{Source: source.Name() + ":source", Value: sourceURL}

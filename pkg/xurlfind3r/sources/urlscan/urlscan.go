@@ -3,7 +3,6 @@ package urlscan
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
@@ -81,12 +80,13 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 			}
 
 			for _, result := range searchResData.Results {
-				if (result.Page.Domain != domain && result.Page.Domain != "www."+domain) &&
-					(config.IncludeSubdomains && !strings.HasSuffix(result.Page.Domain, domain)) {
-					return
+				URL := result.Page.URL
+
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+					continue
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: result.Page.URL}
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
 			if !searchResData.HasMore {

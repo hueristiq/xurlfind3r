@@ -63,12 +63,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 				return
 			}
 
-			for _, URL := range getURLsResData.URLList {
-				if !sources.IsInScope(URL.URL, domain, config.IncludeSubdomains) {
+			for _, item := range getURLsResData.URLList {
+				URL := item.URL
+
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					continue
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL.URL}
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
 			if !getURLsResData.HasNext {

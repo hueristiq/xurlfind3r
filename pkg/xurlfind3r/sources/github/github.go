@@ -141,7 +141,7 @@ func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsCh
 				URL = parsedURL.String()
 
 				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
-					return
+					continue
 				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
@@ -166,7 +166,7 @@ func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsCh
 				URL = parsedURL.String()
 
 				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
-					return
+					continue
 				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}

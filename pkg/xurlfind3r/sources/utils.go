@@ -39,9 +39,18 @@ func IsInScope(URL, domain string, includeSubdomains bool) (isInScope bool) {
 		return
 	}
 
+	parsedDomain, err := hqgourl.Parse(domain)
+	if err != nil {
+		return
+	}
+
+	if parsedURL.ETLDPlusOne != parsedDomain.ETLDPlusOne {
+		return
+	}
+
 	if !includeSubdomains &&
-		parsedURL.Domain != domain &&
-		parsedURL.Domain != "www."+domain {
+		parsedURL.Domain != parsedDomain.Domain &&
+		parsedURL.Domain != "www."+parsedDomain.Domain {
 		return
 	}
 
