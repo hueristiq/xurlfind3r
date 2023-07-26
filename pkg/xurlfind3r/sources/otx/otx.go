@@ -38,8 +38,9 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 		for page := 1; ; page++ {
 			reqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page)
 
-			var res *fasthttp.Response
 			var err error
+
+			var res *fasthttp.Response
 
 			res, err = httpclient.SimpleGet(reqURL)
 			if err != nil {

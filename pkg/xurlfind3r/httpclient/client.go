@@ -15,10 +15,6 @@ func httpRequestWrapper(req *fasthttp.Request) (res *fasthttp.Response, err erro
 		return
 	}
 
-	// if res.StatusCode() != fasthttp.StatusOK {
-	// 	err = fmt.Errorf("unexpected status code")
-	// }
-
 	return
 }
 

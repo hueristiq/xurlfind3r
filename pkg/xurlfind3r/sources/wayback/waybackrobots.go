@@ -10,7 +10,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-func parseWaybackRobots(config *sources.Configuration, URL string) (robotsURLs chan string) {
+func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan string) {
 	robotsURLs = make(chan string)
 
 	robotsEntryRegex := regexp.MustCompile(`Disallow:\s?.+`)

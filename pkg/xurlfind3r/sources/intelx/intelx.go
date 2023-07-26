@@ -39,8 +39,9 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 	go func() {
 		defer close(URLsChannel)
 
-		var key string
 		var err error
+
+		var key string
 
 		key, err = sources.PickRandom(config.Keys.Intelx)
 		if key == "" || err != nil {

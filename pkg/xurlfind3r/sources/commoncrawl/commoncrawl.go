@@ -31,8 +31,9 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 	go func() {
 		defer close(URLsChannel)
 
-		var indexesRes *fasthttp.Response
 		var err error
+
+		var indexesRes *fasthttp.Response
 
 		indexesRes, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
@@ -57,8 +58,9 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					"Host": "index.commoncrawl.org",
 				}
 
-				var contentRes *fasthttp.Response
 				var err error
+
+				var contentRes *fasthttp.Response
 
 				contentRes, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, domain), "", contentReqHeaders)
 				if err != nil {

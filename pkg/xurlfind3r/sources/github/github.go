@@ -51,7 +51,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 	return URLsChannel
 }
 
-func (source *Source) Enumerate(searchURL string, domain string, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
+func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -68,10 +68,13 @@ func (source *Source) Enumerate(searchURL string, domain string, tokens *Tokens,
 	}
 
 	var err error
+
 	var searchRes *fasthttp.Response
 
 	searchRes, err = httpclient.Request(fasthttp.MethodGet, searchURL, "", reqHeaders, nil)
+
 	isForbidden := searchRes != nil && searchRes.StatusCode() == fasthttp.StatusForbidden
+
 	if err != nil && !isForbidden {
 		return
 	}

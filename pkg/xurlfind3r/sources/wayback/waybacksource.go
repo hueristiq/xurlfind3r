@@ -17,6 +17,7 @@ func parseWaybackSource(domain, URL string) (sourceURLs chan string) {
 		defer close(sourceURLs)
 
 		var err error
+
 		var snapshots [][2]string
 
 		snapshots, err = getWaybackSnapshots(URL)
