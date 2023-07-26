@@ -1,9 +1,8 @@
-// Package urlscan implements functions to search URLs from urlscan.
 package urlscan
 
 import (
 	"encoding/json"
-	"net/url"
+	"fmt"
 	"strings"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
@@ -11,7 +10,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type response struct {
+type searchResponse struct {
 	Results []struct {
 		Page struct {
 			Domain   string `json:"domain"`
@@ -44,65 +43,57 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 			return
 		}
 
-		reqHeaders := map[string]string{
+		searchReqHeaders := map[string]string{
 			"Content-Type": "application/json",
 		}
 
 		if key != "" {
-			reqHeaders["API-Key"] = key
+			searchReqHeaders["API-Key"] = key
 		}
 
 		var searchAfter []interface{}
 
 		for {
-			baseURL := "https://urlscan.io/api/v1/search/"
-			params := url.Values{}
-			params.Set("q", domain)
+			after := ""
 
 			if searchAfter != nil {
 				searchAfterJSON, _ := json.Marshal(searchAfter)
-				params.Set("search_after", string(searchAfterJSON))
+				after = "&search_after=" + string(searchAfterJSON)
 			}
 
-			reqURL := baseURL + "?" + params.Encode()
+			searchReqURL := fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s&size=100", domain) + after
 
-			var res *fasthttp.Response
+			var searchRes *fasthttp.Response
 
-			res, err = httpclient.Request(fasthttp.MethodGet, reqURL, "", reqHeaders, nil)
+			searchRes, err = httpclient.Get(searchReqURL, "", searchReqHeaders)
 			if err != nil {
 				return
 			}
 
-			var responseData response
+			var searchResData searchResponse
 
-			if err = json.Unmarshal(res.Body(), &responseData); err != nil {
+			if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
 				return
 			}
 
-			if responseData.Status == 429 {
+			if searchResData.Status == 429 {
 				break
 			}
 
-			for _, result := range responseData.Results {
-				URL := result.Page.URL
-
-				if result.Page.Domain != domain ||
-					!strings.HasSuffix(result.Page.Domain, domain) {
-					continue
-				}
-
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+			for _, result := range searchResData.Results {
+				if (result.Page.Domain != domain && result.Page.Domain != "www."+domain) &&
+					(config.IncludeSubdomains && !strings.HasSuffix(result.Page.Domain, domain)) {
 					return
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				URLsChannel <- sources.URL{Source: source.Name(), Value: result.Page.URL}
 			}
 
-			if !responseData.HasMore {
+			if !searchResData.HasMore {
 				break
 			}
 
-			lastResult := responseData.Results[len(responseData.Results)-1]
+			lastResult := searchResData.Results[len(searchResData.Results)-1]
 			searchAfter = lastResult.Sort
 		}
 	}()
