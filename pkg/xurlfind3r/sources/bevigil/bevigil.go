@@ -41,7 +41,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		var getURLsRes *fasthttp.Response
 
-		getURLsRes, err = httpclient.Request(fasthttp.MethodGet, getURLsReqURL, "", getURLsReqHeaders, nil)
+		getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 		if err != nil {
 			return
 		}
