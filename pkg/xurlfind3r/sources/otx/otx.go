@@ -1,26 +1,31 @@
-// Package otx implements functions to search URLs from otx.
 package otx
 
 import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hueristiq/hqgourl"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
-type response struct {
+type getURLsResponse struct {
 	URLList []struct {
-		Domain   string `json:"domain"`
 		URL      string `json:"url"`
+		Domain   string `json:"domain"`
 		Hostname string `json:"hostname"`
+		Result   struct {
+			URLWorker struct {
+				IP       string `json:"ip"`
+				HTTPCode int    `json:"http_code"`
+			} `json:"urlworker"`
+		} `json:"result"`
 		HTTPCode int    `json:"httpcode"`
-		PageNum  int    `json:"page_num"`
-		FullSize int    `json:"full_size"`
-		Paged    bool   `json:"paged"`
+		Encoded  string `json:"encoded"`
 	} `json:"url_list"`
 	PageNum    int  `json:"page_num"`
+	Limit      int  `json:"limit"`
 	Paged      bool `json:"paged"`
 	HasNext    bool `json:"has_next"`
 	FullSize   int  `json:"full_size"`
@@ -35,33 +40,38 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 	go func() {
 		defer close(URLsChannel)
 
+		parseURL, err := hqgourl.Parse(domain)
+		if err != nil {
+			return
+		}
+
 		for page := 1; ; page++ {
-			reqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page)
+			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=100&page=%d", parseURL.ETLDPlusOne, page)
 
 			var err error
 
-			var res *fasthttp.Response
+			var getURLsRes *fasthttp.Response
 
-			res, err = httpclient.SimpleGet(reqURL)
+			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
 			if err != nil {
 				return
 			}
 
-			var responseData response
+			var getURLsResData getURLsResponse
 
-			if err = json.Unmarshal(res.Body(), &responseData); err != nil {
+			if err = json.Unmarshal(getURLsRes.Body(), &getURLsResData); err != nil {
 				return
 			}
 
-			for _, URL := range responseData.URLList {
+			for _, URL := range getURLsResData.URLList {
 				if !sources.IsInScope(URL.URL, domain, config.IncludeSubdomains) {
-					return
+					continue
 				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL.URL}
 			}
 
-			if !responseData.HasNext {
+			if !getURLsResData.HasNext {
 				break
 			}
 		}
