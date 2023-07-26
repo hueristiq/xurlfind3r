@@ -34,11 +34,13 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 	go func() {
 		defer close(URLsChannel)
 
+		getIndexesReqURL := "https://index.commoncrawl.org/collinfo.json"
+
 		var err error
 
 		var getIndexesRes *fasthttp.Response
 
-		getIndexesRes, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
+		getIndexesRes, err = httpclient.SimpleGet(getIndexesReqURL)
 		if err != nil {
 			return
 		}
@@ -61,11 +63,13 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					"Host": "index.commoncrawl.org",
 				}
 
+				getURLsReqURL := fmt.Sprintf("%s?url=%s/*&output=json&fl=url", API, domain)
+
 				var err error
 
 				var getURLsRes *fasthttp.Response
 
-				getURLsRes, err = httpclient.Get(fmt.Sprintf("%s?url=%s/*&output=json&fl=url", API, domain), "", getURLsReqHeaders)
+				getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 				if err != nil {
 					return
 				}

@@ -31,28 +31,28 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 			return
 		}
 
-		reqHeaders := map[string]string{}
+		getURLsReqHeaders := map[string]string{}
 
 		if len(config.Keys.Bevigil) > 0 {
-			reqHeaders["X-Access-Token"] = key
+			getURLsReqHeaders["X-Access-Token"] = key
 		}
 
-		reqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
+		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
 
-		var res *fasthttp.Response
+		var getURLsRes *fasthttp.Response
 
-		res, err = httpclient.Request(fasthttp.MethodGet, reqURL, "", reqHeaders, nil)
+		getURLsRes, err = httpclient.Request(fasthttp.MethodGet, getURLsReqURL, "", getURLsReqHeaders, nil)
 		if err != nil {
 			return
 		}
 
-		var getURLsResponseData getURLsResponse
+		var getURLsResData getURLsResponse
 
-		if err = json.Unmarshal(res.Body(), &getURLsResponseData); err != nil {
+		if err = json.Unmarshal(getURLsRes.Body(), &getURLsResData); err != nil {
 			return
 		}
 
-		for _, URL := range getURLsResponseData.URLs {
+		for _, URL := range getURLsResData.URLs {
 			if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 				return
 			}
