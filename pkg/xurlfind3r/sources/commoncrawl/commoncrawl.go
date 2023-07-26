@@ -1,4 +1,3 @@
-// Package commoncrawl implements functions to search URLs from commoncrawl.
 package commoncrawl
 
 import (
@@ -13,12 +12,12 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type indexesResponse []struct {
+type getIndexesResponse []struct {
 	ID  string `json:"id"`
 	API string `json:"cdx-API"`
 }
 
-type response struct {
+type getURLsResponse struct {
 	URL   string `json:"url"`
 	Error string `json:"error"`
 }
@@ -28,59 +27,63 @@ type Source struct{}
 func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
+	if config.IncludeSubdomains {
+		domain = "*." + domain
+	}
+
 	go func() {
 		defer close(URLsChannel)
 
 		var err error
 
-		var indexesRes *fasthttp.Response
+		var getIndexesRes *fasthttp.Response
 
-		indexesRes, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
+		getIndexesRes, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
 			return
 		}
 
-		var indexesResponseData indexesResponse
+		var getIndexesResData getIndexesResponse
 
-		if err = json.Unmarshal(indexesRes.Body(), &indexesResponseData); err != nil {
+		if err = json.Unmarshal(getIndexesRes.Body(), &getIndexesResData); err != nil {
 			return
 		}
 
 		wg := new(sync.WaitGroup)
 
-		for _, indexData := range indexesResponseData {
+		for _, indexData := range getIndexesResData {
 			wg.Add(1)
 
 			go func(API string) {
 				defer wg.Done()
 
-				contentReqHeaders := map[string]string{
+				getURLsReqHeaders := map[string]string{
 					"Host": "index.commoncrawl.org",
 				}
 
 				var err error
 
-				var contentRes *fasthttp.Response
+				var getURLsRes *fasthttp.Response
 
-				contentRes, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, domain), "", contentReqHeaders)
+				getURLsRes, err = httpclient.Get(fmt.Sprintf("%s?url=%s/*&output=json&fl=url", API, domain), "", getURLsReqHeaders)
 				if err != nil {
 					return
 				}
 
-				scanner := bufio.NewScanner(bytes.NewReader(contentRes.Body()))
+				scanner := bufio.NewScanner(bytes.NewReader(getURLsRes.Body()))
 
 				for scanner.Scan() {
-					var data response
+					var getURLsResData getURLsResponse
 
-					if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {
+					if err = json.Unmarshal(scanner.Bytes(), &getURLsResData); err != nil {
 						return
 					}
 
-					if data.Error != "" {
+					if getURLsResData.Error != "" {
 						return
 					}
 
-					URL := data.URL
+					URL := getURLsResData.URL
 
 					if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 						return
