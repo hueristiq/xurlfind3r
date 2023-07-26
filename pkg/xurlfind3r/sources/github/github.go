@@ -1,9 +1,6 @@
-// Package github implements functions to search URLsChannel from github.
 package github
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -18,7 +15,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type response struct {
+type searchResponse struct {
 	TotalCount int `json:"total_count"`
 	Items      []struct {
 		Name        string `json:"name"`
@@ -43,15 +40,15 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		tokens := NewTokenManager(config.Keys.GitHub)
 
-		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
+		searchReqURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
 
-		source.Enumerate(searchURL, domain, tokens, URLsChannel, config)
+		source.Enumerate(searchReqURL, domain, tokens, URLsChannel, config)
 	}()
 
 	return URLsChannel
 }
 
-func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
+func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -62,7 +59,7 @@ func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsCh
 		}
 	}
 
-	reqHeaders := map[string]string{
+	searchReqHeaders := map[string]string{
 		"Accept":        "application/vnd.github.v3.text-match+json",
 		"Authorization": "token " + token.Hash,
 	}
@@ -71,7 +68,7 @@ func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsCh
 
 	var searchRes *fasthttp.Response
 
-	searchRes, err = httpclient.Request(fasthttp.MethodGet, searchURL, "", reqHeaders, nil)
+	searchRes, err = httpclient.Get(searchReqURL, "", searchReqHeaders)
 
 	isForbidden := searchRes != nil && searchRes.StatusCode() == fasthttp.StatusForbidden
 
@@ -85,10 +82,10 @@ func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsCh
 
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchURL, domain, tokens, URLsChannel, config)
+		source.Enumerate(searchReqURL, domain, tokens, URLsChannel, config)
 	}
 
-	var searchResData response
+	var searchResData searchResponse
 
 	if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
 		return
@@ -96,64 +93,46 @@ func (source *Source) Enumerate(searchURL, domain string, tokens *Tokens, URLsCh
 
 	var mdExtractor *regexp.Regexp
 
-	// (\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?
-	// (?:.*\.)?
 	mdExtractor, err = hqgourl.Extractor.ModerateMatchHost(`(\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?` + regexp.QuoteMeta(domain))
 	if err != nil {
 		return
 	}
 
-	// Process Items
-	for index := range searchResData.Items {
-		item := searchResData.Items[index]
+	for _, item := range searchResData.Items {
+		getRawContentReqURL := getRawContentURL(item.HTMLURL)
 
-		reqURL := getRawContentURL(item.HTMLURL)
+		var getRawContentRes *fasthttp.Response
 
-		var contentRes *fasthttp.Response
-
-		contentRes, err = httpclient.SimpleGet(reqURL)
+		getRawContentRes, err = httpclient.SimpleGet(getRawContentReqURL)
 		if err != nil {
 			continue
 		}
 
-		if contentRes.StatusCode() != fasthttp.StatusOK {
+		if getRawContentRes.StatusCode() != fasthttp.StatusOK {
 			continue
 		}
 
-		scanner := bufio.NewScanner(bytes.NewReader(contentRes.Body()))
+		URLs := mdExtractor.FindAllString(string(getRawContentRes.Body()), -1)
 
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "" {
+		for _, URL := range URLs {
+			URL = fixURL(URL)
+
+			parsedURL, err := hqgourl.Parse(URL)
+			if err != nil {
+				return
+			}
+
+			URL = parsedURL.String()
+
+			if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 				continue
 			}
 
-			URLs := mdExtractor.FindAllString(normalizeContent(line), -1)
-
-			for _, URL := range URLs {
-				URL = fixURL(URL)
-
-				parsedURL, err := hqgourl.Parse(URL)
-				if err != nil {
-					return
-				}
-
-				URL = parsedURL.String()
-
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
-					continue
-				}
-
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
-			}
-		}
-
-		if scanner.Err() != nil {
-			return
+			URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 		}
 
 		for _, textMatch := range item.TextMatches {
-			URLs := mdExtractor.FindAllString(normalizeContent(textMatch.Fragment), -1)
+			URLs := mdExtractor.FindAllString(textMatch.Fragment, -1)
 
 			for _, URL := range URLs {
 				URL = fixURL(URL)

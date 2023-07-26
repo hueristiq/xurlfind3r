@@ -1,7 +1,6 @@
 package github
 
 import (
-	"net/url"
 	"strings"
 )
 
@@ -9,15 +8,6 @@ func getRawContentURL(URL string) (rawContentURL string) {
 	rawContentURL = URL
 	rawContentURL = strings.ReplaceAll(rawContentURL, "https://github.com/", "https://raw.githubusercontent.com/")
 	rawContentURL = strings.ReplaceAll(rawContentURL, "/blob/", "/")
-
-	return
-}
-
-func normalizeContent(content string) (normalizedContent string) {
-	normalizedContent = content
-	normalizedContent, _ = url.QueryUnescape(normalizedContent)
-	normalizedContent = strings.ReplaceAll(normalizedContent, "\\t", "")
-	normalizedContent = strings.ReplaceAll(normalizedContent, "\\n", "")
 
 	return
 }
