@@ -22,18 +22,12 @@
 
 ## Features
 
-* Fetches URLs from curated passive sources to maximize results:
-	* **[AlienVault's OTX](https://otx.alienvault.com/)**
-	* **[BeVigil](https://bevigil.com)**
-	* **[Common Crawl](https://commoncrawl.org/)**
-	* **[Github](https://github.com)**
-	* **[Intelligence X](https://intelx.io)**
-	* **[URLScan](https://urlscan.io/)**
-	* **[Wayback Machine](https://archive.org/web/)**
-* With Wayback Machine, Parses URLs from `robots.txt` snapshots.
-* With Wayback Machine, Parses URLs from webpages' snapshots.
-* Cross-Platform (Windows, Linux & macOS)
-* Supports URLs match and filter
+* Fetches URLs from curated passive sources to maximize results.
+	* **[AlienVault's OTX](https://otx.alienvault.com/)** ◇ **[BeVigil](https://bevigil.com)** ◇ **[Common Crawl](https://commoncrawl.org/)** ◇ **[Github](https://github.com)** ◇ **[Intelligence X](https://intelx.io)** ◇ **[URLScan](https://urlscan.io/)** ◇ **[Wayback Machine](https://archive.org/web/)**
+* Parses URLs from wayback webpages and `robots.txt` snapshots.
+* Supports URLs matching and filtering.
+* Supports `stdin` and `stdout` for easy integration into workflows.
+* Cross-Platform (Windows, Linux & macOS).
 
 ## Installation
 
@@ -159,30 +153,35 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 USAGE:
   xurlfind3r [OPTIONS]
 
-TARGET:
- -d, --domain string              domain to match URLs
-     --include-subdomains bool    match subdomain's URLs
+INPUT:
+ -d, --domain string[]               target domains
+ -l, --list string                   target domains' list file path
+
+SCOPE:
+     --include-subdomains bool       match subdomain's URLs
 
 SOURCES:
- -s,  --sources bool              list supported sources
- -u,  --use-sources strings       comma(,) separated sources to use
- -e,  --exclude-sources strings   comma(,) separated sources to exclude
-      --parse-wayback-robots bool with wayback, parse robots.txt snapshots
-      --parse-wayback-source bool with wayback, parse source code snapshots
+      --sources bool                 list supported sources
+ -u,  --use-sources string[]         comma(,) separated sources to use
+ -e,  --exclude-sources string[]     comma(,) separated sources to exclude
+      --parse-wayback-robots bool    with wayback, parse robots.txt snapshots
+      --parse-wayback-source bool    with wayback, parse source code snapshots
+
+OPTIMIZATION:
+ -t,  --threads int                    number of threads (default: 50)
 
 FILTER & MATCH:
- -f, --filter string              regex to filter URLs
- -m, --match string               regex to match URLs
+ -f, --filter string                 regex to filter URLs
+ -m, --match string                  regex to match URLs
 
 OUTPUT:
-     --no-color bool              no color mode
- -o, --output string              output URLs file path
- -v, --verbosity string           debug, info, warning, error, fatal or silent (default: info)
+     --no-color bool                 disable colored output
+ -o, --output string                 output URLs file path
+ -O, --output-directory string       output URLs directory path
+ -v, --verbosity string              debug, info, warning, error, fatal or silent (default: info)
 
 CONFIGURATION:
- -c,  --configuration string      configuration file path (default: ~/.hueristiq/xurlfind3r/config.yaml)
-
-pflag: help requested
+ -c,  --configuration string         configuration file path (default: ~/.hueristiq/xurlfind3r/config.yaml)
 ```
 
 ### Examples
@@ -209,8 +208,8 @@ xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[
 
 ## Contributing
 
-[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! **Check out the [contribution guidelines](./CONTRIBUTING.md).**
+[Issues](https://github.com/hueristiq/xurlfind3r/issues) and [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) are welcome! **Check out the [contribution guidelines](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md).**
 
 ## Licensing
 
-This utility is distributed under the [MIT license](./LICENSE).
+This utility is distributed under the [MIT license](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE).
