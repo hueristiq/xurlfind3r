@@ -9,7 +9,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type response struct {
+type getURLsResponse struct {
 	Domain string   `json:"domain"`
 	URLs   []string `json:"urls"`
 }
@@ -46,13 +46,13 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 			return
 		}
 
-		var responseData response
+		var getURLsResponseData getURLsResponse
 
-		if err = json.Unmarshal(res.Body(), &responseData); err != nil {
+		if err = json.Unmarshal(res.Body(), &getURLsResponseData); err != nil {
 			return
 		}
 
-		for _, URL := range responseData.URLs {
+		for _, URL := range getURLsResponseData.URLs {
 			if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 				return
 			}
