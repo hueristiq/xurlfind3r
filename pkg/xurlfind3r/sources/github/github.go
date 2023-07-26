@@ -8,34 +8,30 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
+	"github.com/hueristiq/hqgourl"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/spf13/cast"
 	"github.com/tomnomnom/linkheader"
 	"github.com/valyala/fasthttp"
 )
 
-type Response struct {
-	TotalCount int    `json:"total_count"`
-	Items      []Item `json:"items"`
-}
-
-type Item struct {
-	Name        string      `json:"name"`
-	HTMLURL     string      `json:"html_url"`
-	TextMatches []TextMatch `json:"text_matches"`
-}
-
-type TextMatch struct {
-	Fragment string `json:"fragment"`
+type response struct {
+	TotalCount int `json:"total_count"`
+	Items      []struct {
+		Name        string `json:"name"`
+		HTMLURL     string `json:"html_url"`
+		TextMatches []struct {
+			Fragment string `json:"fragment"`
+		} `json:"text_matches"`
+	} `json:"items"`
 }
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
@@ -47,15 +43,15 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 		tokens := NewTokenManager(config.Keys.GitHub)
 
-		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", config.Domain)
+		searchURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
 
-		source.Enumerate(searchURL, config.URLsRegex, tokens, URLsChannel, config)
+		source.Enumerate(searchURL, domain, tokens, URLsChannel, config)
 	}()
 
 	return URLsChannel
 }
 
-func (source *Source) Enumerate(searchURL string, URLsRegex *regexp.Regexp, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
+func (source *Source) Enumerate(searchURL string, domain string, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -71,26 +67,36 @@ func (source *Source) Enumerate(searchURL string, URLsRegex *regexp.Regexp, toke
 		"Authorization": "token " + token.Hash,
 	}
 
-	searchRes, err := httpclient.Request(fasthttp.MethodGet, searchURL, "", reqHeaders, nil)
+	var err error
+	var searchRes *fasthttp.Response
 
+	searchRes, err = httpclient.Request(fasthttp.MethodGet, searchURL, "", reqHeaders, nil)
 	isForbidden := searchRes != nil && searchRes.StatusCode() == fasthttp.StatusForbidden
-
 	if err != nil && !isForbidden {
 		return
 	}
 
-	ratelimitRemaining, _ := strconv.ParseInt(string(searchRes.Header.Peek("X-Ratelimit-Remaining")), 10, 64)
-
+	ratelimitRemaining := cast.ToInt64(searchRes.Header.Peek("X-Ratelimit-Remaining"))
 	if isForbidden && ratelimitRemaining == 0 {
-		retryAfterSeconds, _ := strconv.ParseInt(string(searchRes.Header.Peek("Retry-After")), 10, 64)
+		retryAfterSeconds := cast.ToInt64(searchRes.Header.Peek("Retry-After"))
+
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchURL, URLsRegex, tokens, URLsChannel, config)
+		source.Enumerate(searchURL, domain, tokens, URLsChannel, config)
 	}
 
-	var searchResData Response
+	var searchResData response
 
 	if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
+		return
+	}
+
+	var mdExtractor *regexp.Regexp
+
+	// (\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?
+	// (?:.*\.)?
+	mdExtractor, err = hqgourl.Extractor.ModerateMatchHost(`(\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?` + regexp.QuoteMeta(domain))
+	if err != nil {
 		return
 	}
 
@@ -119,13 +125,19 @@ func (source *Source) Enumerate(searchURL string, URLsRegex *regexp.Regexp, toke
 				continue
 			}
 
-			URLs := URLsRegex.FindAllString(normalizeContent(line), -1)
+			URLs := mdExtractor.FindAllString(normalizeContent(line), -1)
 
-			for index := range URLs {
-				URL := URLs[index]
+			for _, URL := range URLs {
 				URL = fixURL(URL)
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				parsedURL, err := hqgourl.Parse(URL)
+				if err != nil {
+					return
+				}
+
+				URL = parsedURL.String()
+
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					return
 				}
 
@@ -137,16 +149,20 @@ func (source *Source) Enumerate(searchURL string, URLsRegex *regexp.Regexp, toke
 			return
 		}
 
-		for index := range item.TextMatches {
-			textMatch := item.TextMatches[index]
+		for _, textMatch := range item.TextMatches {
+			URLs := mdExtractor.FindAllString(normalizeContent(textMatch.Fragment), -1)
 
-			URLs := URLsRegex.FindAllString(normalizeContent(textMatch.Fragment), -1)
-
-			for index := range URLs {
-				URL := URLs[index]
+			for _, URL := range URLs {
 				URL = fixURL(URL)
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				parsedURL, err := hqgourl.Parse(URL)
+				if err != nil {
+					return
+				}
+
+				URL = parsedURL.String()
+
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					return
 				}
 
@@ -164,123 +180,9 @@ func (source *Source) Enumerate(searchURL string, URLsRegex *regexp.Regexp, toke
 				return
 			}
 
-			source.Enumerate(nextURL, URLsRegex, tokens, URLsChannel, config)
+			source.Enumerate(nextURL, domain, tokens, URLsChannel, config)
 		}
 	}
-}
-
-func getRawContentURL(URL string) (rawContentURL string) {
-	rawContentURL = URL
-	rawContentURL = strings.ReplaceAll(rawContentURL, "https://github.com/", "https://raw.githubusercontent.com/")
-	rawContentURL = strings.ReplaceAll(rawContentURL, "/blob/", "/")
-
-	return
-}
-
-func normalizeContent(content string) (normalizedContent string) {
-	normalizedContent = content
-	normalizedContent, _ = url.QueryUnescape(normalizedContent)
-	normalizedContent = strings.ReplaceAll(normalizedContent, "\\t", "")
-	normalizedContent = strings.ReplaceAll(normalizedContent, "\\n", "")
-
-	return
-}
-
-func fixURL(URL string) (fixedURL string) {
-	fixedURL = URL
-
-	// ',",`,
-	quotes := []rune{'\'', '"', '`'}
-
-	for i := range quotes {
-		quote := quotes[i]
-
-		indexOfQuote := findUnbalancedQuote(URL, quote)
-		if indexOfQuote <= len(fixedURL) && indexOfQuote >= 0 {
-			fixedURL = fixedURL[:indexOfQuote]
-		}
-	}
-
-	// (),[],{}
-	parentheses := []struct {
-		Opening, Closing rune
-	}{
-		{'[', ']'},
-		{'(', ')'},
-		{'{', '}'},
-	}
-
-	for i := range parentheses {
-		parenthesis := parentheses[i]
-
-		indexOfParenthesis := findUnbalancedBracket(URL, parenthesis.Opening, parenthesis.Closing)
-		if indexOfParenthesis <= len(fixedURL) && indexOfParenthesis >= 0 {
-			fixedURL = fixedURL[:indexOfParenthesis]
-		}
-	}
-
-	// ;
-	indexOfComma := strings.Index(fixedURL, ";")
-	if indexOfComma <= len(fixedURL) && indexOfComma >= 0 {
-		fixedURL = fixedURL[:indexOfComma]
-	}
-
-	return
-}
-
-func findUnbalancedQuote(s string, quoteChar rune) int {
-	insideQuotes := false
-
-	for _, ch := range s {
-		if ch == quoteChar {
-			if insideQuotes {
-				insideQuotes = false
-			} else {
-				insideQuotes = true
-			}
-		}
-	}
-
-	// If still inside quotes at the end of the string,
-	// find the index of the opening quote
-	if insideQuotes {
-		for i, ch := range s {
-			if ch == quoteChar {
-				return i
-			}
-		}
-	}
-
-	return -1 // return -1 if all quotes are balanced
-}
-
-func findUnbalancedBracket(s string, openChar, closeChar rune) int {
-	openCount := 0
-
-	var firstOpenIndex int
-
-	for i, ch := range s {
-		if ch == openChar {
-			if openCount == 0 {
-				firstOpenIndex = i
-			}
-
-			openCount++
-		} else if ch == closeChar {
-			openCount--
-
-			if openCount < 0 {
-				return i // Found an unbalanced closing bracket
-			}
-		}
-	}
-
-	// If there are unmatched opening brackets
-	if openCount > 0 {
-		return firstOpenIndex
-	}
-
-	return -1 // All brackets are balanced
 }
 
 func (source *Source) Name() string {

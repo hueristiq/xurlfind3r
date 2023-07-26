@@ -15,7 +15,6 @@ func PickRandom[T any](v []T) (picked T, err error) {
 		return
 	}
 
-	// Generate a cryptographically secure random index
 	max := big.NewInt(int64(length))
 
 	var indexBig *big.Int
@@ -29,7 +28,6 @@ func PickRandom[T any](v []T) (picked T, err error) {
 
 	index := indexBig.Int64()
 
-	// Return the element at the random index
 	picked = v[index]
 
 	return

@@ -11,7 +11,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Response struct {
+type response struct {
 	Results []struct {
 		Page struct {
 			Domain   string `json:"domain"`
@@ -29,14 +29,17 @@ type Response struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		key, err := sources.PickRandom(config.Keys.URLScan)
-		if key == "" || err != nil {
+		var key string
+		var err error
+
+		key, err = sources.PickRandom(config.Keys.URLScan)
+		if err != nil {
 			return
 		}
 
@@ -44,7 +47,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			"Content-Type": "application/json",
 		}
 
-		if len(config.Keys.URLScan) > 0 {
+		if key != "" {
 			reqHeaders["API-Key"] = key
 		}
 
@@ -53,7 +56,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		for {
 			baseURL := "https://urlscan.io/api/v1/search/"
 			params := url.Values{}
-			params.Set("q", config.Domain)
+			params.Set("q", domain)
 
 			if searchAfter != nil {
 				searchAfterJSON, _ := json.Marshal(searchAfter)
@@ -69,36 +72,36 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				return
 			}
 
-			var resData Response
+			var responseData response
 
-			if err = json.Unmarshal(res.Body(), &resData); err != nil {
+			if err = json.Unmarshal(res.Body(), &responseData); err != nil {
 				return
 			}
 
-			if resData.Status == 429 {
+			if responseData.Status == 429 {
 				break
 			}
 
-			for index := range resData.Results {
-				URL := resData.Results[index].Page.URL
+			for _, result := range responseData.Results {
+				URL := result.Page.URL
 
-				if resData.Results[index].Page.Domain != config.Domain ||
-					!strings.HasSuffix(resData.Results[index].Page.Domain, config.Domain) {
+				if result.Page.Domain != domain ||
+					!strings.HasSuffix(result.Page.Domain, domain) {
 					continue
 				}
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					return
 				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
-			if !resData.HasMore {
+			if !responseData.HasMore {
 				break
 			}
 
-			lastResult := resData.Results[len(resData.Results)-1]
+			lastResult := responseData.Results[len(responseData.Results)-1]
 			searchAfter = lastResult.Sort
 		}
 	}()

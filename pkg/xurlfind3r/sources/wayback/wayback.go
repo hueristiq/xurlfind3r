@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -23,7 +24,7 @@ var (
 	})
 )
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
@@ -41,10 +42,10 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			)
 
 			if config.IncludeSubdomains {
-				config.Domain = "*." + config.Domain
+				domain = "*." + domain
 			}
 
-			results, err = getWaybackURLs(config.Domain)
+			results, err = getWaybackURLs(domain)
 			if err != nil {
 				return
 			}
@@ -59,6 +60,9 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			}
 		}()
 
+		mediaURLRegex := regexp.MustCompile(`(?i)\.(apng|bpm|png|bmp|gif|heif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|psd|raw|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf)(?:\?|#|$)`)
+		robotsURLsRegex := regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`)
+
 		// Process wayback Snapshots
 		wg := &sync.WaitGroup{}
 
@@ -68,7 +72,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			go func(URL string) {
 				defer wg.Done()
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					return
 				}
 
@@ -78,23 +82,23 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 					return
 				}
 
-				if config.MediaURLsRegex.MatchString(URL) {
+				if mediaURLRegex.MatchString(URL) {
 					return
 				}
 
 				if config.ParseWaybackRobots &&
-					config.RobotsURLsRegex.MatchString(URL) {
+					robotsURLsRegex.MatchString(URL) {
 					for robotsURL := range parseWaybackRobots(config, URL) {
-						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+						if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 							return
 						}
 
 						URLsChannel <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
 					}
 				} else if config.ParseWaybackSource &&
-					!config.RobotsURLsRegex.MatchString(URL) {
-					for sourceURL := range parseWaybackSource(config, URL) {
-						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					!robotsURLsRegex.MatchString(URL) {
+					for sourceURL := range parseWaybackSource(domain, URL) {
+						if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 							return
 						}
 

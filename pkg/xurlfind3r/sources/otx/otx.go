@@ -10,7 +10,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Response struct {
+type response struct {
 	URLList []struct {
 		Domain   string `json:"domain"`
 		URL      string `json:"url"`
@@ -29,43 +29,38 @@ type Response struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
 		for page := 1; ; page++ {
-			var (
-				err error
-			)
-
-			reqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", config.Domain, 200, page)
+			reqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=%d&page=%d", domain, 200, page)
 
 			var res *fasthttp.Response
+			var err error
 
 			res, err = httpclient.SimpleGet(reqURL)
 			if err != nil {
 				return
 			}
 
-			var resData Response
+			var responseData response
 
-			if err = json.Unmarshal(res.Body(), &resData); err != nil {
+			if err = json.Unmarshal(res.Body(), &responseData); err != nil {
 				return
 			}
 
-			for index := range resData.URLList {
-				URL := resData.URLList[index].URL
-
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+			for _, URL := range responseData.URLList {
+				if !sources.IsInScope(URL.URL, domain, config.IncludeSubdomains) {
 					return
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				URLsChannel <- sources.URL{Source: source.Name(), Value: URL.URL}
 			}
 
-			if !resData.HasNext {
+			if !responseData.HasNext {
 				break
 			}
 		}

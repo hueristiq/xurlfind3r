@@ -9,24 +9,21 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Response struct {
+type response struct {
 	Domain string   `json:"domain"`
 	URLs   []string `json:"urls"`
 }
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			err error
-		)
-
 		var key string
+		var err error
 
 		key, err = sources.PickRandom(config.Keys.Bevigil)
 		if key == "" || err != nil {
@@ -39,7 +36,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			reqHeaders["X-Access-Token"] = key
 		}
 
-		reqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", config.Domain)
+		reqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
 
 		var res *fasthttp.Response
 
@@ -48,16 +45,14 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			return
 		}
 
-		var data Response
+		var responseData response
 
-		if err = json.Unmarshal(res.Body(), &data); err != nil {
+		if err = json.Unmarshal(res.Body(), &responseData); err != nil {
 			return
 		}
 
-		for index := range data.URLs {
-			URL := data.URLs[index]
-
-			if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+		for _, URL := range responseData.URLs {
+			if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 				return
 			}
 

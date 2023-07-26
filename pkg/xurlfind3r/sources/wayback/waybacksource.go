@@ -3,26 +3,36 @@ package wayback
 import (
 	"fmt"
 	"mime"
+	"regexp"
 	"strings"
 	"sync"
 
 	"github.com/hueristiq/hqgourl"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-func parseWaybackSource(config *sources.Configuration, URL string) (sourceURLs chan string) {
+func parseWaybackSource(domain, URL string) (sourceURLs chan string) {
 	sourceURLs = make(chan string)
 
 	go func() {
 		defer close(sourceURLs)
 
-		// retrieve snapshots
-		snapshots, err := getWaybackSnapshots(URL)
+		var err error
+		var snapshots [][2]string
+
+		snapshots, err = getWaybackSnapshots(URL)
 		if err != nil {
 			return
 		}
 
-		// retrieve and parse snapshots' content for robotsURLs
+		lxExtractor := hqgourl.Extractor.Relaxed()
+
+		var mdExtractor *regexp.Regexp
+
+		mdExtractor, err = hqgourl.Extractor.ModerateMatchHost(`(\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?` + regexp.QuoteMeta(domain))
+		if err != nil {
+			return
+		}
+
 		wg := &sync.WaitGroup{}
 
 		for index := range snapshots {
@@ -38,10 +48,11 @@ func parseWaybackSource(config *sources.Configuration, URL string) (sourceURLs c
 					return
 				}
 
-				links := config.LinkFinderRegex.FindAllString(content, -1)
+				links := lxExtractor.FindAllString(content, -1)
 
 				for index := range links {
 					sourceURL := links[index]
+
 					// remove beginning and ending quotes
 					sourceURL = strings.Trim(sourceURL, "\"")
 					sourceURL = strings.Trim(sourceURL, "'")
@@ -60,10 +71,10 @@ func parseWaybackSource(config *sources.Configuration, URL string) (sourceURLs c
 					}
 
 					if parsedSourceURL.IsAbs() {
-						matches := config.URLsRegex.FindAllString(sourceURL, -1)
+						URLs := mdExtractor.FindAllString(sourceURL, -1)
 
-						for _, match := range matches {
-							sourceURLs <- match
+						for _, URL := range URLs {
+							sourceURLs <- URL
 						}
 					} else {
 						_, _, err := mime.ParseMediaType(sourceURL)
@@ -71,13 +82,13 @@ func parseWaybackSource(config *sources.Configuration, URL string) (sourceURLs c
 							continue
 						}
 
-						matches := config.URLsRegex.FindAllString(sourceURL, -1)
+						URLs := mdExtractor.FindAllString(sourceURL, -1)
 
-						for _, match := range matches {
-							sourceURLs <- match
+						for _, URL := range URLs {
+							sourceURLs <- URL
 						}
 
-						if len(matches) > 0 {
+						if len(URLs) > 0 {
 							continue
 						}
 

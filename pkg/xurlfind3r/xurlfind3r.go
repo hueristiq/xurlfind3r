@@ -1,7 +1,6 @@
 package xurlfind3r
 
 import (
-	"fmt"
 	"regexp"
 	"sync"
 
@@ -16,7 +15,6 @@ import (
 )
 
 type Options struct {
-	Domain             string
 	IncludeSubdomains  bool
 	SourcesToUSe       []string
 	SourcesToExclude   []string
@@ -38,15 +36,10 @@ func New(options *Options) (finder *Finder, err error) {
 	finder = &Finder{
 		Sources: map[string]sources.Source{},
 		SourcesConfiguration: &sources.Configuration{
-			Domain:             options.Domain,
 			IncludeSubdomains:  options.IncludeSubdomains,
 			Keys:               options.Keys,
 			ParseWaybackRobots: options.ParseWaybackRobots,
 			ParseWaybackSource: options.ParseWaybackSource,
-			LinkFinderRegex:    regexp.MustCompile(`(?:"|')(((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,})|((?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,})|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{3,}(?:[\?|#][^"|']{0,}|))|([a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:[\?|#][^"|']{0,}|)))(?:"|')`), //nolint:gocritic // Works so far
-			URLsRegex:          regexp.MustCompile(fmt.Sprintf(`https?://(?:[\w.-]+\.)?%s(?:/[\w.-]*)*(?:\?[^\s#]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(options.Domain))),
-			MediaURLsRegex:     regexp.MustCompile(`(?i)\.(apng|bpm|png|bmp|gif|heif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|psd|raw|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf)(?:\?|#|$)`),
-			RobotsURLsRegex:    regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`),
 		},
 	}
 
@@ -100,7 +93,7 @@ func New(options *Options) (finder *Finder, err error) {
 	return
 }
 
-func (finder *Finder) Find() (URLs chan sources.URL) {
+func (finder *Finder) Find(domain string) (URLs chan sources.URL) {
 	URLs = make(chan sources.URL)
 
 	go func() {
@@ -115,7 +108,9 @@ func (finder *Finder) Find() (URLs chan sources.URL) {
 			go func(source sources.Source) {
 				defer wg.Done()
 
-				for URL := range source.Run(finder.SourcesConfiguration) {
+				results := source.Run(finder.SourcesConfiguration, domain)
+
+				for URL := range results {
 					value := URL.Value
 
 					_, loaded := seen.LoadOrStore(value, struct{}{})

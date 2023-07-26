@@ -13,40 +13,34 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type SearchResponse struct {
-	ID     string `json:"id"`
-	Status int    `json:"status"`
-}
-
-type searchResultType struct {
-	Selectors []selectorType `json:"selectors"`
-	Status    int            `json:"status"`
-}
-
-type selectorType struct {
-	Selectvalue string `json:"selectorvalue"`
-}
-
-type requestBody struct {
+type searchRequest struct {
 	Term       string        `json:"term"`
 	Timeout    time.Duration `json:"timeout"`
 	MaxResults int           `json:"maxresults"`
 	Media      int           `json:"media"`
 }
+type searchResponse struct {
+	ID     string `json:"id"`
+	Status int    `json:"status"`
+}
+
+type resultsResponse struct {
+	Selectors []struct {
+		Selectvalue string `json:"selectorvalue"`
+	} `json:"selectors"`
+	Status int `json:"status"`
+}
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			err error
-		)
-
 		var key string
+		var err error
 
 		key, err = sources.PickRandom(config.Keys.Intelx)
 		if key == "" || err != nil {
@@ -66,8 +60,8 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 		}
 
 		searchURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", intelXHost, intelXKey)
-		searchReqBody := requestBody{
-			Term:       config.Domain,
+		searchReqBody := searchRequest{
+			Term:       domain,
 			MaxResults: 100000,
 			Media:      0,
 			Timeout:    20,
@@ -87,13 +81,13 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 			return
 		}
 
-		var resData SearchResponse
+		var searchResponseData searchResponse
 
-		if err = json.Unmarshal(res.Body(), &resData); err != nil {
+		if err = json.Unmarshal(res.Body(), &searchResponseData); err != nil {
 			return
 		}
 
-		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, resData.ID)
+		resultsURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, searchResponseData.ID)
 		status := 0
 
 		for status == 0 || status == 3 {
@@ -102,22 +96,22 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				return
 			}
 
-			var resData searchResultType
+			var resultsResponseData resultsResponse
 
-			if err = json.Unmarshal(res.Body(), &resData); err != nil {
+			if err = json.Unmarshal(res.Body(), &resultsResponseData); err != nil {
 				return
 			}
 
-			status = resData.Status
+			status = resultsResponseData.Status
 
-			for _, hostname := range resData.Selectors {
+			for _, hostname := range resultsResponseData.Selectors {
 				URL := hostname.Selectvalue
 
 				if isEmail(URL) {
 					continue
 				}
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					return
 				}
 

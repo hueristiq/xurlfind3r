@@ -1,8 +1,6 @@
 package httpclient
 
 import (
-	"fmt"
-
 	"github.com/valyala/fasthttp"
 )
 
@@ -17,9 +15,9 @@ func httpRequestWrapper(req *fasthttp.Request) (res *fasthttp.Response, err erro
 		return
 	}
 
-	if res.StatusCode() != fasthttp.StatusOK {
-		err = fmt.Errorf("unexpected status code")
-	}
+	// if res.StatusCode() != fasthttp.StatusOK {
+	// 	err = fmt.Errorf("unexpected status code")
+	// }
 
 	return
 }

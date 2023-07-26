@@ -13,60 +13,54 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type API struct {
+type indexesResponse []struct {
 	ID  string `json:"id"`
 	API string `json:"cdx-API"`
 }
 
-type Response struct {
+type response struct {
 	URL   string `json:"url"`
 	Error string `json:"error"`
 }
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			err error
-		)
-
 		var indexesRes *fasthttp.Response
+		var err error
 
 		indexesRes, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
 		if err != nil {
 			return
 		}
 
-		var APIs []API
+		var indexesResponseData indexesResponse
 
-		if err = json.Unmarshal(indexesRes.Body(), &APIs); err != nil {
+		if err = json.Unmarshal(indexesRes.Body(), &indexesResponseData); err != nil {
 			return
 		}
 
 		wg := new(sync.WaitGroup)
 
-		for index := range APIs {
+		for _, indexData := range indexesResponseData {
 			wg.Add(1)
-
-			API := APIs[index]
 
 			go func(API string) {
 				defer wg.Done()
 
-				var (
-					err error
-				)
-
-				contentReqHeaders := map[string]string{"Host": "index.commoncrawl.org"}
+				contentReqHeaders := map[string]string{
+					"Host": "index.commoncrawl.org",
+				}
 
 				var contentRes *fasthttp.Response
+				var err error
 
-				contentRes, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, config.Domain), "", contentReqHeaders)
+				contentRes, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, domain), "", contentReqHeaders)
 				if err != nil {
 					return
 				}
@@ -74,7 +68,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				scanner := bufio.NewScanner(bytes.NewReader(contentRes.Body()))
 
 				for scanner.Scan() {
-					var data Response
+					var data response
 
 					if err = json.Unmarshal(scanner.Bytes(), &data); err != nil {
 						return
@@ -86,7 +80,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 
 					URL := data.URL
 
-					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+					if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 						return
 					}
 
@@ -96,7 +90,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				if scanner.Err() != nil {
 					return
 				}
-			}(API.API)
+			}(indexData.API)
 		}
 
 		wg.Wait()
