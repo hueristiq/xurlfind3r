@@ -18,7 +18,7 @@ func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan s
 	go func() {
 		defer close(robotsURLs)
 
-		snapshots, err := getWaybackSnapshots(URL)
+		snapshots, err := getSnapshots(URL)
 		if err != nil {
 			return
 		}
@@ -31,7 +31,7 @@ func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan s
 			go func(row [2]string) {
 				defer wg.Done()
 
-				content, err := getWaybackContent(row)
+				content, err := getSnapshotContent(row)
 				if err != nil {
 					return
 				}

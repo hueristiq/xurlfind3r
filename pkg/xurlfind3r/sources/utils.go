@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"net/url"
 	"strings"
 
 	"github.com/hueristiq/hqgourl"
@@ -62,6 +63,15 @@ func IsInScope(URL, domain string, includeSubdomains bool) (isInScope bool) {
 
 func FixURL(URL string) (fixedURL string) {
 	fixedURL = URL
+
+	// remove beginning and ending quotes
+	fixedURL = strings.Trim(fixedURL, "\"")
+	fixedURL = strings.Trim(fixedURL, "'")
+
+	fixedURL, _ = url.QueryUnescape(fixedURL)
+
+	// remove beginning and ending spaces
+	fixedURL = strings.Trim(fixedURL, " ")
 
 	// ',",`,
 	quotes := []rune{'\'', '"', '`'}
