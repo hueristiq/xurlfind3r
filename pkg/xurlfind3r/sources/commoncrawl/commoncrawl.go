@@ -1,4 +1,3 @@
-// Package commoncrawl implements functions to search URLs from commoncrawl.
 package commoncrawl
 
 import (
@@ -13,82 +12,85 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type Source struct{}
+type getIndexesResponse []struct {
+	ID  string `json:"id"`
+	API string `json:"cdx-API"`
+}
 
-type CDXAPIResult struct {
+type getURLsResponse struct {
 	URL   string `json:"url"`
 	Error string `json:"error"`
 }
 
-type Index struct {
-	ID      string `json:"id"`
-	CDX_API string `json:"cdx-API"` //nolint:revive,stylecheck // Is as is
-}
+type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
+
+	if config.IncludeSubdomains {
+		domain = "*." + domain
+	}
 
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			err error
-			res *fasthttp.Response
-		)
+		getIndexesReqURL := "https://index.commoncrawl.org/collinfo.json"
 
-		res, err = httpclient.SimpleGet("https://index.commoncrawl.org/collinfo.json")
+		var err error
+
+		var getIndexesRes *fasthttp.Response
+
+		getIndexesRes, err = httpclient.SimpleGet(getIndexesReqURL)
 		if err != nil {
 			return
 		}
 
-		var commonCrawlIndexes []Index
+		var getIndexesResData getIndexesResponse
 
-		if err = json.Unmarshal(res.Body(), &commonCrawlIndexes); err != nil {
+		if err = json.Unmarshal(getIndexesRes.Body(), &getIndexesResData); err != nil {
 			return
 		}
 
 		wg := new(sync.WaitGroup)
 
-		for index := range commonCrawlIndexes {
+		for _, indexData := range getIndexesResData {
 			wg.Add(1)
-
-			commonCrawlIndex := commonCrawlIndexes[index]
 
 			go func(API string) {
 				defer wg.Done()
 
-				var (
-					err     error
-					headers = map[string]string{"Host": "index.commoncrawl.org"}
-					res     *fasthttp.Response
-				)
+				getURLsReqHeaders := map[string]string{
+					"Host": "index.commoncrawl.org",
+				}
 
-				res, err = httpclient.Get(fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url", API, config.Domain), "", headers)
+				getURLsReqURL := fmt.Sprintf("%s?url=%s/*&output=json&fl=url", API, domain)
+
+				var err error
+
+				var getURLsRes *fasthttp.Response
+
+				getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 				if err != nil {
 					return
 				}
 
-				scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
+				scanner := bufio.NewScanner(bytes.NewReader(getURLsRes.Body()))
 
 				for scanner.Scan() {
-					var result CDXAPIResult
+					var getURLsResData getURLsResponse
 
-					if err = json.Unmarshal(scanner.Bytes(), &result); err != nil {
+					if err = json.Unmarshal(scanner.Bytes(), &getURLsResData); err != nil {
 						return
 					}
 
-					if result.Error != "" {
+					if getURLsResData.Error != "" {
 						return
 					}
 
-					URL := result.URL
+					URL := getURLsResData.URL
 
-					if !sources.IsValid(URL) {
-						return
-					}
-
-					if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-						return
+					if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+						continue
 					}
 
 					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
@@ -97,7 +99,7 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 				if scanner.Err() != nil {
 					return
 				}
-			}(commonCrawlIndex.CDX_API)
+			}(indexData.API)
 		}
 
 		wg.Wait()

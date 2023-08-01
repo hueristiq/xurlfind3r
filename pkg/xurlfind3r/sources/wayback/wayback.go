@@ -1,11 +1,9 @@
-// Package wayback implements functions to search URLs from wayback.
 package wayback
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -23,95 +21,103 @@ var (
 	})
 )
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		waybackURLs := make(chan string)
+		var err error
 
-		go func() {
-			defer close(waybackURLs)
+		getPagesReqURL := formatURL(domain, config.IncludeSubdomains) + "&showNumPages=true"
 
-			var (
-				err     error
-				results []string
-			)
+		limiter.Wait()
 
-			if config.IncludeSubdomains {
-				config.Domain = "*." + config.Domain
-			}
+		var getPagesRes *fasthttp.Response
 
-			results, err = getWaybackURLs(config.Domain)
+		getPagesRes, err = httpclient.SimpleGet(getPagesReqURL)
+		if err != nil {
+			return
+		}
+
+		var pages uint
+
+		if err = json.Unmarshal(getPagesRes.Body(), &pages); err != nil {
+			return
+		}
+
+		waybackURLs := [][]string{}
+
+		for page := uint(0); page < pages; page++ {
+			getURLsReqURL := fmt.Sprintf("%s&page=%d", formatURL(domain, config.IncludeSubdomains), page)
+
+			limiter.Wait()
+
+			var getURLsRes *fasthttp.Response
+
+			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
 			if err != nil {
 				return
 			}
 
-			for index := range results {
-				URL := results[index]
-				if URL == "" {
-					continue
-				}
+			var getURLsResData [][]string
 
-				waybackURLs <- URL
+			if err = json.Unmarshal(getURLsRes.Body(), &getURLsResData); err != nil {
+				return
 			}
-		}()
+
+			// check if there's results, wayback's pagination response
+			// is not always correct when using a filter
+			if len(getURLsResData) == 0 {
+				break
+			}
+
+			// output results
+			// Slicing as [1:] to skip first result by default
+			waybackURLs = append(waybackURLs, getURLsResData[1:]...)
+		}
+
+		mediaURLRegex := regexp.MustCompile(`(?i)\.(apng|bpm|png|bmp|gif|heif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|psd|raw|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf|pdf)(?:\?|#|$)`)
+		robotsURLsRegex := regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`)
 
 		wg := &sync.WaitGroup{}
 
-		for URL := range waybackURLs {
+		for _, waybackURL := range waybackURLs {
 			wg.Add(1)
 
-			go func(URL string) {
+			go func(waybackURL []string) {
 				defer wg.Done()
 
-				if !sources.IsValid(URL) {
-					return
-				}
+				URL := waybackURL[1]
 
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					return
 				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 
-				if !config.ParseWaybackRobots && !config.ParseWaybackSource {
+				if mediaURLRegex.MatchString(URL) {
 					return
 				}
 
-				if config.MediaURLsRegex.MatchString(URL) {
-					return
-				}
-
-				if config.ParseWaybackRobots &&
-					config.RobotsURLsRegex.MatchString(URL) {
-					for robotsURL := range parseWaybackRobots(URL) {
-						if !sources.IsValid(robotsURL) {
-							continue
-						}
-
-						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-							return
-						}
-
+				if config.ParseWaybackRobots && robotsURLsRegex.MatchString(URL) {
+					for robotsURL := range parseWaybackRobots(config, URL) {
 						URLsChannel <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
 					}
-				} else if config.ParseWaybackSource &&
-					!config.RobotsURLsRegex.MatchString(URL) {
-					for sourceURL := range parseWaybackSource(URL, config.URLsRegex) {
-						if !sources.IsValid(sourceURL) {
-							continue
-						}
 
-						if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-							return
+					return
+				}
+
+				if config.ParseWaybackSource {
+					for sourceURL := range parseWaybackSource(domain, URL) {
+						if !sources.IsInScope(sourceURL, domain, config.IncludeSubdomains) {
+							continue
 						}
 
 						URLsChannel <- sources.URL{Source: source.Name() + ":source", Value: sourceURL}
 					}
 				}
-			}(URL)
+			}(waybackURL)
 		}
 
 		wg.Wait()
@@ -120,59 +126,33 @@ func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sourc
 	return
 }
 
-func getWaybackURLs(domain string) (URLs []string, err error) {
-	URLs = []string{}
-
-	var (
-		res *fasthttp.Response
-	)
-
-	limiter.Wait()
-
-	reqURL := fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=txt&fl=original&collapse=urlkey", domain)
-
-	res, err = httpclient.SimpleGet(reqURL)
-	if err != nil {
-		return
+func formatURL(domain string, includeSubdomains bool) (URL string) {
+	if includeSubdomains {
+		domain = "*." + domain
 	}
 
-	scanner := bufio.NewScanner(bytes.NewReader(res.Body()))
-
-	for scanner.Scan() {
-		URL := scanner.Text()
-		if URL == "" {
-			continue
-		}
-
-		URLs = append(URLs, URL)
-	}
-
-	if err = scanner.Err(); err != nil {
-		return
-	}
+	URL = fmt.Sprintf("http://web.archive.org/cdx/search/cdx?url=%s/*&output=json&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest", domain)
 
 	return
 }
 
-func getWaybackSnapshots(URL string) (snapshots [][2]string, err error) {
-	var (
-		res *fasthttp.Response
-	)
+func getSnapshots(URL string) (snapshots [][2]string, err error) {
+	getSnapshotsReqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&collapse=digest", URL)
+
+	var getSnapshotsRes *fasthttp.Response
 
 	limiter.Wait()
 
-	reqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&collapse=digest", URL)
-
-	res, err = httpclient.SimpleGet(reqURL)
+	getSnapshotsRes, err = httpclient.SimpleGet(getSnapshotsReqURL)
 	if err != nil {
 		return
 	}
 
-	if res.Header.ContentLength() == 0 {
+	if getSnapshotsRes.Header.ContentLength() == 0 {
 		return
 	}
 
-	if err = json.Unmarshal(res.Body(), &snapshots); err != nil {
+	if err = json.Unmarshal(getSnapshotsRes.Body(), &snapshots); err != nil {
 		return
 	}
 
@@ -185,23 +165,24 @@ func getWaybackSnapshots(URL string) (snapshots [][2]string, err error) {
 	return
 }
 
-func getWaybackContent(snapshot [2]string) (content string, err error) {
+func getSnapshotContent(snapshot [2]string) (content string, err error) {
 	var (
 		timestamp = snapshot[0]
 		URL       = snapshot[1]
-		res       *fasthttp.Response
 	)
+
+	getSnapshotContentReqURL := fmt.Sprintf("https://web.archive.org/web/%sif_/%s", timestamp, URL)
 
 	limiter.Wait()
 
-	reqURL := fmt.Sprintf("https://web.archive.org/web/%sif_/%s", timestamp, URL)
+	var getSnapshotContentRes *fasthttp.Response
 
-	res, err = httpclient.SimpleGet(reqURL)
+	getSnapshotContentRes, err = httpclient.SimpleGet(getSnapshotContentReqURL)
 	if err != nil {
 		return
 	}
 
-	content = string(res.Body())
+	content = string(getSnapshotContentRes.Body())
 
 	if content == "" {
 		return

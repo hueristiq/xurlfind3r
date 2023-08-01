@@ -8,35 +8,36 @@ import (
 	"sync"
 
 	"github.com/hueristiq/hqgourl"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string) {
-	URLs = make(chan string)
-
-	parsedURL, err := hqgourl.Parse(URL)
-	if err != nil {
-		return
-	}
-
-	escapedDomain := regexp.QuoteMeta(parsedURL.ETLDPlusOne)
-	pattern := fmt.Sprintf(`https?://([a-z0-9.-]*\.)?%s(/[a-zA-Z0-9()/*\-+_~:,.?#=]*)?`, escapedDomain)
-	re := regexp.MustCompile(pattern)
+func parseWaybackSource(domain, URL string) (sourceURLs chan string) {
+	sourceURLs = make(chan string)
 
 	go func() {
-		defer close(URLs)
+		defer close(sourceURLs)
 
-		// retrieve snapshots
-		var (
-			err       error
-			snapshots [][2]string
-		)
+		var err error
 
-		snapshots, err = getWaybackSnapshots(URL)
+		var snapshots [][2]string
+
+		snapshots, err = getSnapshots(URL)
 		if err != nil {
 			return
 		}
 
-		// retrieve content
+		lxExtractor := hqgourl.Extractor.Relaxed()
+
+		var mdExtractor *regexp.Regexp
+
+		mdExtractor, err = hqgourl.Extractor.ModerateMatchHost(`(\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?` + regexp.QuoteMeta(domain))
+		if err != nil {
+			return
+		}
+
+		regex1 := regexp.MustCompile(`^(//web\.archive\.org/web|https://web\.archive\.org/web|/web)/\d{14}([a-z]{2}_)?/.*`)
+		regex2 := regexp.MustCompile(`^https?://.*`)
+
 		wg := &sync.WaitGroup{}
 
 		for _, row := range snapshots {
@@ -45,63 +46,74 @@ func parseWaybackSource(URL string, URLsRegex *regexp.Regexp) (URLs chan string)
 			go func(row [2]string) {
 				defer wg.Done()
 
-				var (
-					err     error
-					content string
-				)
-
-				content, err = getWaybackContent(row)
+				content, err := getSnapshotContent(row)
 				if err != nil {
 					return
 				}
 
-				for _, sourceURL := range URLsRegex.FindAllString(content, -1) {
-					// remove beginning and ending quotes
-					sourceURL = strings.Trim(sourceURL, "\"")
-					sourceURL = strings.Trim(sourceURL, "'")
+				lxURLs := lxExtractor.FindAllString(content, -1)
 
-					// remove beginning and ending spaces
-					sourceURL = strings.Trim(sourceURL, " ")
+				for _, lxURL := range lxURLs {
+					lxURL = sources.FixURL(lxURL)
 
-					// if URL starts with `//web.archive.org/web` append scheme i.e to process it as an absolute URL
-					if strings.HasPrefix(sourceURL, "//web.archive.org/web") {
-						sourceURL = "https:" + sourceURL
+					// `/web/20230128054726/https://example.com/`
+					// `//web.archive.org/web/20230128054726/https://example.com/`
+					// `https://web.archive.org/web/20230128054726/https://example.com/`
+					// `/web/20040111155853js_/http://example.com/2003/mm_menu.js`
+					if regex1.MatchString(lxURL) {
+						URLs := mdExtractor.FindAllString(lxURL, -1)
+
+						for _, URL := range URLs {
+							// `https://web.archive.org/web/20001110042700/mailto:info@safaricom.co.ke`->safaricom.co.ke
+							if !strings.HasPrefix(URL, "http") {
+								continue
+							}
+
+							sourceURLs <- URL
+						}
+
+						continue
 					}
 
-					parsedSourceURL, err := hqgourl.Parse(sourceURL)
+					// `http://www.safaricom.co.ke/`
+					// `https://web.archive.org/web/*/http://www.safaricom.co.ke/*`
+					// `//html5shim.googlecode.com/svn/trunk/html5.js``
+					if regex2.MatchString(lxURL) || strings.HasPrefix(lxURL, `//`) {
+						URLs := mdExtractor.FindAllString(lxURL, -1)
+
+						for _, URL := range URLs {
+							sourceURLs <- URL
+						}
+
+						continue
+					}
+
+					// text/javascript
+					_, _, err := mime.ParseMediaType(lxURL)
+					if err == nil {
+						continue
+					}
+
+					// `//archive.org/includes/analytics.js?v=c535ca67``
+					// `archive.org/components/npm/lit/polyfill-support.js?v=c535ca67`
+					// `archive.org/components/npm/@webcomponents/webcomponentsjs/webcomponents-bundle.js?v=c535ca67`
+					// `archive.org/includes/build/js/ia-topnav.min.js?v=c535ca67`
+					// `archive.org/includes/build/js/archive.min.js?v=c535ca67`
+					// `archive.org/includes/build/css/archive.min.css?v=c535ca67`
+					if strings.Contains(lxURL, "archive.org") {
+						continue
+					}
+
+					parsedSourceURL, err := hqgourl.Parse(URL)
 					if err != nil {
 						continue
 					}
 
-					if parsedSourceURL.IsAbs() {
-						matches := re.FindAllString(sourceURL, -1)
+					lxURL = strings.TrimLeft(lxURL, "/")
 
-						for _, match := range matches {
-							URLs <- match
-						}
-					} else {
-						_, _, err := mime.ParseMediaType(sourceURL)
-						if err == nil {
-							continue
-						}
+					lxURL = fmt.Sprintf("%s://%s/%s", parsedSourceURL.Scheme, parsedSourceURL.Domain, lxURL)
 
-						matches := re.FindAllString(sourceURL, -1)
-
-						for _, match := range matches {
-							URLs <- match
-						}
-
-						if len(matches) > 0 {
-							continue
-						}
-
-						// remove beginning slash
-						sourceURL = strings.TrimLeft(sourceURL, "/")
-
-						sourceURL = fmt.Sprintf("%s://%s/%s", parsedURL.Scheme, parsedURL.Domain, sourceURL)
-
-						URLs <- sourceURL
-					}
+					sourceURLs <- lxURL
 				}
 			}(row)
 		}

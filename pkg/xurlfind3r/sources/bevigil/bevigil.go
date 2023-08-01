@@ -9,52 +9,55 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type response struct {
+type getURLsResponse struct {
 	Domain string   `json:"domain"`
 	URLs   []string `json:"urls"`
 }
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			key     string
-			err     error
-			res     *fasthttp.Response
-			headers = map[string]string{}
-		)
+		var err error
+
+		var key string
 
 		key, err = sources.PickRandom(config.Keys.Bevigil)
 		if key == "" || err != nil {
 			return
 		}
 
+		getURLsReqHeaders := map[string]string{}
+
 		if len(config.Keys.Bevigil) > 0 {
-			headers["X-Access-Token"] = key
+			getURLsReqHeaders["X-Access-Token"] = key
 		}
 
-		reqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", config.Domain)
+		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
 
-		res, err = httpclient.Request(fasthttp.MethodGet, reqURL, "", headers, nil)
+		var getURLsRes *fasthttp.Response
+
+		getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 		if err != nil {
 			return
 		}
 
-		body := res.Body()
+		var getURLsResData getURLsResponse
 
-		var results response
-
-		if err = json.Unmarshal(body, &results); err != nil {
+		if err = json.Unmarshal(getURLsRes.Body(), &getURLsResData); err != nil {
 			return
 		}
 
-		for _, i := range results.URLs {
-			URLsChannel <- sources.URL{Source: source.Name(), Value: i}
+		for _, URL := range getURLsResData.URLs {
+			if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+				continue
+			}
+
+			URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 		}
 	}()
 

@@ -1,6 +1,6 @@
 package sources
 
 type Source interface {
-	Run(config *Configuration) (URLs chan URL)
+	Run(config *Configuration, domain string) (URLs chan URL)
 	Name() string
 }

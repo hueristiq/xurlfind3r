@@ -7,26 +7,22 @@ import (
 	"sync"
 
 	"github.com/hueristiq/hqgourl"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-func parseWaybackRobots(URL string) (URLs chan string) {
-	URLs = make(chan string)
+func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan string) {
+	robotsURLs = make(chan string)
+
+	robotsEntryRegex := regexp.MustCompile(`(Allow|Disallow):\s?.+`)
 
 	go func() {
-		defer close(URLs)
+		defer close(robotsURLs)
 
-		// retrieve snapshots
-		var (
-			err       error
-			snapshots [][2]string
-		)
-
-		snapshots, err = getWaybackSnapshots(URL)
+		snapshots, err := getSnapshots(URL)
 		if err != nil {
 			return
 		}
 
-		// retrieve conteny
 		wg := &sync.WaitGroup{}
 
 		for _, row := range snapshots {
@@ -35,64 +31,54 @@ func parseWaybackRobots(URL string) (URLs chan string) {
 			go func(row [2]string) {
 				defer wg.Done()
 
-				var (
-					err     error
-					content string
-				)
-
-				content, err = getWaybackContent(row)
+				content, err := getSnapshotContent(row)
 				if err != nil {
 					return
 				}
 
-				pattern := regexp.MustCompile(`Disallow:\s?.+`)
+				matches := robotsEntryRegex.FindAllStringSubmatch(content, -1)
 
-				disallowed := pattern.FindAllStringSubmatch(content, -1)
-
-				if len(disallowed) < 1 {
+				if len(matches) < 1 {
 					return
 				}
 
-				for _, entry := range disallowed {
-					temp := strings.Split(entry[0], "Disallow:")
+				for _, match := range matches {
+					entry := match[0]
+
+					temp := strings.Split(entry, ": ")
 
 					if len(temp) <= 1 {
 						continue
 					}
 
-					endpoint := strings.Trim(temp[1], " ")
+					robotsURL := temp[1]
 
-					if endpoint == "/" || endpoint == "*" || endpoint == "" {
+					if robotsURL == "/" || robotsURL == "*" || robotsURL == "" {
 						continue
 					}
 
-					endpoint = strings.ReplaceAll(endpoint, "*", "")
+					robotsURL = strings.ReplaceAll(robotsURL, "*", "")
 
-					for strings.HasPrefix(endpoint, "/") {
-						if len(endpoint) >= 1 {
-							endpoint = endpoint[1:] // Ex. /*/test or /*/*/demo
-						} else {
-							continue
+					for strings.HasPrefix(robotsURL, "/") {
+						if len(robotsURL) >= 1 {
+							robotsURL = robotsURL[1:] // Ex. /*/test or /*/*/demo
 						}
 					}
 
-					for strings.HasSuffix(endpoint, "/") {
-						if len(endpoint) >= 1 {
-							endpoint = endpoint[0 : len(endpoint)-1]
-						} else {
-							continue
+					for strings.HasSuffix(robotsURL, "/") {
+						if len(robotsURL) >= 1 {
+							robotsURL = robotsURL[0 : len(robotsURL)-1]
 						}
 					}
 
-					parsedURL, err := hqgourl.Parse(row[1])
+					parsedURL, err := hqgourl.Parse(URL)
 					if err != nil {
 						continue
 					}
 
-					endpoint = filepath.Join(parsedURL.Domain, endpoint)
-					endpoint = parsedURL.Scheme + "://" + endpoint
+					robotsURL = parsedURL.Scheme + "://" + filepath.Join(parsedURL.Domain, robotsURL)
 
-					URLs <- endpoint
+					robotsURLs <- robotsURL
 				}
 			}(row)
 		}

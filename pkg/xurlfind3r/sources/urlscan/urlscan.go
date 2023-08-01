@@ -1,16 +1,15 @@
-// Package urlscan implements functions to search URLs from urlscan.
 package urlscan
 
 import (
 	"encoding/json"
-	"net/url"
+	"fmt"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/valyala/fasthttp"
 )
 
-type response struct {
+type searchResponse struct {
 	Results []struct {
 		Page struct {
 			Domain   string `json:"domain"`
@@ -28,79 +27,73 @@ type response struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration) (URLsChannel chan sources.URL) {
+func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
 	URLsChannel = make(chan sources.URL)
 
 	go func() {
 		defer close(URLsChannel)
 
-		var (
-			key         string
-			err         error
-			res         *fasthttp.Response
-			searchAfter []interface{}
-			headers     = map[string]string{
-				"Content-Type": "application/json",
-			}
-		)
+		var err error
+
+		var key string
 
 		key, err = sources.PickRandom(config.Keys.URLScan)
-		if key == "" || err != nil {
+		if err != nil {
 			return
 		}
 
-		if len(config.Keys.URLScan) > 0 {
-			headers["API-Key"] = key
+		searchReqHeaders := map[string]string{
+			"Content-Type": "application/json",
 		}
 
+		if key != "" {
+			searchReqHeaders["API-Key"] = key
+		}
+
+		var searchAfter []interface{}
+
 		for {
-			baseURL := "https://urlscan.io/api/v1/search/"
-			params := url.Values{}
-			params.Set("q", config.Domain)
+			after := ""
 
 			if searchAfter != nil {
 				searchAfterJSON, _ := json.Marshal(searchAfter)
-				params.Set("search_after", string(searchAfterJSON))
+				after = "&search_after=" + string(searchAfterJSON)
 			}
 
-			reqURL := baseURL + "?" + params.Encode()
+			searchReqURL := fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s&size=100", domain) + after
 
-			res, err = httpclient.Request(fasthttp.MethodGet, reqURL, "", headers, nil)
+			var searchRes *fasthttp.Response
+
+			searchRes, err = httpclient.Get(searchReqURL, "", searchReqHeaders)
 			if err != nil {
 				return
 			}
 
-			body := res.Body()
+			var searchResData searchResponse
 
-			var results response
-
-			if err = json.Unmarshal(body, &results); err != nil {
+			if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
 				return
 			}
 
-			if results.Status == 429 {
+			if searchResData.Status == 429 {
 				break
 			}
 
-			for _, i := range results.Results {
-				URL := i.Page.URL
+			for _, result := range searchResData.Results {
+				URL := result.Page.URL
 
-				if !sources.IsValid(URL) {
+				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
 					continue
-				}
-
-				if !sources.IsInScope(URL, config.Domain, config.IncludeSubdomains) {
-					return
 				}
 
 				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
 			}
 
-			if !results.HasMore {
+			if !searchResData.HasMore {
 				break
 			}
 
-			lastResult := results.Results[len(results.Results)-1]
+			lastResult := searchResData.Results[len(searchResData.Results)-1]
 			searchAfter = lastResult.Sort
 		}
 	}()
