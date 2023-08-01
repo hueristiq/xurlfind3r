@@ -167,9 +167,6 @@ SOURCES:
       --parse-wayback-robots bool    with wayback, parse robots.txt snapshots
       --parse-wayback-source bool    with wayback, parse source code snapshots
 
-OPTIMIZATION:
- -t,  --threads int                    number of threads (default: 50)
-
 FILTER & MATCH:
  -f, --filter string                 regex to filter URLs
  -m, --match string                  regex to match URLs
