@@ -33,6 +33,7 @@
 
     </details>
 * [x] Parses URLs from wayback webpages and `robots.txt` snapshots.
+* [x] Filters out duplicate URLs.
 * [x] Supports URLs matching and filtering.
 * [x] Supports `stdin` and `stdout` for easy integration into workflows.
 * [x] Cross-Platform (Windows, Linux & macOS).
