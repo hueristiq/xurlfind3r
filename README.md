@@ -22,12 +22,20 @@
 
 ## Features
 
-* Fetches URLs from curated passive sources to maximize results.
-	* **[AlienVault's OTX](https://otx.alienvault.com/)** ◇ **[BeVigil](https://bevigil.com)** ◇ **[Common Crawl](https://commoncrawl.org/)** ◇ **[Github](https://github.com)** ◇ **[Intelligence X](https://intelx.io)** ◇ **[URLScan](https://urlscan.io/)** ◇ **[Wayback Machine](https://archive.org/web/)**
-* Parses URLs from wayback webpages and `robots.txt` snapshots.
-* Supports URLs matching and filtering.
-* Supports `stdin` and `stdout` for easy integration into workflows.
-* Cross-Platform (Windows, Linux & macOS).
+* [x] Fetches URLs from curated passive sources to maximize results.
+    <details>
+    <summary>Sources: Click to expand!</summary>
+
+    | Technique | Source |
+    | :-------- | :----- |
+    | APIs | AlienVault's OTX, BeVigil, GitHub, IntelX, URLScan |
+    | Web Archives | CommonCrawl, Wayback |
+
+    </details>
+* [x] Parses URLs from wayback webpages and `robots.txt` snapshots.
+* [x] Supports URLs matching and filtering.
+* [x] Supports `stdin` and `stdout` for easy integration into workflows.
+* [x] Cross-Platform (Windows, Linux & macOS).
 
 ## Installation
 
@@ -110,6 +118,8 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 `xurlfind3r` will work right after [installation](#installation). However, **[BeVigil](https://bevigil.com)**, **[Github](https://github.com)** and **[Intelligence X](https://intelx.io)** require API keys to work, **[URLScan](https://urlscan.io)** supports API key but not required. The API keys are stored in the `$HOME/.hueristiq/xurlfind3r/config.yaml` file - created upon first run - and uses the YAML format. Multiple API keys can be specified for each of these source from which one of them will be used.
 
 Example `config.yaml`:
+
+> **NOTE:** The keys/tokens below are invalid, use your own keys/tokens!
 
 ```yaml
 version: 0.3.0
