@@ -302,19 +302,24 @@ func mkdir(path string) {
 	}
 }
 
-func outputURLs(writer *bufio.Writer, URLs chan sources.URL, verbosity string) {
+func outputURLs(writer *bufio.Writer, URLs chan sources.Result, verbosity string) {
 	for URL := range URLs {
-		if verbosity == string(levels.LevelSilent) {
-			hqgolog.Print().Msg(URL.Value)
-		} else {
-			hqgolog.Print().Msgf("[%s] %s", au.BrightBlue(URL.Source), URL.Value)
-		}
+		switch URL.Type {
+		case sources.Error:
+			hqgolog.Warn().Msgf("Could not run source %s: %s\n", URL.Source, URL.Error)
+		case sources.URL:
+			if verbosity == string(levels.LevelDebug) {
+				hqgolog.Print().Msgf("[%s] %s", au.BrightBlue(URL.Source), URL.Value)
+			} else {
+				hqgolog.Print().Msg(URL.Value)
+			}
 
-		if writer != nil {
-			fmt.Fprintln(writer, URL.Value)
+			if writer != nil {
+				fmt.Fprintln(writer, URL.Value)
 
-			if err := writer.Flush(); err != nil {
-				hqgolog.Fatal().Msg(err.Error())
+				if err := writer.Flush(); err != nil {
+					hqgolog.Fatal().Msg(err.Error())
+				}
 			}
 		}
 	}

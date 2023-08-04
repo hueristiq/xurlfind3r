@@ -24,15 +24,15 @@ type getURLsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
-	URLsChannel = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+	results := make(chan sources.Result)
 
 	if config.IncludeSubdomains {
 		domain = "*." + domain
 	}
 
 	go func() {
-		defer close(URLsChannel)
+		defer close(results)
 
 		getIndexesReqURL := "https://index.commoncrawl.org/collinfo.json"
 
@@ -42,12 +42,29 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		getIndexesRes, err = httpclient.SimpleGet(getIndexesReqURL)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
 		var getIndexesResData getIndexesResponse
 
-		if err = json.Unmarshal(getIndexesRes.Body(), &getIndexesResData); err != nil {
+		err = json.Unmarshal(getIndexesRes.Body(), &getIndexesResData)
+		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -71,6 +88,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 				getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 				if err != nil {
+					result := sources.Result{
+						Type:   sources.Error,
+						Source: source.Name(),
+						Error:  err,
+					}
+
+					results <- result
+
 					return
 				}
 
@@ -79,7 +104,16 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 				for scanner.Scan() {
 					var getURLsResData getURLsResponse
 
-					if err = json.Unmarshal(scanner.Bytes(), &getURLsResData); err != nil {
+					err = json.Unmarshal(scanner.Bytes(), &getURLsResData)
+					if err != nil {
+						result := sources.Result{
+							Type:   sources.Error,
+							Source: source.Name(),
+							Error:  err,
+						}
+
+						results <- result
+
 						return
 					}
 
@@ -93,10 +127,24 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 						continue
 					}
 
-					URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+					result := sources.Result{
+						Type:   sources.URL,
+						Source: source.Name(),
+						Value:  URL,
+					}
+
+					results <- result
 				}
 
-				if scanner.Err() != nil {
+				if err = scanner.Err(); err != nil {
+					result := sources.Result{
+						Type:   sources.Error,
+						Source: source.Name(),
+						Error:  err,
+					}
+
+					results <- result
+
 					return
 				}
 			}(indexData.API)
@@ -105,7 +153,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 		wg.Wait()
 	}()
 
-	return
+	return results
 }
 
 func (source *Source) Name() string {

@@ -28,11 +28,11 @@ type searchResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
-	URLsChannel = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+	results := make(chan sources.Result)
 
 	go func() {
-		defer close(URLsChannel)
+		defer close(results)
 
 		if len(config.Keys.GitHub) == 0 {
 			return
@@ -42,13 +42,13 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		searchReqURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
 
-		source.Enumerate(searchReqURL, domain, tokens, URLsChannel, config)
+		source.Enumerate(searchReqURL, domain, tokens, results, config)
 	}()
 
-	return URLsChannel
+	return results
 }
 
-func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URLsChannel chan sources.URL, config *sources.Configuration) {
+func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, results chan sources.Result, config *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -73,6 +73,14 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 	isForbidden := searchRes != nil && searchRes.StatusCode() == fasthttp.StatusForbidden
 
 	if err != nil && !isForbidden {
+		result := sources.Result{
+			Type:   sources.Error,
+			Source: source.Name(),
+			Error:  err,
+		}
+
+		results <- result
+
 		return
 	}
 
@@ -82,12 +90,21 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchReqURL, domain, tokens, URLsChannel, config)
+		source.Enumerate(searchReqURL, domain, tokens, results, config)
 	}
 
 	var searchResData searchResponse
 
-	if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
+	err = json.Unmarshal(searchRes.Body(), &searchResData)
+	if err != nil {
+		result := sources.Result{
+			Type:   sources.Error,
+			Source: source.Name(),
+			Error:  err,
+		}
+
+		results <- result
+
 		return
 	}
 
@@ -95,6 +112,14 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 
 	mdExtractor, err = hqgourl.Extractor.ModerateMatchHost(`(\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?` + regexp.QuoteMeta(domain))
 	if err != nil {
+		result := sources.Result{
+			Type:   sources.Error,
+			Source: source.Name(),
+			Error:  err,
+		}
+
+		results <- result
+
 		return
 	}
 
@@ -105,6 +130,14 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 
 		getRawContentRes, err = httpclient.SimpleGet(getRawContentReqURL)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			continue
 		}
 
@@ -119,6 +152,14 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 
 			parsedURL, err := hqgourl.Parse(URL)
 			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
@@ -128,7 +169,13 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 				continue
 			}
 
-			URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+			result := sources.Result{
+				Type:   sources.URL,
+				Source: source.Name(),
+				Value:  URL,
+			}
+
+			results <- result
 		}
 
 		for _, textMatch := range item.TextMatches {
@@ -139,6 +186,14 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 
 				parsedURL, err := hqgourl.Parse(URL)
 				if err != nil {
+					result := sources.Result{
+						Type:   sources.Error,
+						Source: source.Name(),
+						Error:  err,
+					}
+
+					results <- result
+
 					return
 				}
 
@@ -148,7 +203,13 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 					continue
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				result := sources.Result{
+					Type:   sources.URL,
+					Source: source.Name(),
+					Value:  URL,
+				}
+
+				results <- result
 			}
 		}
 	}
@@ -159,10 +220,18 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, URL
 		if link.Rel == "next" {
 			nextURL, err := url.QueryUnescape(link.URL)
 			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
-			source.Enumerate(nextURL, domain, tokens, URLsChannel, config)
+			source.Enumerate(nextURL, domain, tokens, results, config)
 		}
 	}
 }

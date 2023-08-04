@@ -34,14 +34,22 @@ type getURLsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
-	URLsChannel = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+	results := make(chan sources.Result)
 
 	go func() {
-		defer close(URLsChannel)
+		defer close(results)
 
 		parseURL, err := hqgourl.Parse(domain)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -54,12 +62,29 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
 			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
 			var getURLsResData getURLsResponse
 
-			if err = json.Unmarshal(getURLsRes.Body(), &getURLsResData); err != nil {
+			err = json.Unmarshal(getURLsRes.Body(), &getURLsResData)
+			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
@@ -70,7 +95,13 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					continue
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				result := sources.Result{
+					Type:   sources.URL,
+					Source: source.Name(),
+					Value:  URL,
+				}
+
+				results <- result
 			}
 
 			if !getURLsResData.HasNext {
@@ -79,7 +110,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 		}
 	}()
 
-	return
+	return results
 }
 
 func (source *Source) Name() string {

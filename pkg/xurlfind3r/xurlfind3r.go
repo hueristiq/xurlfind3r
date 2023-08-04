@@ -93,14 +93,15 @@ func New(options *Options) (finder *Finder, err error) {
 	return
 }
 
-func (finder *Finder) Find(domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
+func (finder *Finder) Find(domain string) (results chan sources.Result) {
+	results = make(chan sources.Result)
 
 	go func() {
-		defer close(URLs)
+		defer close(results)
+
+		seenURLs := &sync.Map{}
 
 		wg := &sync.WaitGroup{}
-		seen := &sync.Map{}
 
 		for name := range finder.Sources {
 			wg.Add(1)
@@ -108,27 +109,27 @@ func (finder *Finder) Find(domain string) (URLs chan sources.URL) {
 			go func(source sources.Source) {
 				defer wg.Done()
 
-				results := source.Run(finder.SourcesConfiguration, domain)
+				sResults := source.Run(finder.SourcesConfiguration, domain)
 
-				for URL := range results {
-					value := URL.Value
-
-					_, loaded := seen.LoadOrStore(value, struct{}{})
-					if loaded {
-						continue
-					}
-
-					if finder.MatchRegex != nil {
-						if !finder.MatchRegex.MatchString(URL.Value) {
+				for sResult := range sResults {
+					if sResult.Type == sources.URL {
+						_, loaded := seenURLs.LoadOrStore(sResult.Value, struct{}{})
+						if loaded {
 							continue
 						}
-					} else if finder.FilterRegex != nil && finder.MatchRegex == nil {
-						if finder.FilterRegex.MatchString(URL.Value) {
-							continue
+
+						if finder.MatchRegex != nil {
+							if !finder.MatchRegex.MatchString(sResult.Value) {
+								continue
+							}
+						} else if finder.FilterRegex != nil && finder.MatchRegex == nil {
+							if finder.FilterRegex.MatchString(sResult.Value) {
+								continue
+							}
 						}
 					}
 
-					URLs <- URL
+					results <- sResult
 				}
 			}(finder.Sources[name])
 		}

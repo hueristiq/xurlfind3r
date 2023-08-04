@@ -10,81 +10,103 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-func parseWaybackRobots(_ *sources.Configuration, URL string) (robotsURLs chan string) {
-	robotsURLs = make(chan string)
-
+func parseWaybackRobots(_ *sources.Configuration, URL string, results chan sources.Result) {
 	robotsEntryRegex := regexp.MustCompile(`(Allow|Disallow):\s?.+`)
 
-	go func() {
-		defer close(robotsURLs)
-
-		snapshots, err := getSnapshots(URL)
-		if err != nil {
-			return
+	snapshots, err := getSnapshots(URL)
+	if err != nil {
+		result := sources.Result{
+			Type:   sources.Error,
+			Source: "wayback:robots",
+			Error:  err,
 		}
 
-		wg := &sync.WaitGroup{}
+		results <- result
 
-		for _, row := range snapshots {
-			wg.Add(1)
+		return
+	}
 
-			go func(row [2]string) {
-				defer wg.Done()
+	wg := &sync.WaitGroup{}
 
-				content, err := getSnapshotContent(row)
+	for _, row := range snapshots {
+		wg.Add(1)
+
+		go func(row [2]string) {
+			defer wg.Done()
+
+			content, err := getSnapshotContent(row)
+			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: "wayback:robots",
+					Error:  err,
+				}
+
+				results <- result
+
+				return
+			}
+
+			matches := robotsEntryRegex.FindAllStringSubmatch(content, -1)
+
+			if len(matches) < 1 {
+				return
+			}
+
+			for _, match := range matches {
+				entry := match[0]
+
+				temp := strings.Split(entry, ": ")
+
+				if len(temp) <= 1 {
+					continue
+				}
+
+				robotsURL := temp[1]
+
+				if robotsURL == "/" || robotsURL == "*" || robotsURL == "" {
+					continue
+				}
+
+				robotsURL = strings.ReplaceAll(robotsURL, "*", "")
+
+				for strings.HasPrefix(robotsURL, "/") {
+					if len(robotsURL) >= 1 {
+						robotsURL = robotsURL[1:] // Ex. /*/test or /*/*/demo
+					}
+				}
+
+				for strings.HasSuffix(robotsURL, "/") {
+					if len(robotsURL) >= 1 {
+						robotsURL = robotsURL[0 : len(robotsURL)-1]
+					}
+				}
+
+				parsedURL, err := hqgourl.Parse(URL)
 				if err != nil {
-					return
+					result := sources.Result{
+						Type:   sources.Error,
+						Source: "wayback:robots",
+						Error:  err,
+					}
+
+					results <- result
+
+					continue
 				}
 
-				matches := robotsEntryRegex.FindAllStringSubmatch(content, -1)
+				robotsURL = parsedURL.Scheme + "://" + filepath.Join(parsedURL.Domain, robotsURL)
 
-				if len(matches) < 1 {
-					return
+				result := sources.Result{
+					Type:   sources.URL,
+					Source: "wayback:robots",
+					Value:  robotsURL,
 				}
 
-				for _, match := range matches {
-					entry := match[0]
+				results <- result
+			}
+		}(row)
+	}
 
-					temp := strings.Split(entry, ": ")
-
-					if len(temp) <= 1 {
-						continue
-					}
-
-					robotsURL := temp[1]
-
-					if robotsURL == "/" || robotsURL == "*" || robotsURL == "" {
-						continue
-					}
-
-					robotsURL = strings.ReplaceAll(robotsURL, "*", "")
-
-					for strings.HasPrefix(robotsURL, "/") {
-						if len(robotsURL) >= 1 {
-							robotsURL = robotsURL[1:] // Ex. /*/test or /*/*/demo
-						}
-					}
-
-					for strings.HasSuffix(robotsURL, "/") {
-						if len(robotsURL) >= 1 {
-							robotsURL = robotsURL[0 : len(robotsURL)-1]
-						}
-					}
-
-					parsedURL, err := hqgourl.Parse(URL)
-					if err != nil {
-						continue
-					}
-
-					robotsURL = parsedURL.Scheme + "://" + filepath.Join(parsedURL.Domain, robotsURL)
-
-					robotsURLs <- robotsURL
-				}
-			}(row)
-		}
-
-		wg.Wait()
-	}()
-
-	return
+	wg.Wait()
 }

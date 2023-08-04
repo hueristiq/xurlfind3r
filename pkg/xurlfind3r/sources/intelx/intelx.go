@@ -33,11 +33,11 @@ type getResultsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
-	URLsChannel = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+	results := make(chan sources.Result)
 
 	go func() {
-		defer close(URLsChannel)
+		defer close(results)
 
 		var err error
 
@@ -45,6 +45,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		key, err = sources.PickRandom(config.Keys.Intelx)
 		if key == "" || err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -73,6 +81,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		searchReqBodyBytes, err = json.Marshal(searchReqBody)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -80,12 +96,29 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		searchRes, err = httpclient.SimplePost(searchReqURL, "application/json", searchReqBodyBytes)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
 		var searchResData searchResponse
 
-		if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
+		err = json.Unmarshal(searchRes.Body(), &searchResData)
+		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -97,12 +130,29 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 			getResultsRes, err = httpclient.Get(getResultsReqURL, "", nil)
 			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
 			var getResultsResData getResultsResponse
 
-			if err = json.Unmarshal(getResultsRes.Body(), &getResultsResData); err != nil {
+			err = json.Unmarshal(getResultsRes.Body(), &getResultsResData)
+			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
@@ -114,6 +164,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 				parsedURL, err := hqgourl.Parse(URL)
 				if err != nil {
+					result := sources.Result{
+						Type:   sources.Error,
+						Source: source.Name(),
+						Error:  err,
+					}
+
+					results <- result
+
 					return
 				}
 
@@ -125,12 +183,18 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					continue
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				result := sources.Result{
+					Type:   sources.URL,
+					Source: source.Name(),
+					Value:  URL,
+				}
+
+				results <- result
 			}
 		}
 	}()
 
-	return
+	return results
 }
 
 func (source *Source) Name() string {

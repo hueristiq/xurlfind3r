@@ -21,11 +21,11 @@ var (
 	})
 )
 
-func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
-	URLsChannel = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+	results := make(chan sources.Result)
 
 	go func() {
-		defer close(URLsChannel)
+		defer close(results)
 
 		var err error
 
@@ -37,12 +37,29 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		getPagesRes, err = httpclient.SimpleGet(getPagesReqURL)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
 		var pages uint
 
-		if err = json.Unmarshal(getPagesRes.Body(), &pages); err != nil {
+		err = json.Unmarshal(getPagesRes.Body(), &pages)
+		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -57,12 +74,29 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
 			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
 			var getURLsResData [][]string
 
-			if err = json.Unmarshal(getURLsRes.Body(), &getURLsResData); err != nil {
+			err = json.Unmarshal(getURLsRes.Body(), &getURLsResData)
+			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
 				return
 			}
 
@@ -94,28 +128,26 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					return
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				result := sources.Result{
+					Type:   sources.URL,
+					Source: source.Name(),
+					Value:  URL,
+				}
+
+				results <- result
 
 				if mediaURLRegex.MatchString(URL) {
 					return
 				}
 
 				if config.ParseWaybackRobots && robotsURLsRegex.MatchString(URL) {
-					for robotsURL := range parseWaybackRobots(config, URL) {
-						URLsChannel <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
-					}
+					parseWaybackRobots(config, URL, results)
 
 					return
 				}
 
 				if config.ParseWaybackSource {
-					for sourceURL := range parseWaybackSource(domain, URL) {
-						if !sources.IsInScope(sourceURL, domain, config.IncludeSubdomains) {
-							continue
-						}
-
-						URLsChannel <- sources.URL{Source: source.Name() + ":source", Value: sourceURL}
-					}
+					parseWaybackSource(config, domain, URL, results)
 				}
 			}(waybackURL)
 		}
@@ -123,7 +155,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 		wg.Wait()
 	}()
 
-	return
+	return results
 }
 
 func formatURL(domain string, includeSubdomains bool) (URL string) {
