@@ -48,12 +48,6 @@ checksum:
     algorithm: sha256
 
 announce:
-    slack:
-        enabled: true
-        channel: '#release'
-        username: GoReleaser
-        message_template: 'New Release: {{ .ProjectName }} {{.Tag}} is published! Check it out at {{ .ReleaseURL }}'
-
     discord:
         enabled: true
         message_template: '**New Release: {{ .ProjectName }} {{.Tag}}** is published! Check it out at {{ .ReleaseURL }}'
