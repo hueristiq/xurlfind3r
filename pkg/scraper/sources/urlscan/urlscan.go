@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
 	"github.com/valyala/fasthttp"
 )
 
@@ -64,7 +64,21 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			after := ""
 
 			if searchAfter != nil {
-				searchAfterJSON, _ := json.Marshal(searchAfter)
+				var searchAfterJSON []byte
+
+				searchAfterJSON, err = json.Marshal(searchAfter)
+				if err != nil {
+					result := sources.Result{
+						Type:   sources.Error,
+						Source: source.Name(),
+						Error:  err,
+					}
+
+					results <- result
+
+					return
+				}
+
 				after = "&search_after=" + string(searchAfterJSON)
 			}
 

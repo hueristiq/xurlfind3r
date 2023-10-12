@@ -22,21 +22,12 @@
 
 ## Features
 
-* [x] Fetches URLs from curated passive sources to maximize results.
-    <details>
-    <summary>Sources: Click to expand!</summary>
-
-    | Technique | Source |
-    | :-------- | :----- |
-    | APIs | AlienVault's OTX, BeVigil, GitHub, IntelX, URLScan |
-    | Web Archives | CommonCrawl, Wayback |
-
-    </details>
-* [x] Parses URLs from wayback webpages and `robots.txt` snapshots.
-* [x] Filters out duplicate URLs.
-* [x] Supports URLs matching and filtering.
-* [x] Supports `stdin` and `stdout` for easy integration into workflows.
-* [x] Cross-Platform (Windows, Linux & macOS).
+* Fetches URLs from curated passive sources to maximize results.
+* Parses URLs from wayback webpages and `robots.txt` snapshots.
+* Filters out duplicate URLs.
+* Supports URLs matching and filtering.
+* Supports `stdin` and `stdout` for easy integration into workflows.
+* Cross-Platform (Windows, Linux & macOS).
 
 ## Installation
 
@@ -155,28 +146,38 @@ xurlfind3r -h
 help message:
 
 ```
-                 _  __ _           _ _____      
-__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+
+                 _  __ _           _ _____
+__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.3.0
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
+                                          v0.3.0
+
+                with <3 by Hueristiq Open Source
 
 USAGE:
   xurlfind3r [OPTIONS]
 
+CONFIGURATION:
+ -c, --configuration string          configuration file path (default: $HOME/.config/xurlfind3r/config.yaml)
+
 INPUT:
- -d, --domain string[]               target domains
+ -d, --domain string[]               target domain
  -l, --list string                   target domains' list file path
+
+   TIP: For multiple input domains use comma(,) separated value with `-d`,
+        specify multiple `-d`, load from file with `-l` or load from stdin.
 
 SCOPE:
      --include-subdomains bool       match subdomain's URLs
 
 SOURCES:
-      --sources bool                 list supported sources
- -u,  --use-sources string[]         comma(,) separated sources to use
- -e,  --exclude-sources string[]     comma(,) separated sources to exclude
-      --parse-wayback-robots bool    with wayback, parse robots.txt snapshots
-      --parse-wayback-source bool    with wayback, parse source code snapshots
+     --sources bool                  list supported sources
+ -u, --use-sources string[]          comma(,) separated sources to use
+ -e, --exclude-sources string[]      comma(,) separated sources to exclude
+     --parse-wayback-robots bool     with wayback, parse robots.txt snapshots
+     --parse-wayback-source bool     with wayback, parse source code snapshots
 
 FILTER & MATCH:
  -f, --filter string                 regex to filter URLs
@@ -186,10 +187,8 @@ OUTPUT:
      --no-color bool                 disable colored output
  -o, --output string                 output URLs file path
  -O, --output-directory string       output URLs directory path
- -v, --verbosity string              debug, info, warning, error, fatal or silent (default: info)
-
-CONFIGURATION:
- -c,  --configuration string         configuration file path (default: ~/.hueristiq/xurlfind3r/config.yaml)
+ -s, --silent bool                   display output subdomains only
+ -v, --verbose bool                  display verbose output
 ```
 
 ### Examples

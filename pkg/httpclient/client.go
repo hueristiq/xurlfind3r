@@ -4,9 +4,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-var (
-	client = &fasthttp.Client{}
-)
+var client = &fasthttp.Client{}
 
 func httpRequestWrapper(req *fasthttp.Request) (res *fasthttp.Response, err error) {
 	res = fasthttp.AcquireResponse()

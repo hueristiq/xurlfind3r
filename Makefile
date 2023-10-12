@@ -40,7 +40,7 @@ test:
 
 .PHONY: build
 build:
-	$(GOBUILD) $(GOFLAGS) -ldflags '$(LDFLAGS)' -o bin/xsubfind3r cmd/xsubfind3r/main.go
+	$(GOBUILD) $(GOFLAGS) -ldflags '$(LDFLAGS)' -o bin/xurlfind3r cmd/xurlfind3r/main.go
 
 .PHONY: install
 install:

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
 	"github.com/valyala/fasthttp"
 )
 

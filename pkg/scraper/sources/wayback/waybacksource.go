@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/hueristiq/hqgourl"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
 )
 
 func parseWaybackSource(config *sources.Configuration, domain, URL string, results chan sources.Result) {

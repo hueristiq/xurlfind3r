@@ -38,7 +38,7 @@ func pickRandom[T any](v []T) (picked T, err error) {
 
 	indexBig, err = rand.Int(rand.Reader, max)
 	if err != nil {
-		err = fmt.Errorf("failed to generate random index: %v", err)
+		err = fmt.Errorf("failed to generate random index: %w", err)
 
 		return
 	}

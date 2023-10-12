@@ -13,8 +13,8 @@ import (
 	"github.com/hueristiq/hqgolog/formatter"
 	"github.com/hueristiq/hqgolog/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/spf13/pflag"
 )
@@ -22,28 +22,27 @@ import (
 var (
 	au aurora.Aurora
 
-	domains             []string
-	domainsListFilePath string
-	includeSubdomains   bool
-	listSources         bool
-	sourcesToUse        []string
-	sourcesToExclude    []string
-	parseWaybackRobots  bool
-	parseWaybackSource  bool
-	filterPattern       string
-	matchPattern        string
-	monochrome          bool
-	output              string
-	outputDirectory     string
-	verbosity           string
-	YAMLConfigFile      string
+	configurationFilePath string
+	domains               []string
+	domainsListFilePath   string
+	includeSubdomains     bool
+	listSources           bool
+	sourcesToUse          []string
+	sourcesToExclude      []string
+	parseWaybackRobots    bool
+	parseWaybackSource    bool
+	filterPattern         string
+	matchPattern          string
+	monochrome            bool
+	output                string
+	outputDirectory       string
+	silent                bool
+	verbose               bool
 )
 
 func init() {
-	// defaults
-	defaultYAMLConfigFile := fmt.Sprintf("~/.hueristiq/%s/config.yaml", configuration.NAME)
-
 	// Handle CLI arguments, flags & help message (pflag)
+	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.ConfigurationFilePath, "")
 	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
 	pflag.StringVarP(&domainsListFilePath, "list", "l", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
@@ -57,29 +56,36 @@ func init() {
 	pflag.BoolVar(&monochrome, "no-color", false, "")
 	pflag.StringVarP(&output, "output", "o", "", "")
 	pflag.StringVarP(&outputDirectory, "outputDirectory", "O", "", "")
-	pflag.StringVarP(&verbosity, "verbosity", "v", string(levels.LevelInfo), "")
-	pflag.StringVarP(&YAMLConfigFile, "configuration", "c", defaultYAMLConfigFile, "")
+	pflag.BoolVarP(&silent, "silent", "s", false, "")
+	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
 	pflag.CommandLine.SortFlags = false
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 
-		h := "USAGE:\n"
-		h += "  xurlfind3r [OPTIONS]\n"
+		h := "\nUSAGE:\n"
+		h += fmt.Sprintf("  %s [OPTIONS]\n", configuration.NAME)
+
+		h += "\nCONFIGURATION:\n"
+		defaultConfigurationFilePath := strings.ReplaceAll(configuration.ConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
+		h += fmt.Sprintf(" -c, --configuration string          configuration file path (default: %s)\n", defaultConfigurationFilePath)
 
 		h += "\nINPUT:\n"
-		h += " -d, --domain string[]               target domains\n"
+		h += " -d, --domain string[]               target domain\n"
 		h += " -l, --list string                   target domains' list file path\n"
+
+		h += "\n   TIP: For multiple input domains use comma(,) separated value with `-d`,\n"
+		h += "        specify multiple `-d`, load from file with `-l` or load from stdin.\n"
 
 		h += "\nSCOPE:\n"
 		h += "     --include-subdomains bool       match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
-		h += "      --sources bool                 list supported sources\n"
-		h += " -u,  --use-sources string[]         comma(,) separated sources to use\n"
-		h += " -e,  --exclude-sources string[]     comma(,) separated sources to exclude\n"
-		h += "      --parse-wayback-robots bool    with wayback, parse robots.txt snapshots\n"
-		h += "      --parse-wayback-source bool    with wayback, parse source code snapshots\n"
+		h += "     --sources bool                  list supported sources\n"
+		h += " -u, --use-sources string[]          comma(,) separated sources to use\n"
+		h += " -e, --exclude-sources string[]      comma(,) separated sources to exclude\n"
+		h += "     --parse-wayback-robots bool     with wayback, parse robots.txt snapshots\n"
+		h += "     --parse-wayback-source bool     with wayback, parse source code snapshots\n"
 
 		h += "\nFILTER & MATCH:\n"
 		h += " -f, --filter string                 regex to filter URLs\n"
@@ -89,10 +95,8 @@ func init() {
 		h += "     --no-color bool                 disable colored output\n"
 		h += " -o, --output string                 output URLs file path\n"
 		h += " -O, --output-directory string       output URLs directory path\n"
-		h += fmt.Sprintf(" -v, --verbosity string              debug, info, warning, error, fatal or silent (default: %s)\n", string(levels.LevelInfo))
-
-		h += "\nCONFIGURATION:\n"
-		h += fmt.Sprintf(" -c,  --configuration string         configuration file path (default: %s)\n", defaultYAMLConfigFile)
+		h += " -s, --silent bool                   display output subdomains only\n"
+		h += " -v, --verbose bool                  display verbose output\n"
 
 		fmt.Fprintln(os.Stderr, h)
 	}
@@ -100,22 +104,18 @@ func init() {
 	pflag.Parse()
 
 	// Initialize logger (hqgolog)
-	hqgolog.DefaultLogger.SetMaxLevel(levels.LevelStr(verbosity))
+	hqgolog.DefaultLogger.SetMaxLevel(levels.LevelInfo)
+
+	if verbose {
+		hqgolog.DefaultLogger.SetMaxLevel(levels.LevelDebug)
+	}
+
 	hqgolog.DefaultLogger.SetFormatter(formatter.NewCLI(&formatter.CLIOptions{
 		Colorize: !monochrome,
 	}))
 
 	// Create or Update configuration
-	if strings.HasPrefix(YAMLConfigFile, "~") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			hqgolog.Fatal().Msg(err.Error())
-		}
-
-		YAMLConfigFile = strings.Replace(YAMLConfigFile, "~", home, 1)
-	}
-
-	if err := configuration.CreateUpdate(YAMLConfigFile); err != nil {
+	if err := configuration.CreateUpdate(configurationFilePath); err != nil {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
@@ -123,8 +123,8 @@ func init() {
 }
 
 func main() {
-	// Print Banner.
-	if verbosity != string(levels.LevelSilent) {
+	// print Banner.
+	if !silent {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 	}
 
@@ -132,14 +132,15 @@ func main() {
 
 	var config configuration.Configuration
 
-	// Read in configuration.
-	config, err = configuration.Read(YAMLConfigFile)
+	// read in configuration.
+	config, err = configuration.Read(configurationFilePath)
 	if err != nil {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
-	// If listSources: List suported sources & exit.
+	// if --sources: List suported sources & exit.
 	if listSources {
+		hqgolog.Print().Msg("")
 		hqgolog.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
 		hqgolog.Info().Msgf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold())
 		hqgolog.Print().Msg("")
@@ -164,9 +165,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Load input domains.
-
-	// input domains: file
+	// load input domains from file
 	if domainsListFilePath != "" {
 		var file *os.File
 
@@ -194,7 +193,7 @@ func main() {
 		}
 	}
 
-	// input domains: stdin
+	// load input domains from stdin
 	if hasStdin() {
 		scanner := bufio.NewScanner(os.Stdin)
 
@@ -213,7 +212,7 @@ func main() {
 		}
 	}
 
-	// Find and output URLs.
+	// scrape and output URLs.
 	var consolidatedWriter *bufio.Writer
 
 	if output != "" {
@@ -223,7 +222,7 @@ func main() {
 
 		var consolidatedFile *os.File
 
-		consolidatedFile, err = os.OpenFile(output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		consolidatedFile, err = os.OpenFile(output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			hqgolog.Fatal().Msg(err.Error())
 		}
@@ -237,7 +236,7 @@ func main() {
 		mkdir(outputDirectory)
 	}
 
-	options := &xurlfind3r.Options{
+	options := &scraper.Options{
 		IncludeSubdomains:  includeSubdomains,
 		SourcesToUSe:       sourcesToUse,
 		SourcesToExclude:   sourcesToExclude,
@@ -248,25 +247,33 @@ func main() {
 		Matchattern:        matchPattern,
 	}
 
-	var finder *xurlfind3r.Finder
+	var spr *scraper.Finder
 
-	finder, err = xurlfind3r.New(options)
+	spr, err = scraper.New(options)
 	if err != nil {
 		hqgolog.Error().Msg(err.Error())
 
 		return
 	}
 
-	for _, domain := range domains {
-		URLs := finder.Find(domain)
+	for index := range domains {
+		domain := domains[index]
+
+		if !silent {
+			hqgolog.Print().Msg("")
+			hqgolog.Info().Msgf("Finding URLs for %v...", au.Underline(domain).Bold())
+			hqgolog.Print().Msg("")
+		}
+
+		URLs := spr.Scrape(domain)
 
 		switch {
 		case output != "":
-			outputURLs(consolidatedWriter, URLs, verbosity)
+			outputURLs(consolidatedWriter, URLs)
 		case outputDirectory != "":
 			var domainFile *os.File
 
-			domainFile, err = os.OpenFile(filepath.Join(outputDirectory, domain+".txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			domainFile, err = os.OpenFile(filepath.Join(outputDirectory, domain+".txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
 				hqgolog.Error().Msg(err.Error())
 
@@ -275,9 +282,9 @@ func main() {
 
 			domainWriter := bufio.NewWriter(domainFile)
 
-			outputURLs(domainWriter, URLs, verbosity)
+			outputURLs(domainWriter, URLs)
 		default:
-			outputURLs(nil, URLs, verbosity)
+			outputURLs(nil, URLs)
 		}
 	}
 }
@@ -302,13 +309,15 @@ func mkdir(path string) {
 	}
 }
 
-func outputURLs(writer *bufio.Writer, URLs chan sources.Result, verbosity string) {
+func outputURLs(writer *bufio.Writer, URLs chan sources.Result) {
 	for URL := range URLs {
 		switch URL.Type {
 		case sources.Error:
-			hqgolog.Warn().Msgf("Could not run source %s: %s\n", URL.Source, URL.Error)
+			if verbose {
+				hqgolog.Error().Msgf("%s: %s\n", URL.Source, URL.Error)
+			}
 		case sources.URL:
-			if verbosity == string(levels.LevelDebug) {
+			if verbose {
 				hqgolog.Print().Msgf("[%s] %s", au.BrightBlue(URL.Source), URL.Value)
 			} else {
 				hqgolog.Print().Msg(URL.Value)
