@@ -1,8 +1,8 @@
 # xurlfind3r
 
-![made with go](https://img.shields.io/badge/made%20with-Go-0000FF.svg) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/releases) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=0000FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0000FF.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![contribution](https://img.shields.io/badge/contributions-welcome-0000FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
+![made with go](https://img.shields.io/badge/made%20with-Go-1E90FF.svg) [![go report card](https://goreportcard.com/badge/github.com/hueristiq/xurlfind3r)](https://goreportcard.com/report/github.com/hueristiq/xurlfind3r) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/releases) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=1E90FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-1E90FF.svg) [![contribution](https://img.shields.io/badge/contributions-welcome-1E90FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-`xurlfind3r` is a command-line interface (CLI) utility to find domain's known URLs from curated passive online sources.
+`xurlfind3r` is a command-line interface (CLI) based passive URLs discovery utility. It is designed to efficiently identify known URLs of given domains by tapping into a multitude of curated online passive sources.
 
 ## Resource
 
@@ -19,6 +19,9 @@
 	* [Match Regex](#match-regex)
 * [Contributing](#contributing)
 * [Licensing](#licensing)
+* [Credits](#credits)
+    * [Contributors](#contributors)
+    * [Similar Projects](#similar-projects)
 
 ## Features
 
@@ -220,3 +223,17 @@ xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[
 ## Licensing
 
 This utility is distributed under the [MIT license](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE).
+
+## Credits
+
+### Contributors
+
+Thanks to the amazing [contributors](https://github.com/hueristiq/xurlfind3r/graphs/contributors) for keeping this project alive.
+
+[![contributors](https://contrib.rocks/image?repo=hueristiq/xurlfind3r&max=500)](https://github.com/hueristiq/xurlfind3r/graphs/contributors)
+
+### Similar Projects
+
+Thanks to similar open source projects - check them out, may fit in your workflow.
+
+[gau](https://github.com/lc/gau) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)
