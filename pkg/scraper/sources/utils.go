@@ -23,7 +23,7 @@ func PickRandom[T any](v []T) (picked T, err error) {
 
 	indexBig, err = rand.Int(rand.Reader, max)
 	if err != nil {
-		err = fmt.Errorf("failed to generate random index: %v", err)
+		err = fmt.Errorf("failed to generate random index: %w", err)
 
 		return
 	}
@@ -50,9 +50,7 @@ func IsInScope(URL, domain string, includeSubdomains bool) (isInScope bool) {
 		return
 	}
 
-	if !includeSubdomains &&
-		parsedURL.Domain != parsedDomain.Domain &&
-		parsedURL.Domain != "www."+parsedDomain.Domain {
+	if !includeSubdomains && parsedURL.Domain != parsedDomain.Domain && parsedURL.Domain != "www."+parsedDomain.Domain {
 		return
 	}
 

@@ -1,15 +1,16 @@
 package intelx
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/hueristiq/hqgourl"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/valyala/fasthttp"
+	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
 )
 
 type searchRequest struct {
@@ -33,11 +34,11 @@ type getResultsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
-	URLsChannel = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+	results := make(chan sources.Result)
 
 	go func() {
-		defer close(URLsChannel)
+		defer close(results)
 
 		var err error
 
@@ -45,6 +46,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		key, err = sources.PickRandom(config.Keys.Intelx)
 		if key == "" || err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -61,6 +70,9 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 		}
 
 		searchReqURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", intelXHost, intelXKey)
+		searchReqHeaders := map[string]string{
+			"Content-Type": "application/json",
+		}
 		searchReqBody := searchRequest{
 			Term:       "*" + domain,
 			MaxResults: 100000,
@@ -73,38 +85,90 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		searchReqBodyBytes, err = json.Marshal(searchReqBody)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
 			return
 		}
 
-		var searchRes *fasthttp.Response
+		var searchRes *http.Response
 
-		searchRes, err = httpclient.SimplePost(searchReqURL, "application/json", searchReqBodyBytes)
+		searchRes, err = httpclient.Post(searchReqURL, "", searchReqHeaders, bytes.NewBuffer(searchReqBodyBytes))
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
+			httpclient.DiscardResponse(searchRes)
+
 			return
 		}
 
 		var searchResData searchResponse
 
-		if err = json.Unmarshal(searchRes.Body(), &searchResData); err != nil {
+		if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
+			searchRes.Body.Close()
+
 			return
 		}
+
+		searchRes.Body.Close()
 
 		getResultsReqURL := fmt.Sprintf("https://%s/phonebook/search/result?k=%s&id=%s&limit=10000", intelXHost, intelXKey, searchResData.ID)
 		status := 0
 
 		for status == 0 || status == 3 {
-			var getResultsRes *fasthttp.Response
+			var getResultsRes *http.Response
 
 			getResultsRes, err = httpclient.Get(getResultsReqURL, "", nil)
 			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
+				httpclient.DiscardResponse(getResultsRes)
+
 				return
 			}
 
 			var getResultsResData getResultsResponse
 
-			if err = json.Unmarshal(getResultsRes.Body(), &getResultsResData); err != nil {
+			if err = json.NewDecoder(getResultsRes.Body).Decode(&getResultsResData); err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
+				getResultsRes.Body.Close()
+
 				return
 			}
+
+			getResultsRes.Body.Close()
 
 			status = getResultsResData.Status
 
@@ -114,6 +178,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 				parsedURL, err := hqgourl.Parse(URL)
 				if err != nil {
+					result := sources.Result{
+						Type:   sources.Error,
+						Source: source.Name(),
+						Error:  err,
+					}
+
+					results <- result
+
 					return
 				}
 
@@ -125,12 +197,18 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 					continue
 				}
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+				result := sources.Result{
+					Type:   sources.URL,
+					Source: source.Name(),
+					Value:  URL,
+				}
+
+				results <- result
 			}
 		}
 	}()
 
-	return
+	return results
 }
 
 func (source *Source) Name() string {

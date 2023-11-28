@@ -3,29 +3,28 @@ package wayback
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
-	"sync"
 
+	"github.com/hueristiq/hqgohttp/headers"
 	"github.com/hueristiq/hqgolimit"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/valyala/fasthttp"
+	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/spf13/cast"
 )
 
 type Source struct{}
 
-var (
-	limiter = hqgolimit.New(&hqgolimit.Options{
-		RequestsPerMinute: 40,
-	})
-)
+var limiter = hqgolimit.New(&hqgolimit.Options{
+	RequestsPerMinute: 40,
+})
 
-func (source *Source) Run(config *sources.Configuration, domain string) (URLsChannel chan sources.URL) {
-	URLsChannel = make(chan sources.URL)
+func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+	results := make(chan sources.Result)
 
 	go func() {
-		defer close(URLsChannel)
+		defer close(results)
 
 		var err error
 
@@ -33,18 +32,40 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 		limiter.Wait()
 
-		var getPagesRes *fasthttp.Response
+		var getPagesRes *http.Response
 
 		getPagesRes, err = httpclient.SimpleGet(getPagesReqURL)
 		if err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
+			httpclient.DiscardResponse(getPagesRes)
+
 			return
 		}
 
 		var pages uint
 
-		if err = json.Unmarshal(getPagesRes.Body(), &pages); err != nil {
+		if err = json.NewDecoder(getPagesRes.Body).Decode(&pages); err != nil {
+			result := sources.Result{
+				Type:   sources.Error,
+				Source: source.Name(),
+				Error:  err,
+			}
+
+			results <- result
+
+			getPagesRes.Body.Close()
+
 			return
 		}
+
+		getPagesRes.Body.Close()
 
 		waybackURLs := [][]string{}
 
@@ -53,18 +74,40 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 
 			limiter.Wait()
 
-			var getURLsRes *fasthttp.Response
+			var getURLsRes *http.Response
 
 			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
 			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
+				httpclient.DiscardResponse(getURLsRes)
+
 				return
 			}
 
 			var getURLsResData [][]string
 
-			if err = json.Unmarshal(getURLsRes.Body(), &getURLsResData); err != nil {
+			if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
+				getURLsRes.Body.Close()
+
 				return
 			}
+
+			getURLsRes.Body.Close()
 
 			// check if there's results, wayback's pagination response
 			// is not always correct when using a filter
@@ -80,50 +123,38 @@ func (source *Source) Run(config *sources.Configuration, domain string) (URLsCha
 		mediaURLRegex := regexp.MustCompile(`(?i)\.(apng|bpm|png|bmp|gif|heif|ico|cur|jpg|jpeg|jfif|pjp|pjpeg|psd|raw|svg|tif|tiff|webp|xbm|3gp|aac|flac|mpg|mpeg|mp3|mp4|m4a|m4v|m4p|oga|ogg|ogv|mov|wav|webm|eot|woff|woff2|ttf|otf|pdf)(?:\?|#|$)`)
 		robotsURLsRegex := regexp.MustCompile(`^(https?)://[^ "]+/robots.txt$`)
 
-		wg := &sync.WaitGroup{}
-
 		for _, waybackURL := range waybackURLs {
-			wg.Add(1)
+			URL := waybackURL[1]
 
-			go func(waybackURL []string) {
-				defer wg.Done()
+			if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+				return
+			}
 
-				URL := waybackURL[1]
+			result := sources.Result{
+				Type:   sources.URL,
+				Source: source.Name(),
+				Value:  URL,
+			}
 
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
-					return
-				}
+			results <- result
 
-				URLsChannel <- sources.URL{Source: source.Name(), Value: URL}
+			if mediaURLRegex.MatchString(URL) {
+				return
+			}
 
-				if mediaURLRegex.MatchString(URL) {
-					return
-				}
+			if config.ParseWaybackRobots && robotsURLsRegex.MatchString(URL) {
+				parseWaybackRobots(config, URL, results)
 
-				if config.ParseWaybackRobots && robotsURLsRegex.MatchString(URL) {
-					for robotsURL := range parseWaybackRobots(config, URL) {
-						URLsChannel <- sources.URL{Source: source.Name() + ":robots", Value: robotsURL}
-					}
+				return
+			}
 
-					return
-				}
-
-				if config.ParseWaybackSource {
-					for sourceURL := range parseWaybackSource(domain, URL) {
-						if !sources.IsInScope(sourceURL, domain, config.IncludeSubdomains) {
-							continue
-						}
-
-						URLsChannel <- sources.URL{Source: source.Name() + ":source", Value: sourceURL}
-					}
-				}
-			}(waybackURL)
+			if config.ParseWaybackSource {
+				parseWaybackSource(config, domain, URL, results)
+			}
 		}
-
-		wg.Wait()
 	}()
 
-	return
+	return results
 }
 
 func formatURL(domain string, includeSubdomains bool) (URL string) {
@@ -139,7 +170,7 @@ func formatURL(domain string, includeSubdomains bool) (URL string) {
 func getSnapshots(URL string) (snapshots [][2]string, err error) {
 	getSnapshotsReqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=%s&output=json&fl=timestamp,original&collapse=digest", URL)
 
-	var getSnapshotsRes *fasthttp.Response
+	var getSnapshotsRes *http.Response
 
 	limiter.Wait()
 
@@ -148,13 +179,17 @@ func getSnapshots(URL string) (snapshots [][2]string, err error) {
 		return
 	}
 
-	if getSnapshotsRes.Header.ContentLength() == 0 {
+	if cast.ToInt(getSnapshotsRes.Header.Get(headers.ContentLength)) == 0 {
 		return
 	}
 
-	if err = json.Unmarshal(getSnapshotsRes.Body(), &snapshots); err != nil {
+	if err = json.NewDecoder(getSnapshotsRes.Body).Decode(&snapshots); err != nil {
+		getSnapshotsRes.Body.Close()
+
 		return
 	}
+
+	getSnapshotsRes.Body.Close()
 
 	if len(snapshots) < 2 {
 		return
@@ -175,18 +210,22 @@ func getSnapshotContent(snapshot [2]string) (content string, err error) {
 
 	limiter.Wait()
 
-	var getSnapshotContentRes *fasthttp.Response
+	var getSnapshotContentRes *http.Response
 
 	getSnapshotContentRes, err = httpclient.SimpleGet(getSnapshotContentReqURL)
 	if err != nil {
 		return
 	}
 
-	content = string(getSnapshotContentRes.Body())
+	content = cast.ToString(getSnapshotContentRes.Body)
 
 	if content == "" {
+		getSnapshotContentRes.Body.Close()
+
 		return
 	}
+
+	getSnapshotContentRes.Body.Close()
 
 	snapshotNotFoundFingerprint := "This page can't be displayed. Please use the correct URL address to access"
 

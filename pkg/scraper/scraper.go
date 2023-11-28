@@ -1,17 +1,17 @@
-package xurlfind3r
+package scraper
 
 import (
 	"regexp"
 	"sync"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources/bevigil"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources/commoncrawl"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources/github"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources/intelx"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources/otx"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources/urlscan"
+	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources/wayback"
 )
 
 type Options struct {
@@ -30,6 +30,47 @@ type Finder struct {
 	SourcesConfiguration *sources.Configuration
 	FilterRegex          *regexp.Regexp
 	MatchRegex           *regexp.Regexp
+}
+
+func (finder *Finder) Scrape(domain string) (results chan sources.Result) {
+	results = make(chan sources.Result)
+
+	go func() {
+		defer close(results)
+
+		seenURLs := &sync.Map{}
+
+		wg := &sync.WaitGroup{}
+
+		for name := range finder.Sources {
+			wg.Add(1)
+
+			go func(source sources.Source) {
+				defer wg.Done()
+
+				sResults := source.Run(finder.SourcesConfiguration, domain)
+
+				for sResult := range sResults {
+					if sResult.Type == sources.URL {
+						_, loaded := seenURLs.LoadOrStore(sResult.Value, struct{}{})
+						if loaded {
+							continue
+						}
+
+						if (finder.MatchRegex != nil && !finder.MatchRegex.MatchString(sResult.Value)) || (finder.FilterRegex != nil && finder.MatchRegex == nil && finder.FilterRegex.MatchString(sResult.Value)) {
+							continue
+						}
+					}
+
+					results <- sResult
+				}
+			}(finder.Sources[name])
+		}
+
+		wg.Wait()
+	}()
+
+	return
 }
 
 func New(options *Options) (finder *Finder, err error) {
@@ -89,52 +130,6 @@ func New(options *Options) (finder *Finder, err error) {
 
 		delete(finder.Sources, source)
 	}
-
-	return
-}
-
-func (finder *Finder) Find(domain string) (URLs chan sources.URL) {
-	URLs = make(chan sources.URL)
-
-	go func() {
-		defer close(URLs)
-
-		wg := &sync.WaitGroup{}
-		seen := &sync.Map{}
-
-		for name := range finder.Sources {
-			wg.Add(1)
-
-			go func(source sources.Source) {
-				defer wg.Done()
-
-				results := source.Run(finder.SourcesConfiguration, domain)
-
-				for URL := range results {
-					value := URL.Value
-
-					_, loaded := seen.LoadOrStore(value, struct{}{})
-					if loaded {
-						continue
-					}
-
-					if finder.MatchRegex != nil {
-						if !finder.MatchRegex.MatchString(URL.Value) {
-							continue
-						}
-					} else if finder.FilterRegex != nil && finder.MatchRegex == nil {
-						if finder.FilterRegex.MatchString(URL.Value) {
-							continue
-						}
-					}
-
-					URLs <- URL
-				}
-			}(finder.Sources[name])
-		}
-
-		wg.Wait()
-	}()
 
 	return
 }

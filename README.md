@@ -1,8 +1,8 @@
 # xurlfind3r
 
-![made with go](https://img.shields.io/badge/made%20with-Go-0000FF.svg) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/releases) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=0000FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-0000FF.svg) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=0000FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![contribution](https://img.shields.io/badge/contributions-welcome-0000FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
+![made with go](https://img.shields.io/badge/made%20with-Go-1E90FF.svg) [![go report card](https://goreportcard.com/badge/github.com/hueristiq/xurlfind3r)](https://goreportcard.com/report/github.com/hueristiq/xurlfind3r) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/releases) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=1E90FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-1E90FF.svg) [![contribution](https://img.shields.io/badge/contributions-welcome-1E90FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-`xurlfind3r` is a command-line interface (CLI) utility to find domain's known URLs from curated passive online sources.
+`xurlfind3r` is a command-line interface (CLI) based passive URLs discovery utility. It is designed to efficiently identify known URLs of given domains by tapping into a multitude of curated online passive sources.
 
 ## Resource
 
@@ -19,12 +19,15 @@
 	* [Match Regex](#match-regex)
 * [Contributing](#contributing)
 * [Licensing](#licensing)
+* [Credits](#credits)
+    * [Contributors](#contributors)
+    * [Similar Projects](#similar-projects)
 
 ## Features
 
 * Fetches URLs from curated passive sources to maximize results.
-	* **[AlienVault's OTX](https://otx.alienvault.com/)** ◇ **[BeVigil](https://bevigil.com)** ◇ **[Common Crawl](https://commoncrawl.org/)** ◇ **[Github](https://github.com)** ◇ **[Intelligence X](https://intelx.io)** ◇ **[URLScan](https://urlscan.io/)** ◇ **[Wayback Machine](https://archive.org/web/)**
 * Parses URLs from wayback webpages and `robots.txt` snapshots.
+* Filters out duplicate URLs.
 * Supports URLs matching and filtering.
 * Supports `stdin` and `stdout` for easy integration into workflows.
 * Cross-Platform (Windows, Linux & macOS).
@@ -111,8 +114,10 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 Example `config.yaml`:
 
+> **NOTE:** The keys/tokens below are invalid, use your own keys/tokens!
+
 ```yaml
-version: 0.3.0
+version: 0.4.0
 sources:
     - bevigil
     - commoncrawl
@@ -144,28 +149,38 @@ xurlfind3r -h
 help message:
 
 ```
-                 _  __ _           _ _____      
-__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+
+                 _  __ _           _ _____
+__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v0.3.0
+/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
+                                          v0.4.0
+
+                with <3 by Hueristiq Open Source
 
 USAGE:
   xurlfind3r [OPTIONS]
 
+CONFIGURATION:
+ -c, --configuration string          configuration file path (default: $HOME/.config/xurlfind3r/config.yaml)
+
 INPUT:
- -d, --domain string[]               target domains
+ -d, --domain string[]               target domain
  -l, --list string                   target domains' list file path
+
+   TIP: For multiple input domains use comma(,) separated value with `-d`,
+        specify multiple `-d`, load from file with `-l` or load from stdin.
 
 SCOPE:
      --include-subdomains bool       match subdomain's URLs
 
 SOURCES:
-      --sources bool                 list supported sources
- -u,  --use-sources string[]         comma(,) separated sources to use
- -e,  --exclude-sources string[]     comma(,) separated sources to exclude
-      --parse-wayback-robots bool    with wayback, parse robots.txt snapshots
-      --parse-wayback-source bool    with wayback, parse source code snapshots
+     --sources bool                  list supported sources
+ -u, --use-sources string[]          comma(,) separated sources to use
+ -e, --exclude-sources string[]      comma(,) separated sources to exclude
+     --parse-wayback-robots bool     with wayback, parse robots.txt snapshots
+     --parse-wayback-source bool     with wayback, parse source code snapshots
 
 FILTER & MATCH:
  -f, --filter string                 regex to filter URLs
@@ -175,10 +190,8 @@ OUTPUT:
      --no-color bool                 disable colored output
  -o, --output string                 output URLs file path
  -O, --output-directory string       output URLs directory path
- -v, --verbosity string              debug, info, warning, error, fatal or silent (default: info)
-
-CONFIGURATION:
- -c,  --configuration string         configuration file path (default: ~/.hueristiq/xurlfind3r/config.yaml)
+ -s, --silent bool                   display output subdomains only
+ -v, --verbose bool                  display verbose output
 ```
 
 ### Examples
@@ -210,3 +223,17 @@ xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[
 ## Licensing
 
 This utility is distributed under the [MIT license](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE).
+
+## Credits
+
+### Contributors
+
+Thanks to the amazing [contributors](https://github.com/hueristiq/xurlfind3r/graphs/contributors) for keeping this project alive.
+
+[![contributors](https://contrib.rocks/image?repo=hueristiq/xurlfind3r&max=500)](https://github.com/hueristiq/xurlfind3r/graphs/contributors)
+
+### Similar Projects
+
+Thanks to similar open source projects - check them out, may fit in your workflow.
+
+[gau](https://github.com/lc/gau) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)
