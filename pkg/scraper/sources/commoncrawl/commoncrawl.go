@@ -2,19 +2,26 @@ package commoncrawl
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"sync"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
-	"github.com/valyala/fasthttp"
 )
 
 type getIndexesResponse []struct {
 	ID  string `json:"id"`
 	API string `json:"cdx-API"`
+}
+
+type getPaginationResponse struct {
+	Blocks   uint `json:"blocks"`
+	PageSize uint `json:"pageSize"`
+	Pages    uint `json:"pages"`
 }
 
 type getURLsResponse struct {
@@ -38,7 +45,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 		var err error
 
-		var getIndexesRes *fasthttp.Response
+		var getIndexesRes *http.Response
 
 		getIndexesRes, err = httpclient.SimpleGet(getIndexesReqURL)
 		if err != nil {
@@ -50,13 +57,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			results <- result
 
+			httpclient.DiscardResponse(getIndexesRes)
+
 			return
 		}
 
 		var getIndexesResData getIndexesResponse
 
-		err = json.Unmarshal(getIndexesRes.Body(), &getIndexesResData)
-		if err != nil {
+		if err = json.NewDecoder(getIndexesRes.Body).Decode(&getIndexesResData); err != nil {
 			result := sources.Result{
 				Type:   sources.Error,
 				Source: source.Name(),
@@ -65,26 +73,85 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			results <- result
 
+			getIndexesRes.Body.Close()
+
 			return
 		}
 
-		wg := new(sync.WaitGroup)
+		getIndexesRes.Body.Close()
 
-		for _, indexData := range getIndexesResData {
-			wg.Add(1)
+		year := time.Now().Year()
+		years := make([]string, 0)
+		maxYearsBack := 5
 
-			go func(API string) {
-				defer wg.Done()
+		for i := 0; i < maxYearsBack; i++ {
+			years = append(years, strconv.Itoa(year-i))
+		}
 
-				getURLsReqHeaders := map[string]string{
-					"Host": "index.commoncrawl.org",
+		searchIndexes := make(map[string]string)
+
+		for _, year := range years {
+			for _, CCIndex := range getIndexesResData {
+				if strings.Contains(CCIndex.ID, year) {
+					if _, ok := searchIndexes[year]; !ok {
+						searchIndexes[year] = CCIndex.API
+
+						break
+					}
+				}
+			}
+		}
+
+		for _, CCIndexAPI := range searchIndexes {
+			getURLsReqHeaders := map[string]string{
+				"Host": "index.commoncrawl.org",
+			}
+
+			getPaginationReqURL := fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url&showNumPages=true", CCIndexAPI, domain)
+
+			var getPaginationRes *http.Response
+
+			getPaginationRes, err = httpclient.SimpleGet(getPaginationReqURL)
+			if err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
 				}
 
-				getURLsReqURL := fmt.Sprintf("%s?url=%s/*&output=json&fl=url", API, domain)
+				results <- result
 
-				var err error
+				httpclient.DiscardResponse(getPaginationRes)
 
-				var getURLsRes *fasthttp.Response
+				continue
+			}
+
+			var getPaginationData getPaginationResponse
+
+			if err = json.NewDecoder(getPaginationRes.Body).Decode(&getPaginationData); err != nil {
+				result := sources.Result{
+					Type:   sources.Error,
+					Source: source.Name(),
+					Error:  err,
+				}
+
+				results <- result
+
+				getPaginationRes.Body.Close()
+
+				continue
+			}
+
+			getPaginationRes.Body.Close()
+
+			if getPaginationData.Pages < 1 {
+				continue
+			}
+
+			for page := uint(0); page < getPaginationData.Pages; page++ {
+				getURLsReqURL := fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url&page=%d", CCIndexAPI, domain, page)
+
+				var getURLsRes *http.Response
 
 				getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 				if err != nil {
@@ -96,16 +163,22 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 					results <- result
 
-					return
+					httpclient.DiscardResponse(getURLsRes)
+
+					continue
 				}
 
-				scanner := bufio.NewScanner(bytes.NewReader(getURLsRes.Body()))
+				scanner := bufio.NewScanner(getURLsRes.Body)
 
 				for scanner.Scan() {
+					line := scanner.Text()
+					if line == "" {
+						continue
+					}
+
 					var getURLsResData getURLsResponse
 
-					err = json.Unmarshal(scanner.Bytes(), &getURLsResData)
-					if err != nil {
+					if err = json.Unmarshal(scanner.Bytes(), &getURLsResData); err != nil {
 						result := sources.Result{
 							Type:   sources.Error,
 							Source: source.Name(),
@@ -114,11 +187,19 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 						results <- result
 
-						return
+						continue
 					}
 
 					if getURLsResData.Error != "" {
-						return
+						result := sources.Result{
+							Type:   sources.Error,
+							Source: source.Name(),
+							Error:  fmt.Errorf("%s", getURLsResData.Error),
+						}
+
+						results <- result
+
+						continue
 					}
 
 					URL := getURLsResData.URL
@@ -145,12 +226,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 					results <- result
 
-					return
-				}
-			}(indexData.API)
-		}
+					getURLsRes.Body.Close()
 
-		wg.Wait()
+					continue
+				}
+
+				getURLsRes.Body.Close()
+			}
+		}
 	}()
 
 	return results

@@ -3,11 +3,11 @@ package otx
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/hueristiq/hqgourl"
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
-	"github.com/valyala/fasthttp"
 )
 
 type getURLsResponse struct {
@@ -58,7 +58,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			var err error
 
-			var getURLsRes *fasthttp.Response
+			var getURLsRes *http.Response
 
 			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
 			if err != nil {
@@ -70,13 +70,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 				results <- result
 
+				httpclient.DiscardResponse(getURLsRes)
+
 				return
 			}
 
 			var getURLsResData getURLsResponse
 
-			err = json.Unmarshal(getURLsRes.Body(), &getURLsResData)
-			if err != nil {
+			if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
 				result := sources.Result{
 					Type:   sources.Error,
 					Source: source.Name(),
@@ -85,8 +86,12 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 				results <- result
 
+				getURLsRes.Body.Close()
+
 				return
 			}
+
+			getURLsRes.Body.Close()
 
 			for _, item := range getURLsResData.URLList {
 				URL := item.URL

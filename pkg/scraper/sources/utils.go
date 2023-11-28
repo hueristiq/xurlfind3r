@@ -50,9 +50,7 @@ func IsInScope(URL, domain string, includeSubdomains bool) (isInScope bool) {
 		return
 	}
 
-	if !includeSubdomains &&
-		parsedURL.Domain != parsedDomain.Domain &&
-		parsedURL.Domain != "www."+parsedDomain.Domain {
+	if !includeSubdomains && parsedURL.Domain != parsedDomain.Domain && parsedURL.Domain != "www."+parsedDomain.Domain {
 		return
 	}
 

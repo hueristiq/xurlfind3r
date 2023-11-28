@@ -64,11 +64,11 @@ func init() {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 
 		h := "\nUSAGE:\n"
-		h += fmt.Sprintf("  %s [OPTIONS]\n", configuration.NAME)
+		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
 
 		h += "\nCONFIGURATION:\n"
 		defaultConfigurationFilePath := strings.ReplaceAll(configuration.ConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
-		h += fmt.Sprintf(" -c, --configuration string          configuration file path (default: %s)\n", defaultConfigurationFilePath)
+		h += fmt.Sprintf(" -c, --configuration string          configuration file (default: %s)\n", defaultConfigurationFilePath)
 
 		h += "\nINPUT:\n"
 		h += " -d, --domain string[]               target domain\n"

@@ -57,14 +57,8 @@ func (finder *Finder) Scrape(domain string) (results chan sources.Result) {
 							continue
 						}
 
-						if finder.MatchRegex != nil {
-							if !finder.MatchRegex.MatchString(sResult.Value) {
-								continue
-							}
-						} else if finder.FilterRegex != nil && finder.MatchRegex == nil {
-							if finder.FilterRegex.MatchString(sResult.Value) {
-								continue
-							}
+						if (finder.MatchRegex != nil && !finder.MatchRegex.MatchString(sResult.Value)) || (finder.FilterRegex != nil && finder.MatchRegex == nil && finder.FilterRegex.MatchString(sResult.Value)) {
+							continue
 						}
 					}
 

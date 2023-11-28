@@ -73,7 +73,7 @@ linters:
         # - ireturn # Accept Interfaces, Return Concrete Types [fast: false, auto-fix: false]
         # - lll # Reports long lines [fast: true, auto-fix: false]
         - loggercheck # (logrlint) # Checks key value pairs for common logger libraries (kitlog,klog,logr,zap). [fast: false, auto-fix: false]
-        - maintidx # maintidx measures the maintainability index of each function. [fast: true, auto-fix: false]
+        # - maintidx # maintidx measures the maintainability index of each function. [fast: true, auto-fix: false]
         - makezero # Finds slice declarations with non-zero initial length [fast: false, auto-fix: false]
         # - maligned # [deprecated] # Tool to detect Go structs that would take less memory if their fields were sorted [fast: false, auto-fix: false]
         - mirror # reports wrong mirror patterns of bytes/strings usage [fast: false, auto-fix: false]

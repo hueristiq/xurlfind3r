@@ -3,10 +3,12 @@ package urlscan
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
-	"github.com/valyala/fasthttp"
+	"github.com/spf13/cast"
 )
 
 type searchResponse struct {
@@ -58,33 +60,16 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			searchReqHeaders["API-Key"] = key
 		}
 
-		var searchAfter []interface{}
+		var after string
 
 		for {
-			after := ""
+			searchReqURL := fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s&size=100", domain)
 
-			if searchAfter != nil {
-				var searchAfterJSON []byte
-
-				searchAfterJSON, err = json.Marshal(searchAfter)
-				if err != nil {
-					result := sources.Result{
-						Type:   sources.Error,
-						Source: source.Name(),
-						Error:  err,
-					}
-
-					results <- result
-
-					return
-				}
-
-				after = "&search_after=" + string(searchAfterJSON)
+			if after != "" {
+				searchReqURL += "&search_after=" + after
 			}
 
-			searchReqURL := fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s&size=100", domain) + after
-
-			var searchRes *fasthttp.Response
+			var searchRes *http.Response
 
 			searchRes, err = httpclient.Get(searchReqURL, "", searchReqHeaders)
 			if err != nil {
@@ -96,13 +81,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 				results <- result
 
-				return
+				httpclient.DiscardResponse(searchRes)
+
+				break
 			}
 
 			var searchResData searchResponse
 
-			err = json.Unmarshal(searchRes.Body(), &searchResData)
-			if err != nil {
+			if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
 				result := sources.Result{
 					Type:   sources.Error,
 					Source: source.Name(),
@@ -111,8 +97,12 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 				results <- result
 
-				return
+				searchRes.Body.Close()
+
+				break
 			}
+
+			searchRes.Body.Close()
 
 			if searchResData.Status == 429 {
 				break
@@ -138,8 +128,21 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 				break
 			}
 
+			if len(searchResData.Results) < 1 {
+				break
+			}
+
 			lastResult := searchResData.Results[len(searchResData.Results)-1]
-			searchAfter = lastResult.Sort
+
+			if lastResult.Sort != nil {
+				var temp []string
+
+				for index := range lastResult.Sort {
+					temp = append(temp, cast.ToString(lastResult.Sort[index]))
+				}
+
+				after = strings.Join(temp, ",")
+			}
 		}
 	}()
 
