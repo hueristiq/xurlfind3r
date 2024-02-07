@@ -1,4 +1,8 @@
-# Go(Golang) Options
+SHELL = /bin/bash
+
+all: go-build
+
+# --- Go(Golang) ------------------------------------------------------------------------------------
 GOCMD=go
 GOMOD=$(GOCMD) mod
 GOGET=$(GOCMD) get
@@ -9,44 +13,38 @@ GOINSTALL=$(GOCMD) install
 GOFLAGS := -v 
 LDFLAGS := -s -w
 
-# Golangci Options
-GOLANGCILINTCMD=golangci-lint
-GOLANGCILINTRUN=$(GOLANGCILINTCMD) run
-
 ifneq ($(shell go env GOOS),darwin)
 LDFLAGS := -extldflags "-static"
 endif
 
-all: build
+GOLANGCILINTCMD=golangci-lint
+GOLANGCILINTRUN=$(GOLANGCILINTCMD) run
 
-.PHONY: tidy
-tidy:
+.PHONY: go-mod-tidy
+go-mod-tidy:
 	$(GOMOD) tidy
 
-.PHONY: update-deps
-update-deps:
+.PHONY: go-mod-update
+go-mod-update:
 	$(GOGET) -f -t -u ./...
 	$(GOGET) -f -u ./...
 
-.PHONY: _gofmt
-_gofmt:
+.PHONY: go-fmt
+go-fmt:
 	$(GOFMT) ./...
 
-.PHONY: _golangci-lint
-_golangci-lint:
+.PHONY: go-lint
+go-lint: go-fmt
 	$(GOLANGCILINTRUN) $(GOLANGCILINT) ./...
 
-.PHONY: lint
-lint: _gofmt _golangci-lint
-
-.PHONY: test
-test:
+.PHONY: go-test
+go-test:
 	$(GOTEST) $(GOFLAGS) ./...
 
-.PHONY: build
-build:
+.PHONY: go-build
+go-build:
 	$(GOBUILD) $(GOFLAGS) -ldflags '$(LDFLAGS)' -o bin/xurlfind3r cmd/xurlfind3r/main.go
 
-.PHONY: install
-install:
+.PHONY: go-install
+go-install:
 	$(GOINSTALL) $(GOFLAGS) ./...
