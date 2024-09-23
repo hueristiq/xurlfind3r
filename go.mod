@@ -3,7 +3,7 @@ module github.com/hueristiq/xurlfind3r
 go 1.20
 
 require (
-	dario.cat/mergo v1.0.0
+	dario.cat/mergo v1.0.1
 	github.com/hueristiq/hqgohttp v0.0.0-20231024010818-fdb48fa4aead
 	github.com/hueristiq/hqgolimit v0.0.0-20230623113203-3e14552a97f8
 	github.com/hueristiq/hqgolog v0.0.0-20230623113334-a6018965a34f
