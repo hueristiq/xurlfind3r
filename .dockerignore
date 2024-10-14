@@ -1,0 +1,8 @@
+.github
+bin
+.gitignore
+.golangci.yaml
+.goreleaser.yaml
+CONTRIBUTING.md
+LICENSE
+README.md

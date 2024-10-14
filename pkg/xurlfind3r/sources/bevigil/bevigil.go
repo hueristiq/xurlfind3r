@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type getURLsResponse struct {
@@ -16,20 +16,16 @@ type getURLsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		var err error
-
-		var key string
-
-		key, err = sources.PickRandom(config.Keys.Bevigil)
-		if key == "" || err != nil {
+		key, err := cfg.Keys.Bevigil.PickRandom()
+		if err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -39,20 +35,17 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			return
 		}
 
-		getURLsReqHeaders := map[string]string{}
-
-		if len(config.Keys.Bevigil) > 0 {
-			getURLsReqHeaders["X-Access-Token"] = key
-		}
+		var getURLsRes *http.Response
 
 		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
-
-		var getURLsRes *http.Response
+		getURLsReqHeaders := map[string]string{
+			"X-Access-Token": key,
+		}
 
 		getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 		if err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -68,7 +61,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 		if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -83,12 +76,12 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 		getURLsRes.Body.Close()
 
 		for _, URL := range getURLsResData.URLs {
-			if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+			if !cfg.IsInScope(URL) {
 				continue
 			}
 
 			result := sources.Result{
-				Type:   sources.URL,
+				Type:   sources.ResultURL,
 				Source: source.Name(),
 				Value:  URL,
 			}
@@ -101,5 +94,5 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 }
 
 func (source *Source) Name() string {
-	return "bevigil"
+	return sources.BEVIGIL
 }

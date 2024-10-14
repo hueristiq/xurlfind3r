@@ -2,12 +2,12 @@ package urlscan
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
 
@@ -29,20 +29,16 @@ type searchResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		var err error
-
-		var key string
-
-		key, err = sources.PickRandom(config.Keys.URLScan)
-		if err != nil {
+		key, err := cfg.Keys.URLScan.PickRandom()
+		if err != nil && !errors.Is(err, sources.ErrNoKeys) {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -69,12 +65,10 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 				searchReqURL += "&search_after=" + after
 			}
 
-			var searchRes *http.Response
-
-			searchRes, err = httpclient.Get(searchReqURL, "", searchReqHeaders)
+			searchRes, err := httpclient.Get(searchReqURL, "", searchReqHeaders)
 			if err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -90,7 +84,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -111,12 +105,12 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			for _, result := range searchResData.Results {
 				URL := result.Page.URL
 
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+				if !cfg.IsInScope(URL) {
 					continue
 				}
 
 				result := sources.Result{
-					Type:   sources.URL,
+					Type:   sources.ResultURL,
 					Source: source.Name(),
 					Value:  URL,
 				}
@@ -150,5 +144,5 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 }
 
 func (source *Source) Name() string {
-	return "urlscan"
+	return sources.URLSCAN
 }
