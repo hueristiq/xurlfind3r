@@ -5,19 +5,21 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
-	"github.com/hueristiq/hqgohttp"
-	"github.com/hueristiq/hqgohttp/methods"
-	"github.com/hueristiq/hqgohttp/status"
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	"github.com/hueristiq/hq-go-http/methods"
+	"github.com/hueristiq/hq-go-http/status"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 )
 
 var client *hqgohttp.Client
 
 func init() {
-	options := hqgohttp.DefaultOptionsSpraying
+	cfg := hqgohttp.DefaultSprayingClientConfiguration
+	cfg.Timeout = 1 * time.Hour
 
-	client, _ = hqgohttp.New(options)
+	client, _ = hqgohttp.NewClient(cfg)
 }
 
 func httpRequestWrapper(req *hqgohttp.Request) (res *http.Response, err error) {
@@ -47,6 +49,7 @@ func HTTPRequest(method, requestURL, cookies string, headers map[string]string, 
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en")
 	req.Header.Set("User-Agent", fmt.Sprintf("%s v%s (https://github.com/hueristiq/%s)", configuration.NAME, configuration.VERSION, configuration.NAME))
+	// req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0")
 
 	if cookies != "" {
 		req.Header.Set("Cookie", cookies)

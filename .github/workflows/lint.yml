@@ -1,0 +1,47 @@
+name: 💅🏻 Lint
+
+on:
+    push:
+        branches:
+            - "main"
+        paths:
+            - '**.go'
+            - '**.mod'
+    pull_request:
+        branches:
+          - "main"
+        paths:
+            - '**.go'
+            - '**.mod'
+    workflow_dispatch:
+    
+permissions:
+    contents: read
+  
+jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            -
+                name: Set up Go
+                uses: actions/setup-go@v5
+                with:
+                    go-version:  '>=1.23'
+                    cache: false
+            -
+                name: Checkout the repository
+                uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0
+            -
+                name: Run golangci-lint
+<<<<<<< HEAD:.github/workflows/lint-test.yml
+                uses: golangci/golangci-lint-action@v4
+=======
+                uses: golangci/golangci-lint-action@v6
+>>>>>>> 0d0d68f (chore(*): -):.github/workflows/lint.yml
+                with:
+                    version: v1.61.0
+                    args: --timeout 5m
+                    working-directory: .

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hueristiq/hqgourl"
+	hqgourl "github.com/hueristiq/hq-go-url"
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type searchRequest struct {
@@ -34,20 +34,16 @@ type getResultsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		var err error
-
-		var key string
-
-		key, err = sources.PickRandom(config.Keys.Intelx)
-		if key == "" || err != nil {
+		key, err := cfg.Keys.IntelX.PickRandom()
+		if err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -56,6 +52,8 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			return
 		}
+
+		var searchRes *http.Response
 
 		parts := strings.Split(key, ":")
 		if len(parts) != 2 {
@@ -86,7 +84,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 		searchReqBodyBytes, err = json.Marshal(searchReqBody)
 		if err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -96,12 +94,10 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			return
 		}
 
-		var searchRes *http.Response
-
 		searchRes, err = httpclient.Post(searchReqURL, "", searchReqHeaders, bytes.NewBuffer(searchReqBodyBytes))
 		if err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -117,7 +113,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 		if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -140,7 +136,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			getResultsRes, err = httpclient.Get(getResultsReqURL, "", nil)
 			if err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -156,7 +152,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			if err = json.NewDecoder(getResultsRes.Body).Decode(&getResultsResData); err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -176,10 +172,10 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 				URL := hostname.Selectvalue
 				URL = sources.FixURL(URL)
 
-				parsedURL, err := hqgourl.Parse(URL)
+				parsedURL, err := up.Parse(URL)
 				if err != nil {
 					result := sources.Result{
-						Type:   sources.Error,
+						Type:   sources.ResultError,
 						Source: source.Name(),
 						Error:  err,
 					}
@@ -193,12 +189,12 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 				URL = parsedURL.String()
 
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+				if !cfg.IsInScope(URL) {
 					continue
 				}
 
 				result := sources.Result{
-					Type:   sources.URL,
+					Type:   sources.ResultURL,
 					Source: source.Name(),
 					Value:  URL,
 				}
@@ -212,5 +208,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 }
 
 func (source *Source) Name() string {
-	return "intelx"
+	return sources.INTELLIGENCEX
 }
+
+var up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))
