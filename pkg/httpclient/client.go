@@ -39,7 +39,7 @@ func httpRequestWrapper(req *hqgohttp.Request) (res *http.Response, err error) {
 	return
 }
 
-// HTTPRequest makes any HTTP request to a URL with extended parameters
+// HTTPRequest makes any HTTP request to a URL with extended parameters.
 func HTTPRequest(method, requestURL, cookies string, headers map[string]string, body io.Reader) (*http.Response, error) {
 	req, err := hqgohttp.NewRequest(method, requestURL, body)
 	if err != nil {
@@ -49,7 +49,6 @@ func HTTPRequest(method, requestURL, cookies string, headers map[string]string, 
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en")
 	req.Header.Set("User-Agent", fmt.Sprintf("%s v%s (https://github.com/hueristiq/%s)", configuration.NAME, configuration.VERSION, configuration.NAME))
-	// req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0")
 
 	if cookies != "" {
 		req.Header.Set("Cookie", cookies)
@@ -62,17 +61,17 @@ func HTTPRequest(method, requestURL, cookies string, headers map[string]string, 
 	return httpRequestWrapper(req)
 }
 
-// Get makes a GET request to a URL with extended parameters
+// Get makes a GET request to a URL with extended parameters.
 func Get(URL, cookies string, headers map[string]string) (*http.Response, error) {
 	return HTTPRequest(methods.Get, URL, cookies, headers, nil)
 }
 
-// SimpleGet makes a simple GET request to a URL
+// SimpleGet makes a simple GET request to a URL.
 func SimpleGet(URL string) (*http.Response, error) {
 	return HTTPRequest(methods.Get, URL, "", map[string]string{}, nil)
 }
 
-// Post makes a POST request to a URL with extended parameters
+// Post makes a POST request to a URL with extended parameters.
 func Post(URL, cookies string, headers map[string]string, body io.Reader) (*http.Response, error) {
 	return HTTPRequest(methods.Post, URL, cookies, headers, body)
 }

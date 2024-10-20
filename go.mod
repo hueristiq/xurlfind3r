@@ -4,9 +4,9 @@ go 1.23.1
 
 require (
 	dario.cat/mergo v1.0.1
-	github.com/hueristiq/hq-go-http v0.0.0-20241014121239-62e79a5b0581
-	github.com/hueristiq/hq-go-limiter v0.0.0-20241014121435-ad5ad6a707cd
-	github.com/hueristiq/hq-go-url v0.0.0-20241014121328-cbb5439a9021
+	github.com/hueristiq/hq-go-http v0.0.0-20241020113552-532feebd5687
+	github.com/hueristiq/hq-go-limiter v0.0.0-20241020114425-bdc49852dc29
+	github.com/hueristiq/hq-go-url v0.0.0-20241020144539-a9e1f60005ea
 	github.com/hueristiq/hqgolog v0.0.0-20230623113334-a6018965a34f
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/spf13/cast v1.7.0
@@ -22,7 +22,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/hueristiq/hq-go-retrier v0.0.0-20241014121125-09fff4c010e8 // indirect
+	github.com/hueristiq/hq-go-retrier v0.0.0-20241020110813-ef8a550b01d5 // indirect
 	github.com/hueristiq/hqgoutils v0.0.0-20231024005153-bd2c47932440 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
