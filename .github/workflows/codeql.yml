@@ -1,4 +1,4 @@
-name: 🚨 CodeQL Analysis
+name: 🚨 Analyze Code (CodeQL)
 
 on:
     push:
@@ -17,30 +17,30 @@ on:
 
 jobs:
     analyze:
-        name: CodeQL Analysis
+        name: Analyze Code (CodeQL)
+        strategy:
+            fail-fast: false
+            matrix:
+                language: [ 'go' ]
         runs-on: ubuntu-latest
         permissions:
             actions: read
             contents: read
             security-events: write
-
-        strategy:
-            fail-fast: false
-            matrix:
-                language: [ 'go' ]
-
         steps:
-            - 
-                name: Checkout repository
+            -
+                name: Checkout the repository
                 uses: actions/checkout@v4
+                with:
+                    fetch-depth: 0
             - 
                 name: Initialize CodeQL
-                uses: github/codeql-action/init@v2
+                uses: github/codeql-action/init@v3
                 with:
                     languages: ${{ matrix.language }}
             - 
                 name: Autobuild
-                uses: github/codeql-action/autobuild@v2
+                uses: github/codeql-action/autobuild@v3
             - 
                 name: Perform CodeQL Analysis
-                uses: github/codeql-action/analyze@v2
+                uses: github/codeql-action/analyze@v3

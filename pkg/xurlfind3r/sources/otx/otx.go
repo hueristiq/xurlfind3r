@@ -3,11 +3,9 @@ package otx
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 
-	"github.com/hueristiq/hqgourl"
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type getURLsResponse struct {
@@ -34,36 +32,19 @@ type getURLsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		parseURL, err := hqgourl.Parse(domain)
-		if err != nil {
-			result := sources.Result{
-				Type:   sources.Error,
-				Source: source.Name(),
-				Error:  err,
-			}
-
-			results <- result
-
-			return
-		}
-
 		for page := 1; ; page++ {
-			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=100&page=%d", parseURL.ETLDPlusOne, page)
+			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=100&page=%d", domain, page)
 
-			var err error
-
-			var getURLsRes *http.Response
-
-			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
+			getURLsRes, err := httpclient.SimpleGet(getURLsReqURL)
 			if err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -79,7 +60,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -96,12 +77,12 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			for _, item := range getURLsResData.URLList {
 				URL := item.URL
 
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+				if !cfg.IsInScope(URL) {
 					continue
 				}
 
 				result := sources.Result{
-					Type:   sources.URL,
+					Type:   sources.ResultURL,
 					Source: source.Name(),
 					Value:  URL,
 				}
@@ -119,5 +100,5 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 }
 
 func (source *Source) Name() string {
-	return "otx"
+	return sources.OPENTHREATEXCHANGE
 }

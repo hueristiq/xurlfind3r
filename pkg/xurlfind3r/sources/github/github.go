@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hueristiq/hqgohttp/headers"
-	"github.com/hueristiq/hqgohttp/status"
-	"github.com/hueristiq/hqgourl"
+	"github.com/hueristiq/hq-go-http/headers"
+	"github.com/hueristiq/hq-go-http/status"
+	hqgourl "github.com/hueristiq/hq-go-url"
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 	"github.com/tomnomnom/linkheader"
 )
@@ -32,27 +32,27 @@ type searchResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		if len(config.Keys.GitHub) == 0 {
+		if len(cfg.Keys.Github) == 0 {
 			return
 		}
 
-		tokens := NewTokenManager(config.Keys.GitHub)
+		tokens := NewTokenManager(cfg.Keys.Github)
 
 		searchReqURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
 
-		source.Enumerate(searchReqURL, domain, tokens, results, config)
+		source.Enumerate(searchReqURL, domain, tokens, results, cfg)
 	}()
 
 	return results
 }
 
-func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, results chan sources.Result, config *sources.Configuration) {
+func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, results chan sources.Result, cfg *sources.Configuration) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -78,7 +78,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 	if err != nil && !isForbidden {
 		result := sources.Result{
-			Type:   sources.Error,
+			Type:   sources.ResultError,
 			Source: source.Name(),
 			Error:  err,
 		}
@@ -96,14 +96,14 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchReqURL, domain, tokens, results, config)
+		source.Enumerate(searchReqURL, domain, tokens, results, cfg)
 	}
 
 	var searchResData searchResponse
 
 	if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
 		result := sources.Result{
-			Type:   sources.Error,
+			Type:   sources.ResultError,
 			Source: source.Name(),
 			Error:  err,
 		}
@@ -117,20 +117,9 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 	searchRes.Body.Close()
 
-	var mdExtractor *regexp.Regexp
-
-	mdExtractor, err = hqgourl.Extractor.ModerateMatchHost(`(\w[a-zA-Z0-9][a-zA-Z0-9-\\.]*\.)?` + regexp.QuoteMeta(domain))
-	if err != nil {
-		result := sources.Result{
-			Type:   sources.Error,
-			Source: source.Name(),
-			Error:  err,
-		}
-
-		results <- result
-
-		return
-	}
+	mdExtractor := hqgourl.NewExtractor(
+		hqgourl.ExtractorWithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourl.ExtractorPortOptionalPattern + `)`),
+	).CompileRegex()
 
 	for _, item := range searchResData.Items {
 		getRawContentReqURL := getRawContentURL(item.HTMLURL)
@@ -140,7 +129,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 		getRawContentRes, err = httpclient.SimpleGet(getRawContentReqURL)
 		if err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -173,10 +162,10 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 				var parsedURL *hqgourl.URL
 
-				parsedURL, err = hqgourl.Parse(URL)
+				parsedURL, err = up.Parse(URL)
 				if err != nil {
 					result := sources.Result{
-						Type:   sources.Error,
+						Type:   sources.ResultError,
 						Source: source.Name(),
 						Error:  err,
 					}
@@ -188,12 +177,12 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 				URL = parsedURL.String()
 
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+				if !cfg.IsInScope(URL) {
 					continue
 				}
 
 				result := sources.Result{
-					Type:   sources.URL,
+					Type:   sources.ResultURL,
 					Source: source.Name(),
 					Value:  URL,
 				}
@@ -204,7 +193,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 		if err = scanner.Err(); err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -224,10 +213,10 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 			for _, URL := range URLs {
 				URL = sources.FixURL(URL)
 
-				parsedURL, err := hqgourl.Parse(URL)
+				parsedURL, err := up.Parse(URL)
 				if err != nil {
 					result := sources.Result{
-						Type:   sources.Error,
+						Type:   sources.ResultError,
 						Source: source.Name(),
 						Error:  err,
 					}
@@ -239,12 +228,12 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 				URL = parsedURL.String()
 
-				if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+				if !cfg.IsInScope(URL) {
 					continue
 				}
 
 				result := sources.Result{
-					Type:   sources.URL,
+					Type:   sources.ResultURL,
 					Source: source.Name(),
 					Value:  URL,
 				}
@@ -261,7 +250,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 			nextURL, err := url.QueryUnescape(link.URL)
 			if err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -271,17 +260,19 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 				return
 			}
 
-			source.Enumerate(nextURL, domain, tokens, results, config)
+			source.Enumerate(nextURL, domain, tokens, results, cfg)
 		}
 	}
 }
+
+func (source *Source) Name() string {
+	return sources.GITHUB
+}
+
+var up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))
 
 func getRawContentURL(htmlURL string) string {
 	domain := strings.ReplaceAll(htmlURL, "https://github.com/", "https://raw.githubusercontent.com/")
 
 	return strings.ReplaceAll(domain, "/blob/", "/")
-}
-
-func (source *Source) Name() string {
-	return "github"
 }

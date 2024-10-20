@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -13,10 +14,11 @@ import (
 	"github.com/hueristiq/hqgolog/formatter"
 	"github.com/hueristiq/hqgolog/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -29,8 +31,6 @@ var (
 	listSources           bool
 	sourcesToUse          []string
 	sourcesToExclude      []string
-	parseWaybackRobots    bool
-	parseWaybackSource    bool
 	filterPattern         string
 	matchPattern          string
 	monochrome            bool
@@ -49,13 +49,11 @@ func init() {
 	pflag.BoolVar(&listSources, "sources", false, "")
 	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
 	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
-	pflag.BoolVar(&parseWaybackRobots, "parse-wayback-robots", false, "")
-	pflag.BoolVar(&parseWaybackSource, "parse-wayback-source", false, "")
 	pflag.StringVarP(&filterPattern, "filter", "f", "", "")
 	pflag.StringVarP(&matchPattern, "match", "m", "", "")
 	pflag.BoolVar(&monochrome, "no-color", false, "")
 	pflag.StringVarP(&output, "output", "o", "", "")
-	pflag.StringVarP(&outputDirectory, "outputDirectory", "O", "", "")
+	pflag.StringVarP(&outputDirectory, "output-directory", "O", "", "")
 	pflag.BoolVarP(&silent, "silent", "s", false, "")
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
@@ -74,8 +72,8 @@ func init() {
 		h += " -d, --domain string[]               target domain\n"
 		h += " -l, --list string                   target domains' list file path\n"
 
-		h += "\n   TIP: For multiple input domains use comma(,) separated value with `-d`,\n"
-		h += "        specify multiple `-d`, load from file with `-l` or load from stdin.\n"
+		h += "\nTIP: For multiple input domains use comma(,) separated value with `-d`,\n"
+		h += "     specify multiple `-d`, load from file with `-l` or load from stdin.\n"
 
 		h += "\nSCOPE:\n"
 		h += "     --include-subdomains bool       match subdomain's URLs\n"
@@ -84,8 +82,6 @@ func init() {
 		h += "     --sources bool                  list supported sources\n"
 		h += " -u, --use-sources string[]          comma(,) separated sources to use\n"
 		h += " -e, --exclude-sources string[]      comma(,) separated sources to exclude\n"
-		h += "     --parse-wayback-robots bool     with wayback, parse robots.txt snapshots\n"
-		h += "     --parse-wayback-source bool     with wayback, parse source code snapshots\n"
 
 		h += "\nFILTER & MATCH:\n"
 		h += " -f, --filter string                 regex to filter URLs\n"
@@ -103,6 +99,20 @@ func init() {
 
 	pflag.Parse()
 
+	// Initialize configuration management (...with viper)
+	if err := configuration.CreateUpdate(configurationFilePath); err != nil {
+		hqgolog.Fatal().Msg(err.Error())
+	}
+
+	viper.SetConfigFile(configurationFilePath)
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("XURLFIND3R")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalln(err)
+	}
+
 	// Initialize logger (hqgolog)
 	hqgolog.DefaultLogger.SetMaxLevel(levels.LevelInfo)
 
@@ -113,11 +123,6 @@ func init() {
 	hqgolog.DefaultLogger.SetFormatter(formatter.NewCLI(&formatter.CLIOptions{
 		Colorize: !monochrome,
 	}))
-
-	// Create or Update configuration
-	if err := configuration.CreateUpdate(configurationFilePath); err != nil {
-		hqgolog.Fatal().Msg(err.Error())
-	}
 
 	au = aurora.NewAurora(!monochrome)
 }
@@ -130,33 +135,31 @@ func main() {
 
 	var err error
 
-	var config configuration.Configuration
+	var cfg *configuration.Configuration
 
-	// read in configuration.
-	config, err = configuration.Read(configurationFilePath)
-	if err != nil {
+	if err = viper.Unmarshal(&cfg); err != nil {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
 	// if --sources: List suported sources & exit.
 	if listSources {
 		hqgolog.Print().Msg("")
-		hqgolog.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(config.Sources))).Bold())
+		hqgolog.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold())
 		hqgolog.Info().Msgf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold())
 		hqgolog.Print().Msg("")
 
 		needsKey := make(map[string]interface{})
-		keysElem := reflect.ValueOf(&config.Keys).Elem()
+		keysElem := reflect.ValueOf(&cfg.Keys).Elem()
 
-		for i := 0; i < keysElem.NumField(); i++ {
+		for i := range keysElem.NumField() {
 			needsKey[strings.ToLower(keysElem.Type().Field(i).Name)] = keysElem.Field(i).Interface()
 		}
 
-		for i, source := range config.Sources {
+		for _, source := range cfg.Sources {
 			if _, ok := needsKey[source]; ok {
-				hqgolog.Print().Msgf("%d. %s *", i+1, source)
+				hqgolog.Print().Msgf("> %s *", source)
 			} else {
-				hqgolog.Print().Msgf("%d. %s", i+1, source)
+				hqgolog.Print().Msgf("> %s", source)
 			}
 		}
 
@@ -171,9 +174,7 @@ func main() {
 
 		file, err = os.Open(domainsListFilePath)
 		if err != nil {
-			hqgolog.Error().Msg(err.Error())
-
-			return
+			hqgolog.Fatal().Msg(err.Error())
 		}
 
 		scanner := bufio.NewScanner(file)
@@ -187,9 +188,7 @@ func main() {
 		}
 
 		if err = scanner.Err(); err != nil {
-			hqgolog.Error().Msg(err.Error())
-
-			return
+			hqgolog.Fatal().Msg(err.Error())
 		}
 	}
 
@@ -206,10 +205,22 @@ func main() {
 		}
 
 		if err = scanner.Err(); err != nil {
-			hqgolog.Error().Msg(err.Error())
-
-			return
+			hqgolog.Fatal().Msg(err.Error())
 		}
+	}
+
+	var finder *xurlfind3r.Finder
+
+	finder, err = xurlfind3r.New(&xurlfind3r.Configuration{
+		IncludeSubdomains: includeSubdomains,
+		SourcesToUse:      sourcesToUse,
+		SourcesToExclude:  sourcesToExclude,
+		Keys:              cfg.Keys,
+		FilterPattern:     filterPattern,
+		MatchPattern:      matchPattern,
+	})
+	if err != nil {
+		hqgolog.Fatal().Msg(err.Error())
 	}
 
 	// scrape and output URLs.
@@ -236,55 +247,31 @@ func main() {
 		mkdir(outputDirectory)
 	}
 
-	options := &scraper.Options{
-		IncludeSubdomains:  includeSubdomains,
-		SourcesToUSe:       sourcesToUse,
-		SourcesToExclude:   sourcesToExclude,
-		Keys:               config.Keys,
-		ParseWaybackRobots: parseWaybackRobots,
-		ParseWaybackSource: parseWaybackSource,
-		FilterPattern:      filterPattern,
-		Matchattern:        matchPattern,
-	}
-
-	var spr *scraper.Finder
-
-	spr, err = scraper.New(options)
-	if err != nil {
-		hqgolog.Error().Msg(err.Error())
-
-		return
-	}
-
-	for index := range domains {
-		domain := domains[index]
-
+	for _, domain := range domains {
 		if !silent {
 			hqgolog.Print().Msg("")
 			hqgolog.Info().Msgf("Finding URLs for %v...", au.Underline(domain).Bold())
 			hqgolog.Print().Msg("")
 		}
 
-		URLs := spr.Scrape(domain)
+		results := finder.Find(domain)
 
 		switch {
 		case output != "":
-			outputURLs(consolidatedWriter, URLs)
+			outputURLs(consolidatedWriter, results)
 		case outputDirectory != "":
 			var domainFile *os.File
 
 			domainFile, err = os.OpenFile(filepath.Join(outputDirectory, domain+".txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 			if err != nil {
-				hqgolog.Error().Msg(err.Error())
-
-				return
+				hqgolog.Fatal().Msg(err.Error())
 			}
 
 			domainWriter := bufio.NewWriter(domainFile)
 
-			outputURLs(domainWriter, URLs)
+			outputURLs(domainWriter, results)
 		default:
-			outputURLs(nil, URLs)
+			outputURLs(nil, results)
 		}
 	}
 }
@@ -312,11 +299,11 @@ func mkdir(path string) {
 func outputURLs(writer *bufio.Writer, URLs chan sources.Result) {
 	for URL := range URLs {
 		switch URL.Type {
-		case sources.Error:
+		case sources.ResultError:
 			if verbose {
 				hqgolog.Error().Msgf("%s: %s\n", URL.Source, URL.Error)
 			}
-		case sources.URL:
+		case sources.ResultURL:
 			if verbose {
 				hqgolog.Print().Msgf("[%s] %s", au.BrightBlue(URL.Source), URL.Value)
 			} else {

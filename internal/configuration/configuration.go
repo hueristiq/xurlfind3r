@@ -6,7 +6,7 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/hueristiq/hqgolog"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
 )
@@ -46,8 +46,8 @@ func (configuration *Configuration) Write(path string) (err error) {
 }
 
 const (
-	NAME    string = "xurlfind3r"
-	VERSION string = "0.4.0"
+	NAME    = "xurlfind3r"
+	VERSION = "0.4.0"
 )
 
 var (
@@ -58,11 +58,8 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 \ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
-                                          %s
-
-                %s`).Bold(),
+                                          %s`).Bold(),
 		aurora.BrightRed("v"+VERSION).Bold(),
-		aurora.BrightYellow("with <3 by Hueristiq Open Source").Italic(),
 	)
 	UserDotConfigDirectoryPath = func() (userDotConfig string) {
 		var err error
@@ -88,8 +85,8 @@ func CreateUpdate(path string) (err error) {
 		Sources: sources.List,
 		Keys: sources.Keys{
 			Bevigil: []string{},
-			GitHub:  []string{},
-			Intelx:  []string{},
+			Github:  []string{},
+			IntelX:  []string{},
 			URLScan: []string{},
 		},
 	}

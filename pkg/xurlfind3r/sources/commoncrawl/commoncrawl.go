@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
-	"github.com/hueristiq/xurlfind3r/pkg/scraper/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type getIndexesResponse []struct {
@@ -31,10 +31,10 @@ type getURLsResponse struct {
 
 type Source struct{}
 
-func (source *Source) Run(config *sources.Configuration, domain string) <-chan sources.Result {
+func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
-	if config.IncludeSubdomains {
+	if cfg.IncludeSubdomains {
 		domain = "*." + domain
 	}
 
@@ -43,14 +43,10 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 		getIndexesReqURL := "https://index.commoncrawl.org/collinfo.json"
 
-		var err error
-
-		var getIndexesRes *http.Response
-
-		getIndexesRes, err = httpclient.SimpleGet(getIndexesReqURL)
+		getIndexesRes, err := httpclient.SimpleGet(getIndexesReqURL)
 		if err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -66,7 +62,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 		if err = json.NewDecoder(getIndexesRes.Body).Decode(&getIndexesResData); err != nil {
 			result := sources.Result{
-				Type:   sources.Error,
+				Type:   sources.ResultError,
 				Source: source.Name(),
 				Error:  err,
 			}
@@ -103,18 +99,17 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 		}
 
 		for _, CCIndexAPI := range searchIndexes {
+			var getPaginationRes *http.Response
+
+			getPaginationReqURL := fmt.Sprintf("%s?url=%s/*&output=json&fl=url&showNumPages=true", CCIndexAPI, domain)
 			getURLsReqHeaders := map[string]string{
 				"Host": "index.commoncrawl.org",
 			}
 
-			getPaginationReqURL := fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url&showNumPages=true", CCIndexAPI, domain)
-
-			var getPaginationRes *http.Response
-
 			getPaginationRes, err = httpclient.SimpleGet(getPaginationReqURL)
 			if err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -130,7 +125,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 			if err = json.NewDecoder(getPaginationRes.Body).Decode(&getPaginationData); err != nil {
 				result := sources.Result{
-					Type:   sources.Error,
+					Type:   sources.ResultError,
 					Source: source.Name(),
 					Error:  err,
 				}
@@ -149,14 +144,14 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 			}
 
 			for page := uint(0); page < getPaginationData.Pages; page++ {
-				getURLsReqURL := fmt.Sprintf("%s?url=*.%s/*&output=json&fl=url&page=%d", CCIndexAPI, domain, page)
-
 				var getURLsRes *http.Response
+
+				getURLsReqURL := fmt.Sprintf("%s?url=%s/*&output=json&fl=url&page=%d", CCIndexAPI, domain, page)
 
 				getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
 				if err != nil {
 					result := sources.Result{
-						Type:   sources.Error,
+						Type:   sources.ResultError,
 						Source: source.Name(),
 						Error:  err,
 					}
@@ -180,7 +175,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 					if err = json.Unmarshal(scanner.Bytes(), &getURLsResData); err != nil {
 						result := sources.Result{
-							Type:   sources.Error,
+							Type:   sources.ResultError,
 							Source: source.Name(),
 							Error:  err,
 						}
@@ -192,7 +187,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 					if getURLsResData.Error != "" {
 						result := sources.Result{
-							Type:   sources.Error,
+							Type:   sources.ResultError,
 							Source: source.Name(),
 							Error:  fmt.Errorf("%s", getURLsResData.Error),
 						}
@@ -204,12 +199,12 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 					URL := getURLsResData.URL
 
-					if !sources.IsInScope(URL, domain, config.IncludeSubdomains) {
+					if !cfg.IsInScope(URL) {
 						continue
 					}
 
 					result := sources.Result{
-						Type:   sources.URL,
+						Type:   sources.ResultURL,
 						Source: source.Name(),
 						Value:  URL,
 					}
@@ -219,7 +214,7 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 
 				if err = scanner.Err(); err != nil {
 					result := sources.Result{
-						Type:   sources.Error,
+						Type:   sources.ResultError,
 						Source: source.Name(),
 						Error:  err,
 					}
@@ -240,5 +235,5 @@ func (source *Source) Run(config *sources.Configuration, domain string) <-chan s
 }
 
 func (source *Source) Name() string {
-	return "commoncrawl"
+	return sources.COMMONCRAWL
 }
