@@ -1,4 +1,4 @@
-name: 🐋 DockerHub Push
+name: 🐳 DockerHub Push
 
 on:
     workflow_run:

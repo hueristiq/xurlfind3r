@@ -161,7 +161,7 @@ USAGE:
  xurlfind3r [OPTIONS]
 
 CONFIGURATION:
- -c, --configuration string          configuration file (default: $HOME/.cfg/xurlfind3r/config.yaml)
+ -c, --configuration string          configuration file (default: $HOME/.config/xurlfind3r/config.yaml)
 
 INPUT:
  -d, --domain string[]               target domain

@@ -65,7 +65,7 @@ func init() {
 		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
 
 		h += "\nCONFIGURATION:\n"
-		defaultConfigurationFilePath := strings.ReplaceAll(configuration.ConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.cfg")
+		defaultConfigurationFilePath := strings.ReplaceAll(configuration.ConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
 		h += fmt.Sprintf(" -c, --configuration string          configuration file (default: %s)\n", defaultConfigurationFilePath)
 
 		h += "\nINPUT:\n"
@@ -106,7 +106,7 @@ func init() {
 
 	viper.SetConfigFile(configurationFilePath)
 	viper.AutomaticEnv()
-	viper.SetEnvPrefix("XSUBFIND3R")
+	viper.SetEnvPrefix("XURLFIND3R")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {

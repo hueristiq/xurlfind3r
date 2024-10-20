@@ -1,6 +1,13 @@
 {
-    "go.lintTool": "golangci-lint",
-    "go.lintFlags": [
-        "--fast"
-    ]
+	"go.lintTool": "golangci-lint",
+	"go.lintFlags": [
+		"--fast"
+	],
+	"[go]": {
+		"editor.defaultFormatter": "golang.go",
+		"editor.formatOnSave": false
+	},
+	"gopls": { 
+		"ui.semanticTokens": true 
+	}
 }
