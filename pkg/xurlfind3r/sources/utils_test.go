@@ -7,6 +7,8 @@ import (
 )
 
 func TestFixURL(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Remove Quotes and Spaces", func(t *testing.T) {
 		url := "\"   http://example.com/path   \""
 		expected := "http://example.com/path"
@@ -51,6 +53,8 @@ func TestFindUnbalancedQuote(t *testing.T) {
 }
 
 func TestFindUnbalancedBracket(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Balanced Brackets", func(t *testing.T) {
 		s := "text with [balanced] brackets"
 		assert.Equal(t, -1, findUnbalancedBracket(s, '[', ']'))
