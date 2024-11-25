@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
+	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -38,11 +38,8 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 		var getURLsRes *http.Response
 
 		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
-		getURLsReqHeaders := map[string]string{
-			"X-Access-Token": key,
-		}
 
-		getURLsRes, err = httpclient.Get(getURLsReqURL, "", getURLsReqHeaders)
+		getURLsRes, err = hqgohttp.GET(getURLsReqURL).AddHeader("X-Access-Token", key).Send()
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -51,8 +48,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 			}
 
 			results <- result
-
-			httpclient.DiscardResponse(getURLsRes)
 
 			return
 		}

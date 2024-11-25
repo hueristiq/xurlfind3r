@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
 	hqgourl "github.com/hueristiq/hq-go-url"
-	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -53,8 +53,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 			return
 		}
 
-		var searchRes *http.Response
-
 		parts := strings.Split(key, ":")
 		if len(parts) != 2 {
 			return
@@ -68,9 +66,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 		}
 
 		searchReqURL := fmt.Sprintf("https://%s/phonebook/search?k=%s", intelXHost, intelXKey)
-		searchReqHeaders := map[string]string{
-			"Content-Type": "application/json",
-		}
 		searchReqBody := searchRequest{
 			Term:       "*" + domain,
 			MaxResults: 100000,
@@ -94,7 +89,11 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 			return
 		}
 
-		searchRes, err = httpclient.Post(searchReqURL, "", searchReqHeaders, bytes.NewBuffer(searchReqBodyBytes))
+		searchReqBodyReader := bytes.NewBuffer(searchReqBodyBytes)
+
+		var searchRes *http.Response
+
+		searchRes, err = hqgohttp.POST(searchReqURL).AddHeader("Content-Type", "application/json").Body(searchReqBodyReader).Send()
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -103,8 +102,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 			}
 
 			results <- result
-
-			httpclient.DiscardResponse(searchRes)
 
 			return
 		}
@@ -133,7 +130,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 		for status == 0 || status == 3 {
 			var getResultsRes *http.Response
 
-			getResultsRes, err = httpclient.Get(getResultsReqURL, "", nil)
+			getResultsRes, err = hqgohttp.GET(getResultsReqURL).Send()
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -142,8 +139,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 				}
 
 				results <- result
-
-				httpclient.DiscardResponse(getResultsRes)
 
 				return
 			}

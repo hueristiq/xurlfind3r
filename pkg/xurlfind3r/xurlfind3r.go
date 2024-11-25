@@ -15,8 +15,14 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
 )
 
-// Finder is the main structure that manages the interaction with OSINT sources.
-// It holds the available data sources and the configuration used for searching.
+// Finder is the primary structure for performing URL discovery.
+// It manages data sources and configuration settings.
+//
+// Fields:
+// - sources: A map of enabled data sources, keyed by their names.
+// - configuration: Holds settings like API keys, filtering patterns, and inclusion of subdomains.
+// - FilterRegex: Regular expression to filter out specific URLs.
+// - MatchRegex: Regular expression to match specific URLs.
 type Finder struct {
 	sources       map[string]sources.Source
 	configuration *sources.Configuration
@@ -24,6 +30,15 @@ type Finder struct {
 	MatchRegex    *regexp.Regexp
 }
 
+// IsURLInScope determines if a given URL is within the scope of a target domain.
+//
+// Parameters:
+// - domain string: The target domain.
+// - URL string: The URL to check.
+// - subdomainsInScope bool: Whether subdomains should be considered within scope.
+//
+// Returns:
+// - URLInScope bool: True if the URL is in scope, otherwise false.
 func (finder *Finder) IsURLInScope(domain, URL string, subdomainsInScope bool) (URLInScope bool) {
 	parsedURL, err := up.Parse(URL)
 	if err != nil {
@@ -51,10 +66,7 @@ func (finder *Finder) IsURLInScope(domain, URL string, subdomainsInScope bool) (
 		return
 	}
 
-	if !subdomainsInScope &&
-		parsedURL.Domain.String() != parsedDomain.String() &&
-		parsedURL.Domain.String() != "www."+parsedDomain.String() {
-
+	if !subdomainsInScope && parsedURL.Domain.String() != parsedDomain.String() && parsedURL.Domain.String() != "www."+parsedDomain.String() {
 		return
 	}
 
@@ -63,9 +75,14 @@ func (finder *Finder) IsURLInScope(domain, URL string, subdomainsInScope bool) (
 	return
 }
 
-// Find takes a domain name and starts the URLs search process across all
-// the sources specified in the configuration. It returns a channel through which
-// the search results (of type Result) are streamed asynchronously.
+// Find performs URLs discovery for a given domain.
+// It uses all the enabled sources and streams the results asynchronously through a channel.
+//
+// Parameters:
+// - domain string: The target domain to find URLs for.
+//
+// Returns:
+// - results chan sources.Result: A channel that streams the results of type `sources.Result`.
 func (finder *Finder) Find(domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
@@ -115,8 +132,16 @@ func (finder *Finder) Find(domain string) (results chan sources.Result) {
 	return
 }
 
-// Configuration holds the configuration for Finder, including
-// the sources to use, sources to exclude, and the necessary API keys.
+// Configuration represents the user-defined settings for the Finder.
+// It specifies which sources to use or exclude and includes API keys for external sources.
+//
+// Fields:
+// - IncludeSubdomains bool: Whether to include subdomains in the scope.
+// - SourcesToUse []string: A list of sources to enable.
+// - SourcesToExclude []string: A list of sources to exclude.
+// - Keys sources.Keys: API keys for various sources.
+// - FilterPattern string: Regular expression for filtering URLs.
+// - MatchPattern string: Regular expression for matching URLs.
 type Configuration struct {
 	IncludeSubdomains bool
 	SourcesToUse      []string
@@ -127,13 +152,21 @@ type Configuration struct {
 }
 
 var (
-	// dp is a domain parser used to normalize domains into their root and top-level domain (TLD) components.
+	// dp is a domain parser used to extract root and top-level domains.
 	dp = hqgourl.NewDomainParser()
+	// up is a URL parser initialized with a default scheme of "http".
 	up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))
 )
 
-// New creates a new Finder instance based on the provided Configuration.
-// It initializes the Finder with the selected sources and ensures that excluded sources are not used.
+// New creates and initializes a new Finder instance.
+// It enables the specified sources, applies exclusions, and sets the required configuration.
+//
+// Parameters:
+// - cfg *Configuration: The configuration specifying sources, exclusions, and API keys.
+//
+// Returns:
+// - finder *Finder: A pointer to the initialized Finder instance.
+// - err error: Returns an error if initialization fails, otherwise nil.
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
 		sources: map[string]sources.Source{},

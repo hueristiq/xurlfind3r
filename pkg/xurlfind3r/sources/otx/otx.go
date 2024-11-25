@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
+	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -41,7 +41,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 		for page := 1; ; page++ {
 			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=100&page=%d", domain, page)
 
-			getURLsRes, err := httpclient.SimpleGet(getURLsReqURL)
+			getURLsRes, err := hqgohttp.GET(getURLsReqURL).Send()
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -50,8 +50,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 				}
 
 				results <- result
-
-				httpclient.DiscardResponse(getURLsRes)
 
 				return
 			}

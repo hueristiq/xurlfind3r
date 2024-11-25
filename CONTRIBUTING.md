@@ -42,9 +42,9 @@ Pull requests should target the `dev` branch. Please also reference the issue fr
 When submitting code, please make every effort to follow existing conventions and style in order to keep the code as readable as possible. Here are a few points to keep in mind:
 
 * All dependencies must be defined in the `go.mod` file.
-	* Advanced IDEs and code editors (like VSCode) will take care of that, but to be sure, run `go mod tidy` to validate dependencies.
-* Please run `go fmt ./...` before committing to ensure code aligns with go standards.
-* We use [`golangci-lint`](https://golangci-lint.run/) for linting Go code, run `golangci-lint run --fix` before submitting PR. Editors such as Visual Studio Code or JetBrains IntelliJ; with Go support plugin will offer `golangci-lint` automatically.
+	* Advanced IDEs and code editors (like VSCode) will take care of that, but to be sure, run `make go-mod-tidy` to validate dependencies.
+* Please run `make go-fmt` before committing to ensure code aligns with go standards.
+* We use [`golangci-lint`](https://golangci-lint.run/) for linting Go code, run `make go-lint` before submitting PR. Editors such as Visual Studio Code or JetBrains IntelliJ; with Go support plugin will offer `golangci-lint` automatically.
 * For details on the approved style, check out [Effective Go](https://golang.org/doc/effective_go.html).
 
 ### License

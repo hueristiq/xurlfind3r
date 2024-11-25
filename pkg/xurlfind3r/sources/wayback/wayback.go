@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
 	hqgolimiter "github.com/hueristiq/hq-go-limiter"
-	hqgourl "github.com/hueristiq/hq-go-url"
-	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -28,7 +27,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 			var getURLsRes *http.Response
 
-			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
+			getURLsRes, err = hqgohttp.GET(getURLsReqURL).Send()
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -37,8 +36,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 				}
 
 				results <- result
-
-				httpclient.DiscardResponse(getURLsRes)
 
 				break
 			}
@@ -98,5 +95,3 @@ var limiter = hqgolimiter.New(&hqgolimiter.Configuration{
 	RequestsPerMinute:     40,
 	MinimumDelayInSeconds: 30,
 })
-
-var up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))

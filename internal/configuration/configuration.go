@@ -96,7 +96,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 	DefaultConfigurationFilePath = filepath.Join(UserDotConfigDirectoryPath, NAME, "config.yaml")
 	// DefaultConfiguration provides a pre-configured instance with default values.
 	// It includes default sources and empty API keys for services.
-	DefaultConfiguration = &Configuration{
+	DefaultConfiguration = Configuration{
 		Version: VERSION,
 		Sources: sources.List,
 		Keys: sources.Keys{
@@ -118,7 +118,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 // Returns:
 //   - err error: Returns an error if the process fails, otherwise nil.
 func CreateUpdate(path string) (err error) {
-	var cfg *Configuration
+	var cfg Configuration
 
 	_, err = os.Stat(path)
 
@@ -161,9 +161,9 @@ func CreateUpdate(path string) (err error) {
 //   - path string: The file path from which the configuration will be loaded.
 //
 // Returns:
-//   - cfg *Configuration: A pointer to the loaded Configuration instance.
+//   - cfg Configuration: A pointer to the loaded Configuration instance.
 //   - err error: Returns an error if reading the file or parsing the YAML fails.
-func Read(path string) (configuration *Configuration, err error) {
+func Read(path string) (configuration Configuration, err error) {
 	var file *os.File
 
 	file, err = os.Open(path)

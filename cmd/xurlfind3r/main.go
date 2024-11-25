@@ -41,7 +41,6 @@ var (
 )
 
 func init() {
-	// Handle CLI arguments, flags & help message (pflag)
 	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath, "")
 
 	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
@@ -103,7 +102,6 @@ func init() {
 
 	pflag.Parse()
 
-	// Initialize configuration management (...with viper)
 	if err := configuration.CreateUpdate(configurationFilePath); err != nil {
 		hqgolog.Fatal().Msg(err.Error())
 	}
@@ -117,7 +115,6 @@ func init() {
 		log.Fatalln(err)
 	}
 
-	// Initialize logger (hqgolog)
 	hqgolog.DefaultLogger.SetMaxLevel(levels.LevelInfo)
 
 	if verbose {
@@ -132,7 +129,6 @@ func init() {
 }
 
 func main() {
-	// print Banner.
 	if !silent {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 	}
@@ -145,7 +141,6 @@ func main() {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
-	// if --sources: List suported sources & exit.
 	if listSources {
 		hqgolog.Print().Msg("")
 		hqgolog.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold())
@@ -172,7 +167,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	// load input domains from file
 	if domainsListFilePath != "" {
 		var file *os.File
 
@@ -196,7 +190,6 @@ func main() {
 		}
 	}
 
-	// load input domains from stdin
 	if hasStdin() {
 		scanner := bufio.NewScanner(os.Stdin)
 
@@ -227,7 +220,6 @@ func main() {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
-	// scrape and output URLs.
 	var consolidatedWriter *bufio.Writer
 
 	if output != "" {
