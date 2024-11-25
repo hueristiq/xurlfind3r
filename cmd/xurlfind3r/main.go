@@ -42,15 +42,19 @@ var (
 
 func init() {
 	// Handle CLI arguments, flags & help message (pflag)
-	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.ConfigurationFilePath, "")
+	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath, "")
+
 	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
 	pflag.StringVarP(&domainsListFilePath, "list", "l", "", "")
+
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 	pflag.BoolVar(&listSources, "sources", false, "")
 	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
 	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
+
 	pflag.StringVarP(&filterPattern, "filter", "f", "", "")
 	pflag.StringVarP(&matchPattern, "match", "m", "", "")
+
 	pflag.BoolVar(&monochrome, "no-color", false, "")
 	pflag.StringVarP(&output, "output", "o", "", "")
 	pflag.StringVarP(&outputDirectory, "output-directory", "O", "", "")
@@ -65,7 +69,7 @@ func init() {
 		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
 
 		h += "\nCONFIGURATION:\n"
-		defaultConfigurationFilePath := strings.ReplaceAll(configuration.ConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
+		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
 		h += fmt.Sprintf(" -c, --configuration string          configuration file (default: %s)\n", defaultConfigurationFilePath)
 
 		h += "\nINPUT:\n"

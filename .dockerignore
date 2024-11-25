@@ -1,8 +1,21 @@
+# Git + Github
+.git
 .github
-bin
 .gitignore
+
+# IDE
+.vscode
+
+# Binaries
+bin
+
+#GolangCI Lint
 .golangci.yaml
+
+# Go Releaser
 .goreleaser.yaml
+
+# Documentation
 CONTRIBUTING.md
 LICENSE
 README.md
