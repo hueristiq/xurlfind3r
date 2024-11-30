@@ -1,30 +1,43 @@
 # Set the default shell to `/bin/sh` for executing commands in the Makefile.
+# `/bin/sh` is used as it is lightweight and widely available across UNIX systems.
 SHELL = /bin/sh
 
-# Define the project name for easy reference.
+# Define the project name for easy reference throughout the Makefile.
+# This helps in maintaining a consistent project name and avoiding hardcoding it in multiple places.
 PROJECT = "xurlfind3r"
 
 # The default target that gets executed when the `make` command is run without arguments.
 # In this case, it will trigger the `go-build` target.
 all: go-build
 
+# --- Prepare | Setup -------------------------------------------------------------------------------
+
+.PHONY: prepare
+prepare:
+	@# Install the latest version of Lefthook (a Git hooks manager) and set it up.
+	go install github.com/evilmartians/lefthook@latest && lefthook install
+
 # --- Go(Golang) ------------------------------------------------------------------------------------
 
 # Define common Go commands with variables for reusability and easier updates.
-GOCMD=go # The main Go command.
-GOMOD=$(GOCMD) mod # Go mod command for managing modules.
-GOGET=$(GOCMD) get # Go get command for retrieving packages.
-GOFMT=$(GOCMD) fmt # Go fmt command for formatting Go code.
-GOTEST=$(GOCMD) test # Go test command for running tests.
-GOBUILD=$(GOCMD) build # Go build command for building binaries.
-GOINSTALL=$(GOCMD) install # Go install command for installing packages.
+GOCMD=go
+GOMOD=$(GOCMD) mod
+GOGET=$(GOCMD) get
+GOFMT=$(GOCMD) fmt
+GOTEST=$(GOCMD) test
+GOBUILD=$(GOCMD) build
+GOINSTALL=$(GOCMD) install
 
 # Define Go build flags for verbosity and linking.
-GOFLAGS := -v # Verbose flag for Go commands to print detailed output.
-LDFLAGS := -s -w # Linker flags to strip debug information (-s) and reduce binary size (-w).
+# Verbose flag for Go commands, helpful for debugging and understanding output.
+GOFLAGS := -v
+# Linker flags:
+# - `-s` removes the symbol table for a smaller binary size.
+# - `-w` removes DWARF debugging information.
+LDFLAGS := -s -w
 
-# Set static linking flags for systems that are not macOS (darwin).
-# Static linking allows the binary to include all required libraries in the executable.
+# Enable static linking on non-macOS platforms.
+# This embeds all dependencies directly into the binary, making it more portable.
 ifneq ($(shell go env GOOS),darwin)
 	LDFLAGS := -extldflags "-static"
 endif
@@ -36,39 +49,42 @@ GOLANGCILINTRUN=$(GOLANGCILINTCMD) run
 # --- Go Module Management
 
 # Tidy Go modules
-# This target cleans up `go.mod` and `go.sum` files by removing any unused dependencies.
-# Use this command to ensure that the module files are in a clean state.
+# This cleans up `go.mod` and `go.sum` by removing unused dependencies
+# and ensuring that only the required packages are listed.
 .PHONY: go-mod-tidy
 go-mod-tidy:
 	$(GOMOD) tidy
 
 # Update Go modules
-# This target updates the Go module dependencies to their latest versions.
-# It fetches and updates all modules, and any indirect dependencies.
+# Updates all Go dependencies to their latest versions, including both direct and indirect dependencies.
+# Useful for staying up-to-date with upstream changes and bug fixes.
 .PHONY: go-mod-update
 go-mod-update:
-	$(GOGET) -f -t -u ./... # Update test dependencies.
-	$(GOGET) -f -u ./... # Update other dependencies.
+	@# Update test dependencies.
+	$(GOGET) -f -t -u ./...
+	@# Update all other dependencies.
+	$(GOGET) -f -u ./...
 
 # --- Go Code Quality and Testing
 
 # Format Go code
-# This target formats all Go source files according to Go's standard formatting rules using `go fmt`.
+# Formats all Go source files in the current module according to Go's standard rules.
+# Consistent formatting is crucial for code readability and collaboration.
 .PHONY: go-fmt
 go-fmt:
 	$(GOFMT) ./...
 
 # Lint Go code
-# This target lints the Go source code to ensure it adheres to best practices.
-# It uses `golangci-lint` to run various static analysis checks on the code.
-# It first runs the `go-fmt` target to ensure the code is properly formatted.
+# Runs static analysis checks on the Go code using Golangci-lint.
+# Ensures the code adheres to best practices and is free from common issues.
+# This target also runs `go-fmt` beforehand to ensure the code is formatted.
 .PHONY: go-lint
 go-lint: go-fmt
 	$(GOLANGCILINTRUN) $(GOLANGCILINT) ./...
 
 # Run Go tests
-# This target runs all Go tests in the current module.
-# The `GOFLAGS` flag ensures that tests are run with verbose output, providing more detailed information.
+# Executes all unit tests in the module with detailed output.
+# The `GOFLAGS` variable is used to enable verbosity, making it easier to debug test results.
 .PHONY: go-test
 go-test:
 	$(GOTEST) $(GOFLAGS) ./...
@@ -77,7 +93,7 @@ go-test:
 
 # Build Go program
 # This target compiles the Go source code and generates a binary in the `bin/` directory.
-# The output binary is named after the project (`xurlfind3r`), and the source entry point is the main file in `cmd/$(PROJECT)/main.go`.
+# The output binary is named after the project (`xsubfind3r`), and the source entry point is the main file in `cmd/$(PROJECT)/main.go`.
 # The `LDFLAGS` flag is passed to optimize the binary size by stripping debug information.
 .PHONY: go-build
 go-build:
@@ -93,8 +109,8 @@ go-install:
 # --- Docker ------------------------------------------------------------------------------------
 
 # Define common Docker commands with variables for reusability.
-DOCKERCMD = docker # The main Docker command.
-DOCKERBUILD = $(DOCKERCMD) build # Docker build command for building images.
+DOCKERCMD = docker
+DOCKERBUILD = $(DOCKERCMD) build
 
 # Define the path to the Dockerfile.
 # The Dockerfile is located in the root directory by default.
@@ -132,6 +148,9 @@ help:
 	@echo "*****************************************************************************"
 	@echo ""
 	@echo "Available commands:"
+	@echo ""
+	@echo " Preparation | Setup:"
+	@echo "  prepare .................. prepare repository."
 	@echo ""
 	@echo " Go Commands:"
 	@echo "  go-mod-tidy .............. Tidy Go modules."
