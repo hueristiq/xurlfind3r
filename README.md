@@ -15,9 +15,6 @@
 	* [Install on Docker (With Docker Installed)](#install-on-docker-with-docker-installed)
 * [Post Installation](#post-installation)
 * [Usage](#usage)
-	* [Basic](#basic)
-	* [Filter Regex](#filter-regex)
-	* [Match Regex](#match-regex)
 * [Contributing](#contributing)
 * [Licensing](#licensing)
 * [Credits](#credits)
@@ -28,6 +25,7 @@
 
 * Fetches URLs from multiple online passive sources to provide extensive results
 * Supports `stdin` and `stdout` for easy integration in automated workflows
+* Supports multiple output formats (JSONL, file, stdout)
 * Cross-Platform (Windows, Linux, and macOS)
 
 ## Installation
@@ -150,8 +148,8 @@ Here's what the help message looks like:
 
 ```
 
-                 _  __ _           _ _____
-__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
+                 _  __ _           _ _____      
+__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
@@ -161,11 +159,11 @@ USAGE:
  xurlfind3r [OPTIONS]
 
 CONFIGURATION:
- -c, --configuration string          configuration file (default: $HOME/.config/xurlfind3r/config.yaml)
+ -c, --configuration string          configuration file path (default: $HOME/.config/xurlfind3r/config.yaml)
 
 INPUT:
  -d, --domain string[]               target domain
- -l, --list string                   target domains' list file path
+ -l, --list string                   target domains list file path
 
 TIP: For multiple input domains use comma(,) separated value with `-d`,
      specify multiple `-d`, load from file with `-l` or load from stdin.
@@ -174,40 +172,44 @@ SCOPE:
      --include-subdomains bool       match subdomain's URLs
 
 SOURCES:
-     --sources bool                  list supported sources
- -u, --use-sources string[]          comma(,) separated sources to use
+     --sources bool                  list available sources
  -e, --exclude-sources string[]      comma(,) separated sources to exclude
+ -u, --use-sources string[]          comma(,) separated sources to use
 
 FILTER & MATCH:
  -f, --filter string                 regex to filter URLs
  -m, --match string                  regex to match URLs
 
 OUTPUT:
-     --no-color bool                 disable colored output
+     --json bool                     output URLs in JSONL format
+     --monochrome bool               stdout monochrome output
  -o, --output string                 output URLs file path
  -O, --output-directory string       output URLs directory path
- -s, --silent bool                   display output subdomains only
- -v, --verbose bool                  display verbose output
+ -s, --silent bool                   stdout URLs only output
+ -v, --verbose bool                  stdout verbose output
 
-pflag: help requested
 ```
 
-### Examples
+- Basic
 
-#### Basic
+```bash
+xurlfind3r -d hackerone.com
+```
+
+- Include Subdomains
 
 ```bash
 xurlfind3r -d hackerone.com --include-subdomains
 ```
 
-#### Filter Regex
+- Filter Regex
 
 ```bash
 # filter images
 xurlfind3r -d hackerone.com --include-subdomains -f '`^https?://[^/]*?/.*\.(jpg|jpeg|png|gif|bmp)(\?[^\s]*)?$`'
 ```
 
-#### Match Regex
+- Match Regex
 
 ```bash
 # match js URLs

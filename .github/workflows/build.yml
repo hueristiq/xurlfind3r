@@ -29,17 +29,18 @@ jobs:
                 with:
                     go-version:  '>=1.23'
             -
-                name: Checkout the repository
+                name: Code Checkout
                 uses: actions/checkout@v4
                 with:
                     fetch-depth: 0
-            - 
-                name: Go modules hygine
+            -
+                name: Go Module Management
                 run: |
-                    go clean -modcache
-                    go mod tidy
+                    make go-mod-clean
+                    make go-mod-tidy
                 working-directory: .
             -
-                name: Go build
-                run: go build -v .
-                working-directory: ./cmd/xurlfind3r
+                name: Go Build
+                run: |
+                    make go-build
+                working-directory: .

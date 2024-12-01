@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 	"github.com/hueristiq/hqgolog/formatter"
 	"github.com/hueristiq/hqgolog/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
+	"github.com/hueristiq/xurlfind3r/internal/input"
+	"github.com/hueristiq/xurlfind3r/internal/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v3"
@@ -25,38 +28,46 @@ var (
 	au aurora.Aurora
 
 	configurationFilePath string
-	domains               []string
-	domainsListFilePath   string
-	includeSubdomains     bool
-	listSources           bool
-	sourcesToUse          []string
-	sourcesToExclude      []string
-	filterPattern         string
-	matchPattern          string
-	monochrome            bool
-	output                string
-	outputDirectory       string
-	silent                bool
-	verbose               bool
+
+	inputDomains             []string
+	inputDomainsListFilePath string
+
+	includeSubdomains bool
+
+	listSources      bool
+	sourcesToExclude []string
+	sourcesToUse     []string
+
+	filterPattern string
+	matchPattern  string
+
+	outputInJSONL       bool
+	monochrome          bool
+	outputFilePath      string
+	outputDirectoryPath string
+	silent              bool
+	verbose             bool
 )
 
 func init() {
 	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath, "")
 
-	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
-	pflag.StringVarP(&domainsListFilePath, "list", "l", "", "")
+	pflag.StringSliceVarP(&inputDomains, "domain", "d", []string{}, "")
+	pflag.StringVarP(&inputDomainsListFilePath, "list", "l", "", "")
 
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
+
 	pflag.BoolVar(&listSources, "sources", false, "")
-	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
 	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
+	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
 
 	pflag.StringVarP(&filterPattern, "filter", "f", "", "")
 	pflag.StringVarP(&matchPattern, "match", "m", "", "")
 
-	pflag.BoolVar(&monochrome, "no-color", false, "")
-	pflag.StringVarP(&output, "output", "o", "", "")
-	pflag.StringVarP(&outputDirectory, "output-directory", "O", "", "")
+	pflag.BoolVar(&outputInJSONL, "json", false, "")
+	pflag.BoolVar(&monochrome, "monochrome", false, "")
+	pflag.StringVarP(&outputFilePath, "output", "o", "", "")
+	pflag.StringVarP(&outputDirectoryPath, "output-directory", "O", "", "")
 	pflag.BoolVarP(&silent, "silent", "s", false, "")
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
@@ -69,11 +80,11 @@ func init() {
 
 		h += "\nCONFIGURATION:\n"
 		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
-		h += fmt.Sprintf(" -c, --configuration string          configuration file (default: %s)\n", defaultConfigurationFilePath)
+		h += fmt.Sprintf(" -c, --configuration string          configuration file path (default: %s)\n", defaultConfigurationFilePath)
 
 		h += "\nINPUT:\n"
 		h += " -d, --domain string[]               target domain\n"
-		h += " -l, --list string                   target domains' list file path\n"
+		h += " -l, --list string                   target domains list file path\n"
 
 		h += "\nTIP: For multiple input domains use comma(,) separated value with `-d`,\n"
 		h += "     specify multiple `-d`, load from file with `-l` or load from stdin.\n"
@@ -82,20 +93,21 @@ func init() {
 		h += "     --include-subdomains bool       match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
-		h += "     --sources bool                  list supported sources\n"
-		h += " -u, --use-sources string[]          comma(,) separated sources to use\n"
+		h += "     --sources bool                  list available sources\n"
 		h += " -e, --exclude-sources string[]      comma(,) separated sources to exclude\n"
+		h += " -u, --use-sources string[]          comma(,) separated sources to use\n"
 
 		h += "\nFILTER & MATCH:\n"
 		h += " -f, --filter string                 regex to filter URLs\n"
 		h += " -m, --match string                  regex to match URLs\n"
 
 		h += "\nOUTPUT:\n"
-		h += "     --no-color bool                 disable colored output\n"
+		h += "     --json bool                     output URLs in JSONL format\n"
+		h += "     --monochrome bool               stdout monochrome output\n"
 		h += " -o, --output string                 output URLs file path\n"
 		h += " -O, --output-directory string       output URLs directory path\n"
-		h += " -s, --silent bool                   display output subdomains only\n"
-		h += " -v, --verbose bool                  display verbose output\n"
+		h += " -s, --silent bool                   stdout URLs only output\n"
+		h += " -v, --verbose bool                  stdout verbose output\n"
 
 		fmt.Fprintln(os.Stderr, h)
 	}
@@ -167,10 +179,10 @@ func main() {
 		os.Exit(0)
 	}
 
-	if domainsListFilePath != "" {
+	if inputDomainsListFilePath != "" {
 		var file *os.File
 
-		file, err = os.Open(domainsListFilePath)
+		file, err = os.Open(inputDomainsListFilePath)
 		if err != nil {
 			hqgolog.Fatal().Msg(err.Error())
 		}
@@ -181,23 +193,25 @@ func main() {
 			domain := scanner.Text()
 
 			if domain != "" {
-				domains = append(domains, domain)
+				inputDomains = append(inputDomains, domain)
 			}
 		}
 
 		if err = scanner.Err(); err != nil {
 			hqgolog.Fatal().Msg(err.Error())
 		}
+
+		file.Close()
 	}
 
-	if hasStdin() {
+	if input.HasStdin() {
 		scanner := bufio.NewScanner(os.Stdin)
 
 		for scanner.Scan() {
 			domain := scanner.Text()
 
 			if domain != "" {
-				domains = append(domains, domain)
+				inputDomains = append(inputDomains, domain)
 			}
 		}
 
@@ -220,99 +234,63 @@ func main() {
 		hqgolog.Fatal().Msg(err.Error())
 	}
 
-	var consolidatedWriter *bufio.Writer
+	outputWritter := output.NewWritter()
 
-	if output != "" {
-		directory := filepath.Dir(output)
-
-		mkdir(directory)
-
-		var consolidatedFile *os.File
-
-		consolidatedFile, err = os.OpenFile(output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-		if err != nil {
-			hqgolog.Fatal().Msg(err.Error())
-		}
-
-		defer consolidatedFile.Close()
-
-		consolidatedWriter = bufio.NewWriter(consolidatedFile)
+	if outputInJSONL {
+		outputWritter.SetFormatToJSONL()
 	}
 
-	if outputDirectory != "" {
-		mkdir(outputDirectory)
-	}
+	for index := range inputDomains {
+		domain := inputDomains[index]
 
-	for _, domain := range domains {
 		if !silent {
 			hqgolog.Print().Msg("")
 			hqgolog.Info().Msgf("Finding URLs for %v...", au.Underline(domain).Bold())
 			hqgolog.Print().Msg("")
 		}
 
-		results := finder.Find(domain)
+		writers := []io.Writer{
+			os.Stdout,
+		}
+
+		var file *os.File
 
 		switch {
-		case output != "":
-			outputURLs(consolidatedWriter, results)
-		case outputDirectory != "":
-			var domainFile *os.File
-
-			domainFile, err = os.OpenFile(filepath.Join(outputDirectory, domain+".txt"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		case outputFilePath != "":
+			file, err = outputWritter.CreateFile(outputFilePath)
 			if err != nil {
-				hqgolog.Fatal().Msg(err.Error())
+				hqgolog.Error().Msg(err.Error())
 			}
 
-			domainWriter := bufio.NewWriter(domainFile)
+			writers = append(writers, file)
+		case outputDirectoryPath != "":
+			file, err = outputWritter.CreateFile(filepath.Join(outputDirectoryPath, domain))
+			if err != nil {
+				hqgolog.Error().Msg(err.Error())
+			}
 
-			outputURLs(domainWriter, results)
-		default:
-			outputURLs(nil, results)
+			writers = append(writers, file)
 		}
-	}
-}
 
-func hasStdin() bool {
-	stat, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
+		results := finder.Find(domain)
 
-	isPipedFromChrDev := (stat.Mode() & os.ModeCharDevice) == 0
-	isPipedFromFIFO := (stat.Mode() & os.ModeNamedPipe) != 0
+		for result := range results {
+			for index := range writers {
+				writer := writers[index]
 
-	return isPipedFromChrDev || isPipedFromFIFO
-}
-
-func mkdir(path string) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err = os.MkdirAll(path, os.ModePerm); err != nil {
-			hqgolog.Fatal().Msg(err.Error())
-		}
-	}
-}
-
-func outputURLs(writer *bufio.Writer, URLs chan sources.Result) {
-	for URL := range URLs {
-		switch URL.Type {
-		case sources.ResultError:
-			if verbose {
-				hqgolog.Error().Msgf("%s: %s\n", URL.Source, URL.Error)
-			}
-		case sources.ResultURL:
-			if verbose {
-				hqgolog.Print().Msgf("[%s] %s", au.BrightBlue(URL.Source), URL.Value)
-			} else {
-				hqgolog.Print().Msg(URL.Value)
-			}
-
-			if writer != nil {
-				fmt.Fprintln(writer, URL.Value)
-
-				if err := writer.Flush(); err != nil {
-					hqgolog.Fatal().Msg(err.Error())
+				switch result.Type {
+				case sources.ResultError:
+					if verbose {
+						hqgolog.Error().Msgf("%s: %s\n", result.Source, result.Error)
+					}
+				case sources.ResultURL:
+					if err := outputWritter.Write(writer, domain, result); err != nil {
+						hqgolog.Error().Msg(err.Error())
+					}
 				}
 			}
 		}
+
+		file.Close()
 	}
 }
