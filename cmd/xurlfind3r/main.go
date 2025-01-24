@@ -75,7 +75,7 @@ func init() {
 	pflag.Usage = func() {
 		fmt.Fprintln(os.Stderr, configuration.BANNER)
 
-		h := "\nUSAGE:\n"
+		h := "USAGE:\n"
 		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
 
 		h += "\nCONFIGURATION:\n"
@@ -120,7 +120,7 @@ func init() {
 
 	viper.SetConfigFile(configurationFilePath)
 	viper.AutomaticEnv()
-	viper.SetEnvPrefix("XURLFIND3R")
+	viper.SetEnvPrefix(strings.ToUpper(configuration.NAME))
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {

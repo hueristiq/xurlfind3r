@@ -1,13 +1,13 @@
 package configuration
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"dario.cat/mergo"
 	"github.com/hueristiq/hqgolog"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/logrusorgru/aurora/v3"
 	"gopkg.in/yaml.v3"
 )
 
@@ -51,16 +51,16 @@ const (
 )
 
 var (
-	BANNER = aurora.Sprintf(
-		aurora.BrightBlue(`
-                 _  __ _           _ _____      
-__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
-\ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
- >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
-                                          %s`).Bold(),
-		aurora.BrightRed("v"+VERSION).Bold(),
-	)
+	BANNER = fmt.Sprintf(`
+      _   _ ____  _     _____ _           _ _____
+__  _| | | |  _ \| |   |  ___(_)_ __   __| |___ / _ __
+\ \/ / | | | |_) | |   | |_  | | '_ \ / _`+"`"+` | |_ \| '__|
+ >  <| |_| |  _ <| |___|  _| | | | | | (_| |___) | |
+/_/\_\\___/|_| \_\_____|_|   |_|_| |_|\__,_|____/|_|
+                                                 v%s
+
+                              Hueristiq (hueristiq.com)
+`, VERSION)
 	UserDotConfigDirectoryPath = func() (userDotConfig string) {
 		var err error
 
