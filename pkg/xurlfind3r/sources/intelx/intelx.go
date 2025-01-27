@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgourl "github.com/hueristiq/hq-go-url"
+	hqgohttp "go.source.hueristiq.com/http"
+	hqgourl "go.source.hueristiq.com/url"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 

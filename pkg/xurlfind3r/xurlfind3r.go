@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"sync"
 
-	hqgourl "github.com/hueristiq/hq-go-url"
+	hqgourl "go.source.hueristiq.com/url"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
