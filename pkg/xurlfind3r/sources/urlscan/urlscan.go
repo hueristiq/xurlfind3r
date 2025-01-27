@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	hqgohttp "go.source.hueristiq.com/http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
+	hqgohttp "go.source.hueristiq.com/http"
 )
 
 type searchResponse struct {

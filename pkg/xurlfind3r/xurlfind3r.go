@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"sync"
 
-	hqgourl "go.source.hueristiq.com/url"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
@@ -13,6 +12,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
+	hqgourl "go.source.hueristiq.com/url"
 )
 
 // Finder is the primary structure for performing URL discovery.

@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/spf13/cast"
+	"github.com/tomnomnom/linkheader"
 	hqgohttp "go.source.hueristiq.com/http"
 	"go.source.hueristiq.com/http/headers"
 	"go.source.hueristiq.com/http/status"
 	hqgourl "go.source.hueristiq.com/url"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/spf13/cast"
-	"github.com/tomnomnom/linkheader"
 )
 
 type searchResponse struct {

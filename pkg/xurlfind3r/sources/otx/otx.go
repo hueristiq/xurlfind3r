@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	hqgohttp "go.source.hueristiq.com/http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	hqgohttp "go.source.hueristiq.com/http"
 )
 
 type getURLsResponse struct {

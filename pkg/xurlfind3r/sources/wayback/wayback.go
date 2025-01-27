@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	hqgohttp "go.source.hueristiq.com/http"
 	hqgolimiter "github.com/hueristiq/hq-go-limiter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	hqgohttp "go.source.hueristiq.com/http"
 )
 
 type Source struct{}

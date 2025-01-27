@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	hqgohttp "go.source.hueristiq.com/http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	hqgohttp "go.source.hueristiq.com/http"
 )
 
 type getIndexesResponse []struct {

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
 	hqgourl "go.source.hueristiq.com/url"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type searchRequest struct {
