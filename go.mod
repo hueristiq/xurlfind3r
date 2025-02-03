@@ -8,7 +8,7 @@ require (
 	github.com/hueristiq/hqgolog v0.0.0-20230623113334-a6018965a34f
 	github.com/logrusorgru/aurora/v3 v3.0.0
 	github.com/spf13/cast v1.7.1
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.19.0
 	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80
 	go.source.hueristiq.com/http v0.0.0-20250127081317-e49b88b153ca
