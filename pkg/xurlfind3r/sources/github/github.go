@@ -12,11 +12,13 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
-	"github.com/tomnomnom/linkheader"
 	hqgohttp "go.source.hueristiq.com/http"
-	"go.source.hueristiq.com/http/headers"
+	"go.source.hueristiq.com/http/header"
+	hqgoheaderparser "go.source.hueristiq.com/http/header/parser"
+	"go.source.hueristiq.com/http/method"
 	"go.source.hueristiq.com/http/status"
-	hqgourl "go.source.hueristiq.com/url"
+	hqgourlextractor "go.source.hueristiq.com/url/extractor"
+	hqgourlparser "go.source.hueristiq.com/url/parser"
 )
 
 type searchResponse struct {
@@ -67,7 +69,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 	var searchRes *http.Response
 
-	searchRes, err = hqgohttp.GET(searchReqURL).AddHeader("Accept", "application/vnd.github.v3.text-match+json").AddHeader("Authorization", "token "+token.Hash).Send()
+	searchRes, err = hqgohttp.Request().Method(method.GET.String()).URL(searchReqURL).AddHeader("Accept", "application/vnd.github.v3.text-match+json").AddHeader("Authorization", "token "+token.Hash).Send()
 
 	isForbidden := searchRes != nil && searchRes.StatusCode == status.Forbidden.Int()
 
@@ -83,9 +85,9 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 		return
 	}
 
-	ratelimitRemaining := cast.ToInt64(searchRes.Header.Get(headers.XRatelimitRemaining.String()))
+	ratelimitRemaining := cast.ToInt64(searchRes.Header.Get(header.XRatelimitRemaining.String()))
 	if isForbidden && ratelimitRemaining == 0 {
-		retryAfterSeconds := cast.ToInt64(searchRes.Header.Get(headers.RetryAfter.String()))
+		retryAfterSeconds := cast.ToInt64(searchRes.Header.Get(header.RetryAfter.String()))
 
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
@@ -110,8 +112,8 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 	searchRes.Body.Close()
 
-	mdExtractor := hqgourl.NewExtractor(
-		hqgourl.ExtractorWithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourl.ExtractorPortOptionalPattern + `)`),
+	mdExtractor := hqgourlextractor.New(
+		hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.ExtractorPortOptionalPattern + `)`),
 	).CompileRegex()
 
 	for _, item := range searchResData.Items {
@@ -119,7 +121,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 		var getRawContentRes *http.Response
 
-		getRawContentRes, err = hqgohttp.GET(getRawContentReqURL).Send()
+		getRawContentRes, err = hqgohttp.Request().Method(method.GET.String()).URL(getRawContentReqURL).Send()
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -151,7 +153,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 			for _, URL := range URLs {
 				URL = sources.FixURL(URL)
 
-				var parsedURL *hqgourl.URL
+				var parsedURL *hqgourlparser.URL
 
 				parsedURL, err = up.Parse(URL)
 				if err != nil {
@@ -234,7 +236,7 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 		}
 	}
 
-	linksHeader := linkheader.Parse(searchRes.Header.Get(headers.Link.String()))
+	linksHeader := hqgoheaderparser.ParseLinkHeader(searchRes.Header.Get(header.Link.String()))
 
 	for _, link := range linksHeader {
 		if link.Rel == "next" {
@@ -260,7 +262,7 @@ func (source *Source) Name() string {
 	return sources.GITHUB
 }
 
-var up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))
+var up = hqgourlparser.NewURLParser(hqgourlparser.URLParserWithDefaultScheme("http"))
 
 func getRawContentURL(htmlURL string) string {
 	domain := strings.ReplaceAll(htmlURL, "https://github.com/", "https://raw.githubusercontent.com/")

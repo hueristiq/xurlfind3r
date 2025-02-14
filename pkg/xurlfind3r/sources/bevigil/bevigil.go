@@ -7,6 +7,7 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
+	"go.source.hueristiq.com/http/method"
 )
 
 type getURLsResponse struct {
@@ -39,7 +40,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
 
-		getURLsRes, err = hqgohttp.GET(getURLsReqURL).AddHeader("X-Access-Token", key).Send()
+		getURLsRes, err = hqgohttp.Request().Method(method.GET.String()).URL(getURLsReqURL).AddHeader("X-Access-Token", key).Send()
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,

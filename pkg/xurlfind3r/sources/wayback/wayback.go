@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	hqgolimiter "github.com/hueristiq/hq-go-limiter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
+	"go.source.hueristiq.com/http/method"
+	hqgolimiter "go.source.hueristiq.com/limiter"
 )
 
 type Source struct{}
@@ -27,7 +28,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 			var getURLsRes *http.Response
 
-			getURLsRes, err = hqgohttp.GET(getURLsReqURL).Send()
+			getURLsRes, err = hqgohttp.Request().Method(method.GET.String()).URL(getURLsReqURL).Send()
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,

@@ -10,7 +10,8 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
-	hqgourl "go.source.hueristiq.com/url"
+	"go.source.hueristiq.com/http/method"
+	hqgourlparser "go.source.hueristiq.com/url/parser"
 )
 
 type searchRequest struct {
@@ -93,7 +94,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 		var searchRes *http.Response
 
-		searchRes, err = hqgohttp.POST(searchReqURL).AddHeader("Content-Type", "application/json").Body(searchReqBodyReader).Send()
+		searchRes, err = hqgohttp.Request().Method(method.POST.String()).URL(searchReqURL).AddHeader("Content-Type", "application/json").Body(searchReqBodyReader).Send()
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -130,7 +131,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 		for status == 0 || status == 3 {
 			var getResultsRes *http.Response
 
-			getResultsRes, err = hqgohttp.GET(getResultsReqURL).Send()
+			getResultsRes, err = hqgohttp.Request().Method(method.GET.String()).URL(getResultsReqURL).Send()
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -206,4 +207,4 @@ func (source *Source) Name() string {
 	return sources.INTELLIGENCEX
 }
 
-var up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))
+var up = hqgourlparser.NewURLParser(hqgourlparser.URLParserWithDefaultScheme("http"))

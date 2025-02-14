@@ -12,6 +12,7 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
+	"go.source.hueristiq.com/http/method"
 )
 
 type getIndexesResponse []struct {
@@ -44,7 +45,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 		getIndexesReqURL := "https://index.commoncrawl.org/collinfo.json"
 
-		getIndexesRes, err := hqgohttp.GET(getIndexesReqURL).Send()
+		getIndexesRes, err := hqgohttp.Request().Method(method.GET.String()).URL(getIndexesReqURL).Send()
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -102,7 +103,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 			getPaginationReqURL := fmt.Sprintf("%s?url=%s/*&output=json&fl=url&showNumPages=true", CCIndexAPI, domain)
 
-			getPaginationRes, err = hqgohttp.GET(getPaginationReqURL).Send()
+			getPaginationRes, err = hqgohttp.Request().Method(method.GET.String()).URL(getPaginationReqURL).Send()
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -142,7 +143,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 				getURLsReqURL := fmt.Sprintf("%s?url=%s/*&output=json&fl=url&page=%d", CCIndexAPI, domain, page)
 
-				getURLsRes, err = hqgohttp.GET(getURLsReqURL).AddHeader("Host", "index.commoncrawl.org").Send()
+				getURLsRes, err = hqgohttp.Request().Method(method.GET.String()).URL(getURLsReqURL).AddHeader("Host", "index.commoncrawl.org").Send()
 				if err != nil {
 					result := sources.Result{
 						Type:   sources.ResultError,

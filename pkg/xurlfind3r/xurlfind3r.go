@@ -12,7 +12,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
-	hqgourl "go.source.hueristiq.com/url"
+	"go.source.hueristiq.com/url/parser"
 )
 
 // Finder is the primary structure for performing URL discovery.
@@ -153,9 +153,9 @@ type Configuration struct {
 
 var (
 	// dp is a domain parser used to extract root and top-level domains.
-	dp = hqgourl.NewDomainParser()
+	dp = parser.NewDomainParser()
 	// up is a URL parser initialized with a default scheme of "http".
-	up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))
+	up = parser.NewURLParser(parser.URLParserWithDefaultScheme("http"))
 )
 
 // New creates and initializes a new Finder instance.

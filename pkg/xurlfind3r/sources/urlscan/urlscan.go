@@ -9,6 +9,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 	hqgohttp "go.source.hueristiq.com/http"
+	"go.source.hueristiq.com/http/method"
 )
 
 type searchResponse struct {
@@ -57,7 +58,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 				searchReqURL += "&search_after=" + after
 			}
 
-			searchRes, err := hqgohttp.GET(searchReqURL).AddHeader("Content-Type", "application/json").AddHeader("API-Key", key).Send()
+			searchRes, err := hqgohttp.Request().Method(method.GET.String()).URL(searchReqURL).AddHeader("Content-Type", "application/json").AddHeader("API-Key", key).Send()
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
