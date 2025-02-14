@@ -11,6 +11,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/virustotal"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
 	"go.source.hueristiq.com/url/parser"
 )
@@ -208,6 +209,8 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 			finder.sources[source] = &otx.Source{}
 		case sources.URLSCAN:
 			finder.sources[source] = &urlscan.Source{}
+		case sources.VIRUSTOTAL:
+			finder.sources[source] = &virustotal.Source{}
 		case sources.WAYBACK:
 			finder.sources[source] = &wayback.Source{}
 		}

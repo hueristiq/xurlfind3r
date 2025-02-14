@@ -45,10 +45,11 @@ type Configuration struct {
 //	    IntelX: []string{"intelx-key-1"},
 //	}
 type Keys struct {
-	Bevigil SourceKeys `yaml:"bevigil"`
-	Github  SourceKeys `yaml:"github"`
-	IntelX  SourceKeys `yaml:"intelx"`
-	URLScan SourceKeys `yaml:"urlscan"`
+	Bevigil    SourceKeys `yaml:"bevigil"`
+	Github     SourceKeys `yaml:"github"`
+	IntelX     SourceKeys `yaml:"intelx"`
+	URLScan    SourceKeys `yaml:"urlscan"`
+	VirusTotal SourceKeys `yaml:"virustotal"`
 }
 
 // SourceKeys is a slice of strings where each element represents an API key.

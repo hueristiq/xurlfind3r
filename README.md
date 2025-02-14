@@ -182,7 +182,7 @@ FILTER & MATCH:
  -m, --match string                  regex to match URLs
 
 OUTPUT:
-     --json bool                     output URLs in JSONL format
+     --jsonl bool                    output URLs in JSONL format
      --monochrome bool               stdout monochrome output
  -o, --output string                 output URLs file path
  -O, --output-directory string       output URLs directory path

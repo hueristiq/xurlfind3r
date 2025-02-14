@@ -52,6 +52,7 @@ const (
 	INTELLIGENCEX      = "intelx"
 	OPENTHREATEXCHANGE = "otx"
 	URLSCAN            = "urlscan"
+	VIRUSTOTAL         = "virustotal"
 	WAYBACK            = "wayback"
 )
 
@@ -76,5 +77,6 @@ var List = []string{
 	INTELLIGENCEX,
 	OPENTHREATEXCHANGE,
 	URLSCAN,
+	VIRUSTOTAL,
 	WAYBACK,
 }

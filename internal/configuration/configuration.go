@@ -76,10 +76,11 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 		Version: VERSION,
 		Sources: sources.List,
 		Keys: sources.Keys{
-			Bevigil: []string{},
-			Github:  []string{},
-			IntelX:  []string{},
-			URLScan: []string{},
+			Bevigil:    []string{},
+			Github:     []string{},
+			IntelX:     []string{},
+			URLScan:    []string{},
+			VirusTotal: []string{},
 		},
 	}
 )
