@@ -102,7 +102,7 @@ func init() {
 		h += " -m, --match string                  regex to match URLs\n"
 
 		h += "\nOUTPUT:\n"
-		h += "     --json bool                     output URLs in JSONL format\n"
+		h += "     --jsonl bool                    output URLs in JSONL format\n"
 		h += "     --monochrome bool               stdout monochrome output\n"
 		h += " -o, --output string                 output URLs file path\n"
 		h += " -O, --output-directory string       output URLs directory path\n"
