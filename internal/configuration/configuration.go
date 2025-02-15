@@ -1,13 +1,13 @@
 package configuration
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"dario.cat/mergo"
 	"github.com/hueristiq/xurlfind3r/internal/logger"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/logrusorgru/aurora/v4"
 	"gopkg.in/yaml.v3"
 )
 
@@ -51,17 +51,21 @@ const (
 )
 
 var (
-	BANNER = fmt.Sprintf(`
-                 _  __ _           _ _____
-__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
+	BANNER = func(au *aurora.Aurora) (banner string) {
+		banner = au.Sprintf(
+			au.BrightBlue(`
+                 _  __ _           _ _____      
+__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
-                                          v%s
+                                          %s`).Bold(),
+			au.BrightRed("v"+VERSION).Bold().Italic(),
+		) + "\n\n"
 
-                       Hueristiq (hueristiq.com)
+		return
+	}
 
-`, VERSION)
 	UserDotConfigDirectoryPath = func() (userDotConfig string) {
 		var err error
 
@@ -72,6 +76,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 
 		return
 	}()
+
 	DefaultConfigurationFilePath = filepath.Join(UserDotConfigDirectoryPath, NAME, "config.yaml")
 	DefaultConfiguration         = Configuration{
 		Version: VERSION,

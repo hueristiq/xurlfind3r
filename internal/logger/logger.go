@@ -70,40 +70,20 @@ func (l *Logger) Log(event *Event) {
 	}
 }
 
+func (l *Logger) Fatal() (event *Event) {
+	event = &Event{
+		logger:   l,
+		level:    levels.LevelFatal,
+		metadata: make(map[string]string),
+	}
+
+	return
+}
+
 func (l *Logger) Print() (event *Event) {
 	event = &Event{
 		logger:   l,
 		level:    levels.LevelSilent,
-		metadata: make(map[string]string),
-	}
-
-	return
-}
-
-func (l *Logger) Debug() (event *Event) {
-	event = &Event{
-		logger:   l,
-		level:    levels.LevelDebug,
-		metadata: make(map[string]string),
-	}
-
-	return
-}
-
-func (l *Logger) Warn() (event *Event) {
-	event = &Event{
-		logger:   l,
-		level:    levels.LevelWarn,
-		metadata: make(map[string]string),
-	}
-
-	return
-}
-
-func (l *Logger) Info() (event *Event) {
-	event = &Event{
-		logger:   l,
-		level:    levels.LevelInfo,
 		metadata: make(map[string]string),
 	}
 
@@ -120,10 +100,30 @@ func (l *Logger) Error() (event *Event) {
 	return
 }
 
-func (l *Logger) Fatal() (event *Event) {
+func (l *Logger) Info() (event *Event) {
 	event = &Event{
 		logger:   l,
-		level:    levels.LevelFatal,
+		level:    levels.LevelInfo,
+		metadata: make(map[string]string),
+	}
+
+	return
+}
+
+func (l *Logger) Warn() (event *Event) {
+	event = &Event{
+		logger:   l,
+		level:    levels.LevelWarn,
+		metadata: make(map[string]string),
+	}
+
+	return
+}
+
+func (l *Logger) Debug() (event *Event) {
+	event = &Event{
+		logger:   l,
+		level:    levels.LevelDebug,
 		metadata: make(map[string]string),
 	}
 
@@ -160,45 +160,27 @@ var DefaultLogger *Logger
 func init() {
 	DefaultLogger = &Logger{}
 
-	DefaultLogger.SetFormatter(formatter.NewConsoleFormatter())
+	DefaultLogger.SetFormatter(formatter.NewConsoleFormatter(&formatter.ConsoleFormatterConfiguration{
+		Colorize: true,
+	}))
 	DefaultLogger.SetWriter(writer.NewConsoleWriter())
 	DefaultLogger.SetMaxLogLevel(levels.LevelDebug)
+}
+
+func Fatal() (event *Event) {
+	event = &Event{
+		logger:   DefaultLogger,
+		level:    levels.LevelFatal,
+		metadata: make(map[string]string),
+	}
+
+	return
 }
 
 func Print() (event *Event) {
 	event = &Event{
 		logger:   DefaultLogger,
 		level:    levels.LevelSilent,
-		metadata: make(map[string]string),
-	}
-
-	return
-}
-
-func Debug() (event *Event) {
-	event = &Event{
-		logger:   DefaultLogger,
-		level:    levels.LevelDebug,
-		metadata: make(map[string]string),
-	}
-
-	return
-}
-
-func Warn() (event *Event) {
-	event = &Event{
-		logger:   DefaultLogger,
-		level:    levels.LevelWarn,
-		metadata: make(map[string]string),
-	}
-
-	return
-}
-
-func Info() (event *Event) {
-	event = &Event{
-		logger:   DefaultLogger,
-		level:    levels.LevelInfo,
 		metadata: make(map[string]string),
 	}
 
@@ -215,10 +197,30 @@ func Error() (event *Event) {
 	return
 }
 
-func Fatal() (event *Event) {
+func Info() (event *Event) {
 	event = &Event{
 		logger:   DefaultLogger,
-		level:    levels.LevelFatal,
+		level:    levels.LevelInfo,
+		metadata: make(map[string]string),
+	}
+
+	return
+}
+
+func Warn() (event *Event) {
+	event = &Event{
+		logger:   DefaultLogger,
+		level:    levels.LevelWarn,
+		metadata: make(map[string]string),
+	}
+
+	return
+}
+
+func Debug() (event *Event) {
+	event = &Event{
+		logger:   DefaultLogger,
+		level:    levels.LevelDebug,
 		metadata: make(map[string]string),
 	}
 

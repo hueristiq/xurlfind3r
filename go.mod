@@ -4,6 +4,7 @@ go 1.23.3
 
 require (
 	dario.cat/mergo v1.0.1
+	github.com/logrusorgru/aurora/v4 v4.0.0
 	github.com/spf13/cast v1.7.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.19.0

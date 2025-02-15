@@ -13,15 +13,19 @@ import (
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/internal/input"
 	"github.com/hueristiq/xurlfind3r/internal/logger"
+	"github.com/hueristiq/xurlfind3r/internal/logger/formatter"
 	"github.com/hueristiq/xurlfind3r/internal/logger/levels"
 	"github.com/hueristiq/xurlfind3r/internal/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/logrusorgru/aurora/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 var (
+	au = aurora.New(aurora.WithColors(true))
+
 	configurationFilePath string
 
 	inputDomains             []string
@@ -68,14 +72,16 @@ func init() {
 
 	pflag.CommandLine.SortFlags = false
 	pflag.Usage = func() {
-		logger.Info().Label("").Msg(configuration.BANNER)
+		logger.Info().Label("").Msg(configuration.BANNER(au))
 
 		h := "USAGE:\n"
 		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
 
 		h += "\nCONFIGURATION:\n"
+
 		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
-		h += fmt.Sprintf(" -c, --configuration string          configuration file path (default: %s)\n", defaultConfigurationFilePath)
+
+		h += fmt.Sprintf(" -c, --configuration string          configuration file path (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
 
 		h += "\nINPUT:\n"
 		h += " -d, --domain string[]               target domain\n"
@@ -122,6 +128,10 @@ func init() {
 		logger.Fatal().Msg(err.Error())
 	}
 
+	logger.DefaultLogger.SetFormatter(formatter.NewConsoleFormatter(&formatter.ConsoleFormatterConfiguration{
+		Colorize: !monochrome,
+	}))
+
 	if verbose {
 		logger.DefaultLogger.SetMaxLogLevel(levels.LevelDebug)
 	}
@@ -129,10 +139,12 @@ func init() {
 	if silent {
 		logger.DefaultLogger.SetMaxLogLevel(levels.LevelSilent)
 	}
+
+	au = aurora.New(aurora.WithColors(!monochrome))
 }
 
 func main() {
-	logger.Info().Label("").Msg(configuration.BANNER)
+	logger.Info().Label("").Msg(configuration.BANNER(au))
 
 	var err error
 
@@ -143,8 +155,8 @@ func main() {
 	}
 
 	if listSources {
-		logger.Info().Msgf("listing, %v, current supported sources.", strconv.Itoa(len(cfg.Sources)))
-		logger.Info().Msgf("sources marked with %v take in key(s) or token(s).\n\n", "*")
+		logger.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold())
+		logger.Info().Msgf("sources marked with %v take in key(s) or token(s).\n\n", au.Underline("*").Bold())
 
 		needsKey := make(map[string]interface{})
 		keysElem := reflect.ValueOf(&cfg.Keys).Elem()
@@ -228,7 +240,7 @@ func main() {
 	for index := range inputDomains {
 		domain := inputDomains[index]
 
-		logger.Info().Msgf("Finding URLs for %v...\n\n", domain)
+		logger.Info().Msgf("Finding URLs for %s...\n\n", au.Underline(domain).Bold())
 
 		writers := []io.Writer{
 			os.Stdout,
