@@ -147,14 +147,13 @@ xurlfind3r -h
 Here's what the help message looks like:
 
 ```
+
                  _  __ _           _ _____
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
                                           v0.6.0
-
-                       Hueristiq (hueristiq.com)
 
 USAGE:
  xurlfind3r [OPTIONS]
