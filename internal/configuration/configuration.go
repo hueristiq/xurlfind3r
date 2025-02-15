@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"dario.cat/mergo"
-	"github.com/hueristiq/hqgolog"
+	"github.com/hueristiq/xurlfind3r/internal/logger"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"gopkg.in/yaml.v3"
 )
@@ -60,13 +60,14 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
                                           v%s
 
                        Hueristiq (hueristiq.com)
+
 `, VERSION)
 	UserDotConfigDirectoryPath = func() (userDotConfig string) {
 		var err error
 
 		userDotConfig, err = os.UserConfigDir()
 		if err != nil {
-			hqgolog.Fatal().Msg(err.Error())
+			logger.Fatal().Msg(err.Error())
 		}
 
 		return

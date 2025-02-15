@@ -4,29 +4,24 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
 
-	"github.com/hueristiq/hqgolog"
-	"github.com/hueristiq/hqgolog/formatter"
-	"github.com/hueristiq/hqgolog/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/internal/input"
+	"github.com/hueristiq/xurlfind3r/internal/logger"
+	"github.com/hueristiq/xurlfind3r/internal/logger/levels"
 	"github.com/hueristiq/xurlfind3r/internal/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/logrusorgru/aurora/v3"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 var (
-	au aurora.Aurora
-
 	configurationFilePath string
 
 	inputDomains             []string
@@ -73,7 +68,7 @@ func init() {
 
 	pflag.CommandLine.SortFlags = false
 	pflag.Usage = func() {
-		fmt.Fprintln(os.Stderr, configuration.BANNER)
+		logger.Info().Label("").Msg(configuration.BANNER)
 
 		h := "USAGE:\n"
 		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
@@ -107,15 +102,15 @@ func init() {
 		h += " -o, --output string                 output URLs file path\n"
 		h += " -O, --output-directory string       output URLs directory path\n"
 		h += " -s, --silent bool                   stdout URLs only output\n"
-		h += " -v, --verbose bool                  stdout verbose output\n"
+		h += " -v, --verbose bool                  stdout verbose output\n\n"
 
-		fmt.Fprintln(os.Stderr, h)
+		logger.Info().Label("").Msg(h)
 	}
 
 	pflag.Parse()
 
 	if err := configuration.CreateUpdate(configurationFilePath); err != nil {
-		hqgolog.Fatal().Msg(err.Error())
+		logger.Fatal().Msg(err.Error())
 	}
 
 	viper.SetConfigFile(configurationFilePath)
@@ -124,40 +119,32 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalln(err)
+		logger.Fatal().Msg(err.Error())
 	}
-
-	hqgolog.DefaultLogger.SetMaxLevel(levels.LevelInfo)
 
 	if verbose {
-		hqgolog.DefaultLogger.SetMaxLevel(levels.LevelDebug)
+		logger.DefaultLogger.SetMaxLogLevel(levels.LevelDebug)
 	}
 
-	hqgolog.DefaultLogger.SetFormatter(formatter.NewCLI(&formatter.CLIOptions{
-		Colorize: !monochrome,
-	}))
-
-	au = aurora.NewAurora(!monochrome)
+	if silent {
+		logger.DefaultLogger.SetMaxLogLevel(levels.LevelSilent)
+	}
 }
 
 func main() {
-	if !silent {
-		fmt.Fprintln(os.Stderr, configuration.BANNER)
-	}
+	logger.Info().Label("").Msg(configuration.BANNER)
 
 	var err error
 
 	var cfg *configuration.Configuration
 
 	if err = viper.Unmarshal(&cfg); err != nil {
-		hqgolog.Fatal().Msg(err.Error())
+		logger.Fatal().Msg(err.Error())
 	}
 
 	if listSources {
-		hqgolog.Print().Msg("")
-		hqgolog.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold())
-		hqgolog.Info().Msgf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold())
-		hqgolog.Print().Msg("")
+		logger.Info().Msgf("listing, %v, current supported sources.", strconv.Itoa(len(cfg.Sources)))
+		logger.Info().Msgf("sources marked with %v take in key(s) or token(s).\n\n", "*")
 
 		needsKey := make(map[string]interface{})
 		keysElem := reflect.ValueOf(&cfg.Keys).Elem()
@@ -168,13 +155,11 @@ func main() {
 
 		for _, source := range cfg.Sources {
 			if _, ok := needsKey[source]; ok {
-				hqgolog.Print().Msgf("> %s *", source)
+				logger.Print().Msgf("> %s *", source)
 			} else {
-				hqgolog.Print().Msgf("> %s", source)
+				logger.Print().Msgf("> %s", source)
 			}
 		}
-
-		hqgolog.Print().Msg("")
 
 		os.Exit(0)
 	}
@@ -184,7 +169,7 @@ func main() {
 
 		file, err = os.Open(inputDomainsListFilePath)
 		if err != nil {
-			hqgolog.Fatal().Msg(err.Error())
+			logger.Fatal().Msg(err.Error())
 		}
 
 		scanner := bufio.NewScanner(file)
@@ -198,7 +183,7 @@ func main() {
 		}
 
 		if err = scanner.Err(); err != nil {
-			hqgolog.Fatal().Msg(err.Error())
+			logger.Fatal().Msg(err.Error())
 		}
 
 		file.Close()
@@ -216,7 +201,7 @@ func main() {
 		}
 
 		if err = scanner.Err(); err != nil {
-			hqgolog.Fatal().Msg(err.Error())
+			logger.Fatal().Msg(err.Error())
 		}
 	}
 
@@ -231,7 +216,7 @@ func main() {
 		MatchPattern:      matchPattern,
 	})
 	if err != nil {
-		hqgolog.Fatal().Msg(err.Error())
+		logger.Fatal().Msg(err.Error())
 	}
 
 	outputWritter := output.NewWritter()
@@ -243,11 +228,7 @@ func main() {
 	for index := range inputDomains {
 		domain := inputDomains[index]
 
-		if !silent {
-			hqgolog.Print().Msg("")
-			hqgolog.Info().Msgf("Finding URLs for %v...", au.Underline(domain).Bold())
-			hqgolog.Print().Msg("")
-		}
+		logger.Info().Msgf("Finding URLs for %v...\n\n", domain)
 
 		writers := []io.Writer{
 			os.Stdout,
@@ -259,14 +240,14 @@ func main() {
 		case outputFilePath != "":
 			file, err = outputWritter.CreateFile(outputFilePath)
 			if err != nil {
-				hqgolog.Error().Msg(err.Error())
+				logger.Error().Msg(err.Error())
 			}
 
 			writers = append(writers, file)
 		case outputDirectoryPath != "":
 			file, err = outputWritter.CreateFile(filepath.Join(outputDirectoryPath, domain))
 			if err != nil {
-				hqgolog.Error().Msg(err.Error())
+				logger.Error().Msg(err.Error())
 			}
 
 			writers = append(writers, file)
@@ -280,12 +261,10 @@ func main() {
 
 				switch result.Type {
 				case sources.ResultError:
-					if verbose {
-						hqgolog.Error().Msgf("%s: %s\n", result.Source, result.Error)
-					}
+					logger.Error().Msgf("%s: %s", result.Source, result.Error)
 				case sources.ResultURL:
 					if err := outputWritter.Write(writer, domain, result); err != nil {
-						hqgolog.Error().Msg(err.Error())
+						logger.Error().Msg(err.Error())
 					}
 				}
 			}
