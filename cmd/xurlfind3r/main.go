@@ -108,9 +108,10 @@ func init() {
 		h += " -o, --output string                 output URLs file path\n"
 		h += " -O, --output-directory string       output URLs directory path\n"
 		h += " -s, --silent bool                   stdout URLs only output\n"
-		h += " -v, --verbose bool                  stdout verbose output\n\n"
+		h += " -v, --verbose bool                  stdout verbose output\n"
 
 		logger.Info().Label("").Msg(h)
+		logger.Print().Msg("")
 	}
 
 	pflag.Parse()
@@ -156,7 +157,8 @@ func main() {
 
 	if listSources {
 		logger.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold())
-		logger.Info().Msgf("sources marked with %v take in key(s) or token(s).\n\n", au.Underline("*").Bold())
+		logger.Info().Msgf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold())
+		logger.Print().Msg("")
 
 		needsKey := make(map[string]interface{})
 		keysElem := reflect.ValueOf(&cfg.Keys).Elem()
@@ -172,6 +174,8 @@ func main() {
 				logger.Print().Msgf("> %s", source)
 			}
 		}
+
+		logger.Print().Msg("")
 
 		os.Exit(0)
 	}
@@ -240,7 +244,8 @@ func main() {
 	for index := range inputDomains {
 		domain := inputDomains[index]
 
-		logger.Info().Msgf("Finding URLs for %s...\n\n", au.Underline(domain).Bold())
+		logger.Info().Msgf("Finding URLs for %s...", au.Underline(domain).Bold())
+		logger.Print().Msg("")
 
 		writers := []io.Writer{
 			os.Stdout,
@@ -283,5 +288,7 @@ func main() {
 		}
 
 		file.Close()
+
+		logger.Print().Msg("")
 	}
 }
