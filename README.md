@@ -6,27 +6,24 @@
 
 ## Resource
 
-* [Features](#features)
-* [Installation](#installation)
-	* [Install release binaries (Without Go Installed)](#install-release-binaries-without-go-installed)
-	* [Install source (With Go Installed)](#install-source-with-go-installed)
-		* [`go install ...`](#go-install)
-		* [`go build ...` the development Version](#go-build--the-development-version)
-	* [Install on Docker (With Docker Installed)](#install-on-docker-with-docker-installed)
-* [Post Installation](#post-installation)
-* [Usage](#usage)
-* [Contributing](#contributing)
-* [Licensing](#licensing)
-* [Credits](#credits)
-	* [Contributors](#contributors)
-	* [Alternatives](#alternatives)
+- [Features](#features)
+- [Installation](#installation)
+	- [Install release binaries (Without Go Installed)](#install-release-binaries-without-go-installed)
+	- [Install source (With Go Installed)](#install-source-with-go-installed)
+		- [`go install ...`](#go-install)
+		- [`go build ...` the development Version](#go-build--the-development-version)
+	- [Install on Docker (With Docker Installed)](#install-on-docker-with-docker-installed)
+- [Post Installation](#post-installation)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [Licensing](#licensing)
 
 ## Features
 
-* Fetches URLs from multiple online passive sources to provide extensive results
-* Supports `stdin` and `stdout` for easy integration in automated workflows
-* Supports multiple output formats (JSONL, file, stdout)
-* Cross-Platform (Windows, Linux, and macOS)
+- Fetches URLs from multiple online passive sources to provide extensive results
+- Supports `stdin` and `stdout` for easy integration in automated workflows
+- Supports multiple output formats (JSONL, file, stdout)
+- Cross-Platform (Windows, Linux, and macOS)
 
 ## Installation
 
@@ -34,13 +31,13 @@
 
 Visit the [releases page](https://github.com/hueristiq/xurlfind3r/releases) and find the appropriate archive for your operating system and architecture. Download the archive from your browser or copy its URL and retrieve it with `wget` or `curl`:
 
-* ...with `wget`:
+- ...with `wget`:
 
 	```bash
 	wget https://github.com/hueristiq/xurlfind3r/releases/download/v<version>/xurlfind3r-<version>-linux-amd64.tar.gz
 	```
 
-* ...or, with `curl`:
+- ...or, with `curl`:
 
 	```bash
 	curl -OL https://github.com/hueristiq/xurlfind3r/releases/download/v<version>/xurlfind3r-<version>-linux-amd64.tar.gz
@@ -84,20 +81,20 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 #### `go build ...` the development Version
 
-* Clone the repository
+- Clone the repository
 
 	```bash
 	git clone https://github.com/hueristiq/xurlfind3r.git 
 	```
 
-* Build the utility
+- Build the utility
 
 	```bash
 	cd xurlfind3r/cmd/xurlfind3r && \
 	go build .
 	```
 
-* Move the `xurlfind3r` binary to somewhere in your `PATH`. For example, on GNU/Linux and OS X systems:
+- Move the `xurlfind3r` binary to somewhere in your `PATH`. For example, on GNU/Linux and OS X systems:
 
 	```bash
 	sudo mv xurlfind3r /usr/local/bin/
@@ -113,13 +110,13 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 To install `xurlfind3r` on docker:
 
-* Pull the docker image using:
+- Pull the docker image using:
 
     ```bash
     docker pull hueristiq/xurlfind3r:latest
     ```
 
-* Run `xurlfind3r` using the image:
+- Run `xurlfind3r` using the image:
 
     ```bash
     docker run --rm hueristiq/xurlfind3r:latest -h
@@ -218,22 +215,12 @@ xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[
 
 ## Contributing
 
-We welcome contributions! Feel free to submit [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) or report [Issues](https://github.com/hueristiq/xurlfind3r/issues). For more details, check out the [contribution guidelines](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md).
+Feel free to submit [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) or report [Issues](https://github.com/hueristiq/xurlfind3r/issues). For more details, check out the [contribution guidelines](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md).
+
+Huge thanks to the [contributors](https://github.com/hueristiq/xurlfind3r/graphs/contributors) thus far!
+
+![contributors](https://contrib.rocks/image?repo=hueristiq/xurlfind3r&max=500)
 
 ## Licensing
 
-This utility is licensed under the [MIT license](https://opensource.org/license/mit). You are free to use, modify, and distribute it, as long as you follow the terms of the license. You can find the full license text in the repository - [Full MIT license text](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE).
-
-## Credits
-
-### Contributors
-
-A huge thanks to all the contributors who have helped make `xurlfind3r` what it is today!
-
-[![contributors](https://contrib.rocks/image?repo=hueristiq/xurlfind3r&max=500)](https://github.com/hueristiq/xurlfind3r/graphs/contributors)
-
-### Alternatives
-
-If you're interested in more utilities like this, check out:
-
-[gau](https://github.com/lc/gau) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)
+This package is licensed under the [MIT license](https://opensource.org/license/mit). You are free to use, modify, and distribute it, as long as you follow the terms of the license. You can find the full license text in the repository - [Full MIT license text](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE).
