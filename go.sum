@@ -51,6 +51,8 @@ go.source.hueristiq.com/http v0.0.0-20250212183008-cda247576f0e h1:ZEyncfKpyd2PP
 go.source.hueristiq.com/http v0.0.0-20250212183008-cda247576f0e/go.mod h1:j0hVowEe17WaFIQGI+eWEIU1g27f04CmF82C9gVc4OQ=
 go.source.hueristiq.com/limiter v0.0.0-20250212182122-a90deb8c5624 h1:gND6Q1EdNoB6ThsitE5qoKnCdL1Lzri+LQniz0Qi5Og=
 go.source.hueristiq.com/limiter v0.0.0-20250212182122-a90deb8c5624/go.mod h1:5WZw2z6XgMXlP3n0mgIfCOendpEpLiSdU6fQKja79Wc=
+go.source.hueristiq.com/logger v0.0.0-20250224134018-212c4546deb7 h1:9lCwrERLiRqqT2agYR95k5HJQCcF/rZzI2GY+hL3xDw=
+go.source.hueristiq.com/logger v0.0.0-20250224134018-212c4546deb7/go.mod h1:AOQwgh2c5MRAy87IVpoJ9ZVE/XaSrMLcAVTRKQGOazc=
 go.source.hueristiq.com/retrier v0.0.0-20250211140259-af5f5f3556b7 h1:xP1+QfUB17vmnCe5qJ1R2uBxBiJD1JKgCCxSuK36dWg=
 go.source.hueristiq.com/retrier v0.0.0-20250211140259-af5f5f3556b7/go.mod h1:ohGUnbF/yXWsCKrOb4J6JrSJGukUTBgLBDIir1oNBA4=
 go.source.hueristiq.com/url v0.0.0-20250212180013-cf9654cb75ee h1:MrTxNek9Ho0Jkbk5fmUQ4N5IXjGFgAoHqSY1asZdMf8=

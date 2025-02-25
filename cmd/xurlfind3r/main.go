@@ -12,15 +12,15 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/internal/input"
-	"github.com/hueristiq/xurlfind3r/internal/logger"
-	"github.com/hueristiq/xurlfind3r/internal/logger/formatter"
-	"github.com/hueristiq/xurlfind3r/internal/logger/levels"
 	"github.com/hueristiq/xurlfind3r/internal/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.source.hueristiq.com/logger"
+	"go.source.hueristiq.com/logger/formatter"
+	"go.source.hueristiq.com/logger/levels"
 )
 
 var (

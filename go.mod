@@ -10,6 +10,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	go.source.hueristiq.com/http v0.0.0-20250212183008-cda247576f0e
 	go.source.hueristiq.com/limiter v0.0.0-20250212182122-a90deb8c5624
+	go.source.hueristiq.com/logger v0.0.0-20250224134018-212c4546deb7
 	go.source.hueristiq.com/url v0.0.0-20250212180013-cf9654cb75ee
 	gopkg.in/yaml.v3 v3.0.1
 )
