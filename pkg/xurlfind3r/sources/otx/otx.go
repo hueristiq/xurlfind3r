@@ -6,7 +6,6 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
-	"go.source.hueristiq.com/http/method"
 )
 
 type getURLsResponse struct {
@@ -40,9 +39,15 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 		defer close(results)
 
 		for page := 1; ; page++ {
-			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list?limit=100&page=%d", domain, page)
+			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list", domain)
+			getURLsReqCFG := &hqgohttp.RequestConfiguration{
+				Params: map[string]string{
+					"limit": "100",
+					"page":  fmt.Sprintf("%d", page),
+				},
+			}
 
-			getURLsRes, err := hqgohttp.Request().Method(method.GET.String()).URL(getURLsReqURL).Send()
+			getURLsRes, err := hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,

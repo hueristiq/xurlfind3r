@@ -50,17 +50,17 @@ func (finder *Finder) IsURLInScope(domain, URL string, subdomainsInScope bool) (
 		return
 	}
 
-	ETLDPlusOne := parsedURL.Domain.SLD
+	ETLDPlusOne := parsedURL.Domain.SecondLevelDomain
 
-	if parsedURL.Domain.TLD != "" {
-		ETLDPlusOne += "." + parsedURL.Domain.TLD
+	if parsedURL.Domain.TopLevelDomain != "" {
+		ETLDPlusOne += "." + parsedURL.Domain.TopLevelDomain
 	}
 
-	parsedDomain := dp.Parse(domain)
+	parsedDomain, _ := up.Parse(domain)
 
-	expectedETLDPlusOne := parsedDomain.SLD
-	if parsedDomain.TLD != "" {
-		expectedETLDPlusOne += "." + parsedDomain.TLD
+	expectedETLDPlusOne := parsedDomain.Domain.SecondLevelDomain
+	if parsedDomain.Domain.TopLevelDomain != "" {
+		expectedETLDPlusOne += "." + parsedDomain.Domain.TopLevelDomain
 	}
 
 	if ETLDPlusOne != expectedETLDPlusOne {
@@ -87,9 +87,9 @@ func (finder *Finder) IsURLInScope(domain, URL string, subdomainsInScope bool) (
 func (finder *Finder) Find(domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
-	parsed := dp.Parse(domain)
+	parsed, _ := up.Parse(domain)
 
-	domain = parsed.SLD + "." + parsed.TLD
+	domain = parsed.Domain.SecondLevelDomain + "." + parsed.Domain.TopLevelDomain
 
 	finder.configuration.IsInScope = func(URL string) (isInScope bool) {
 		return finder.IsURLInScope(domain, URL, finder.configuration.IncludeSubdomains)
@@ -152,12 +152,8 @@ type Configuration struct {
 	MatchPattern      string
 }
 
-var (
-	// dp is a domain parser used to extract root and top-level domains.
-	dp = parser.NewDomainParser()
-	// up is a URL parser initialized with a default scheme of "http".
-	up = parser.NewURLParser(parser.URLParserWithDefaultScheme("http"))
-)
+// up is a URL parser initialized with a default scheme of "http".
+var up = parser.New(parser.WithDefaultScheme("http"))
 
 // New creates and initializes a new Finder instance.
 // It enables the specified sources, applies exclusions, and sets the required configuration.

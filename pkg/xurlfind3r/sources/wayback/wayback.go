@@ -7,7 +7,6 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
-	"go.source.hueristiq.com/http/method"
 	hqgolimiter "go.source.hueristiq.com/limiter"
 )
 
@@ -22,13 +21,23 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 		var err error
 
 		for page := uint(0); ; page++ {
-			getURLsReqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=*.%s/*&output=json&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest&pageSize=100&page=%d", domain, page)
+			getURLsReqURL := "https://web.archive.org/cdx/search/cdx"
+			getURLsReqCFG := &hqgohttp.RequestConfiguration{
+				Params: map[string]string{
+					"url":      "*." + domain + "/*",
+					"output":   "json",
+					"collapse": "urlkey",
+					"fl":       "timestamp,original,mimetype,statuscode,digest",
+					"pageSize": "100",
+					"page":     fmt.Sprintf("%d", page),
+				},
+			}
 
 			limiter.Wait()
 
 			var getURLsRes *http.Response
 
-			getURLsRes, err = hqgohttp.Request().Method(method.GET.String()).URL(getURLsReqURL).Send()
+			getURLsRes, err = hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,

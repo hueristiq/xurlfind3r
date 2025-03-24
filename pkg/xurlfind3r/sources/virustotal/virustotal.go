@@ -2,11 +2,9 @@ package virustotal
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	hqgohttp "go.source.hueristiq.com/http"
-	"go.source.hueristiq.com/http/method"
 	hqgolimiter "go.source.hueristiq.com/limiter"
 )
 
@@ -39,11 +37,17 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 			return
 		}
 
-		getDomainReportReqURL := fmt.Sprintf("https://www.virustotal.com/vtapi/v2/domain/report?apikey=%s&domain=%s", key, domain)
+		getDomainReportReqURL := "https://www.virustotal.com/vtapi/v2/domain/report"
+		getDomainReportReqCFG := &hqgohttp.RequestConfiguration{
+			Params: map[string]string{
+				"apikey": key,
+				"domain": domain,
+			},
+		}
 
 		limiter.Wait()
 
-		getDomainReportRes, err := hqgohttp.Request().Method(method.GET.String()).URL(getDomainReportReqURL).Send()
+		getDomainReportRes, err := hqgohttp.Get(getDomainReportReqURL, getDomainReportReqCFG)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
