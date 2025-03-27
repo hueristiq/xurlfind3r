@@ -24,53 +24,38 @@ import (
 )
 
 var (
-	au = aurora.New(aurora.WithColors(true))
-
-	configurationFilePath string
-
+	configurationFilePath    string
 	inputDomains             []string
 	inputDomainsListFilePath string
+	includeSubdomains        bool
+	listSources              bool
+	sourcesToExclude         []string
+	sourcesToUse             []string
+	outputInJSONL            bool
+	monochrome               bool
+	outputFilePath           string
+	outputDirectoryPath      string
+	silent                   bool
+	verbose                  bool
 
-	includeSubdomains bool
-
-	listSources      bool
-	sourcesToExclude []string
-	sourcesToUse     []string
-
-	filterPattern string
-	matchPattern  string
-
-	outputInJSONL       bool
-	monochrome          bool
-	outputFilePath      string
-	outputDirectoryPath string
-	silent              bool
-	verbose             bool
+	au = aurora.New(aurora.WithColors(true))
 )
 
 func init() {
 	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath, "")
-
 	pflag.StringSliceVarP(&inputDomains, "domain", "d", []string{}, "")
 	pflag.StringVarP(&inputDomainsListFilePath, "list", "l", "", "")
-
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
-
 	pflag.BoolVar(&listSources, "sources", false, "")
 	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
 	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
-
-	pflag.StringVarP(&filterPattern, "filter", "f", "", "")
-	pflag.StringVarP(&matchPattern, "match", "m", "", "")
-
-	pflag.BoolVar(&outputInJSONL, "json", false, "")
+	pflag.BoolVar(&outputInJSONL, "jsonl", false, "")
 	pflag.BoolVar(&monochrome, "monochrome", false, "")
 	pflag.StringVarP(&outputFilePath, "output", "o", "", "")
 	pflag.StringVarP(&outputDirectoryPath, "output-directory", "O", "", "")
 	pflag.BoolVarP(&silent, "silent", "s", false, "")
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
-	pflag.CommandLine.SortFlags = false
 	pflag.Usage = func() {
 		logger.Info().Label("").Msg(configuration.BANNER(au))
 
@@ -97,10 +82,6 @@ func init() {
 		h += "     --sources bool                  list available sources\n"
 		h += " -e, --exclude-sources string[]      comma(,) separated sources to exclude\n"
 		h += " -u, --use-sources string[]          comma(,) separated sources to use\n"
-
-		h += "\nFILTER & MATCH:\n"
-		h += " -f, --filter string                 regex to filter URLs\n"
-		h += " -m, --match string                  regex to match URLs\n"
 
 		h += "\nOUTPUT:\n"
 		h += "     --jsonl bool                    output URLs in JSONL format\n"
@@ -228,17 +209,15 @@ func main() {
 		SourcesToUse:      sourcesToUse,
 		SourcesToExclude:  sourcesToExclude,
 		Keys:              cfg.Keys,
-		FilterPattern:     filterPattern,
-		MatchPattern:      matchPattern,
 	})
 	if err != nil {
 		logger.Fatal().Msg(err.Error())
 	}
 
-	outputWritter := output.NewWritter()
+	writer := output.NewWriter()
 
 	if outputInJSONL {
-		outputWritter.SetFormatToJSONL()
+		writer.SetFormatToJSONL()
 	}
 
 	for index := range inputDomains {
@@ -247,7 +226,7 @@ func main() {
 		logger.Info().Msgf("Finding URLs for %s...", au.Underline(domain).Bold())
 		logger.Print().Msg("")
 
-		writers := []io.Writer{
+		outputs := []io.Writer{
 			os.Stdout,
 		}
 
@@ -255,32 +234,30 @@ func main() {
 
 		switch {
 		case outputFilePath != "":
-			file, err = outputWritter.CreateFile(outputFilePath)
+			file, err = writer.CreateFile(outputFilePath)
 			if err != nil {
 				logger.Error().Msg(err.Error())
 			}
 
-			writers = append(writers, file)
+			outputs = append(outputs, file)
 		case outputDirectoryPath != "":
-			file, err = outputWritter.CreateFile(filepath.Join(outputDirectoryPath, domain))
+			file, err = writer.CreateFile(filepath.Join(outputDirectoryPath, domain))
 			if err != nil {
 				logger.Error().Msg(err.Error())
 			}
 
-			writers = append(writers, file)
+			outputs = append(outputs, file)
 		}
 
-		results := finder.Find(domain)
-
-		for result := range results {
-			for index := range writers {
-				writer := writers[index]
+		for result := range finder.Find(domain) {
+			for index := range outputs {
+				o := outputs[index]
 
 				switch result.Type {
 				case sources.ResultError:
 					logger.Error().Msgf("%s: %s", result.Source, result.Error)
 				case sources.ResultURL:
-					if err := outputWritter.Write(writer, domain, result); err != nil {
+					if err := writer.Write(o, domain, result); err != nil {
 						logger.Error().Msg(err.Error())
 					}
 				}

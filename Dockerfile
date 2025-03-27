@@ -11,7 +11,7 @@ FROM golang:1.23.1-alpine3.20 AS build-stage
 #   - `gcc` and `g++`: The GNU Compiler Collection used for compiling C and C++ code, essential for building Go applications.
 #   - `git`: Required for downloading Go modules that reference external repositories.
 #   - `make`: Utility for automating build processes and running the `Makefile`.
-RUN <<EOF
+RUN <<-EOF
     apk --no-cache update
     apk --no-cache upgrade
 
@@ -47,7 +47,7 @@ FROM alpine:3.20.3
 # - `ca-certificates`: Includes CA certificates to allow HTTPS connections.
 # Create a non-root user and group to enhance the security of the running container.
 # Files and processes will be owned and run by this user instead of the root user.
-RUN <<EOF
+RUN <<-EOF
     apk --no-cache update
     apk --no-cache upgrade
 

@@ -173,10 +173,6 @@ SOURCES:
  -e, --exclude-sources string[]      comma(,) separated sources to exclude
  -u, --use-sources string[]          comma(,) separated sources to use
 
-FILTER & MATCH:
- -f, --filter string                 regex to filter URLs
- -m, --match string                  regex to match URLs
-
 OUTPUT:
      --jsonl bool                    output URLs in JSONL format
      --monochrome bool               stdout monochrome output
@@ -187,37 +183,11 @@ OUTPUT:
 
 ```
 
-- Basic
-
-```bash
-xurlfind3r -d hackerone.com
-```
-
-- Include Subdomains
-
-```bash
-xurlfind3r -d hackerone.com --include-subdomains
-```
-
-- Filter Regex
-
-```bash
-# filter images
-xurlfind3r -d hackerone.com --include-subdomains -f '`^https?://[^/]*?/.*\.(jpg|jpeg|png|gif|bmp)(\?[^\s]*)?$`'
-```
-
-- Match Regex
-
-```bash
-# match js URLs
-xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[^\s]*)?$'
-```
-
 ## Contributing
 
-Feel free to submit [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) or report [Issues](https://github.com/hueristiq/xurlfind3r/issues). For more details, check out the [contribution guidelines](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md).
+Contributions are welcome and encouraged! Feel free to submit [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) or report [Issues](https://github.com/hueristiq/xurlfind3r/issues). For more details, check out the [contribution guidelines](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md).
 
-Huge thanks to the [contributors](https://github.com/hueristiq/xurlfind3r/graphs/contributors) thus far!
+A big thank you to all the [contributors](https://github.com/hueristiq/xurlfind3r/graphs/contributors) for your ongoing support!
 
 ![contributors](https://contrib.rocks/image?repo=hueristiq/xurlfind3r&max=500)
 

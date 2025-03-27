@@ -9,6 +9,9 @@
 # Binaries
 bin
 
+# Docker
+.dockerignore
+
 #GolangCI Lint
 .golangci.yaml
 
@@ -19,3 +22,6 @@ bin
 CONTRIBUTING.md
 LICENSE
 README.md
+
+# Make
+Makefile

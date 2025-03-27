@@ -1,8 +1,20 @@
+// Package xurlfind3r provides the core functionality for performing URL
+// discovery using multiple data sources. It integrates various sources that implement
+// the sources.Source interface, coordinates concurrent URL enumeration, and
+// aggregates the results.
+//
+// The package defines a Finder type, which manages enabled sources and configuration
+// settings, and provides a Find method to initiate URL discovery for a given domain.
+// It also defines a Configuration type for user-defined settings and API keys, and
+// initializes HTTP client configurations for reliable network requests.
 package xurlfind3r
 
 import (
+	"fmt"
 	"regexp"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
@@ -13,6 +25,8 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/virustotal"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
+	hqgohttp "go.source.hueristiq.com/http"
+	hqgourlextractor "go.source.hueristiq.com/url/extractor"
 	"go.source.hueristiq.com/url/parser"
 )
 
@@ -20,70 +34,22 @@ import (
 // It manages data sources and configuration settings.
 //
 // Fields:
-// - sources: A map of enabled data sources, keyed by their names.
-// - configuration: Holds settings like API keys, filtering patterns, and inclusion of subdomains.
-// - FilterRegex: Regular expression to filter out specific URLs.
-// - MatchRegex: Regular expression to match specific URLs.
+//   - sources (map[string]sources.Source): A map of string keys to sources.Source interfaces representing the enabled enumeration sources.
+//   - configuration (*sources.Configuration): A pointer to the sources.Configuration struct containing API keys and other settings.
 type Finder struct {
 	sources       map[string]sources.Source
 	configuration *sources.Configuration
-	FilterRegex   *regexp.Regexp
-	MatchRegex    *regexp.Regexp
 }
 
-// IsURLInScope determines if a given URL is within the scope of a target domain.
+// Find initiates the URL discovery process for a specific domain.
+// It normalizes the domain name, applies source-specific logic, and streams results via a channel.
+// The method uses all enabled sources concurrently and aggregates their results.
 //
 // Parameters:
-// - domain string: The target domain.
-// - URL string: The URL to check.
-// - subdomainsInScope bool: Whether subdomains should be considered within scope.
+//   - domain (string): The target domain for URL discovery.
 //
 // Returns:
-// - URLInScope bool: True if the URL is in scope, otherwise false.
-func (finder *Finder) IsURLInScope(domain, URL string, subdomainsInScope bool) (URLInScope bool) {
-	parsedURL, err := up.Parse(URL)
-	if err != nil {
-		return
-	}
-
-	if parsedURL.Domain == nil {
-		return
-	}
-
-	ETLDPlusOne := parsedURL.Domain.SecondLevelDomain
-
-	if parsedURL.Domain.TopLevelDomain != "" {
-		ETLDPlusOne += "." + parsedURL.Domain.TopLevelDomain
-	}
-
-	parsedDomain, _ := up.Parse(domain)
-
-	expectedETLDPlusOne := parsedDomain.Domain.SecondLevelDomain
-	if parsedDomain.Domain.TopLevelDomain != "" {
-		expectedETLDPlusOne += "." + parsedDomain.Domain.TopLevelDomain
-	}
-
-	if ETLDPlusOne != expectedETLDPlusOne {
-		return
-	}
-
-	if !subdomainsInScope && parsedURL.Domain.String() != parsedDomain.String() && parsedURL.Domain.String() != "www."+parsedDomain.String() {
-		return
-	}
-
-	URLInScope = true
-
-	return
-}
-
-// Find performs URLs discovery for a given domain.
-// It uses all the enabled sources and streams the results asynchronously through a channel.
-//
-// Parameters:
-// - domain string: The target domain to find URLs for.
-//
-// Returns:
-// - results chan sources.Result: A channel that streams the results of type `sources.Result`.
+//   - results (chan sources.Result): A channel that streams URL enumeration results.
 func (finder *Finder) Find(domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
@@ -91,8 +57,33 @@ func (finder *Finder) Find(domain string) (results chan sources.Result) {
 
 	domain = parsed.Domain.SecondLevelDomain + "." + parsed.Domain.TopLevelDomain
 
-	finder.configuration.IsInScope = func(URL string) (isInScope bool) {
-		return finder.IsURLInScope(domain, URL, finder.configuration.IncludeSubdomains)
+	finder.configuration.Extractor = hqgourlextractor.New(
+		hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.ExtractorPortOptionalPattern + `)`),
+	).CompileRegex()
+
+	finder.configuration.Validate = func(target string) (URL string, valid bool) {
+		scheme := "https"
+
+		switch {
+		case strings.HasPrefix(target, "//"):
+			URL = scheme + ":" + target
+		case strings.HasPrefix(target, "://"):
+			URL = scheme + target
+		case !strings.Contains(target, "//"):
+			URL = scheme + "://" + target
+		default:
+			URL = target
+		}
+
+		pattern := fmt.Sprintf(`https?://(www\.)?%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
+
+		if finder.configuration.IncludeSubdomains {
+			pattern = fmt.Sprintf(`https?://([a-z0-9-]+\.)*%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
+		}
+
+		valid = regexp.MustCompile(pattern).MatchString(URL)
+
+		return
 	}
 
 	go func() {
@@ -108,16 +99,12 @@ func (finder *Finder) Find(domain string) (results chan sources.Result) {
 			go func(source sources.Source) {
 				defer wg.Done()
 
-				sResults := source.Run(finder.configuration, domain)
+				sResults := source.Run(domain, finder.configuration)
 
 				for sResult := range sResults {
 					if sResult.Type == sources.ResultURL {
 						_, loaded := seenURLs.LoadOrStore(sResult.Value, struct{}{})
 						if loaded {
-							continue
-						}
-
-						if (finder.MatchRegex != nil && !finder.MatchRegex.MatchString(sResult.Value)) || (finder.FilterRegex != nil && finder.MatchRegex == nil && finder.FilterRegex.MatchString(sResult.Value)) {
 							continue
 						}
 					}
@@ -138,32 +125,35 @@ func (finder *Finder) Find(domain string) (results chan sources.Result) {
 //
 // Fields:
 // - IncludeSubdomains bool: Whether to include subdomains in the scope.
-// - SourcesToUse []string: A list of sources to enable.
-// - SourcesToExclude []string: A list of sources to exclude.
-// - Keys sources.Keys: API keys for various sources.
-// - FilterPattern string: Regular expression for filtering URLs.
-// - MatchPattern string: Regular expression for matching URLs.
+// - SourcesToUSe ([]string): List of source names to be used for enumeration.
+// - SourcesToExclude ([]string): List of source names to be excluded from enumeration.
+// - Keys (sources.Keys): API keys for authenticated sources.
 type Configuration struct {
 	IncludeSubdomains bool
 	SourcesToUse      []string
 	SourcesToExclude  []string
 	Keys              sources.Keys
-	FilterPattern     string
-	MatchPattern      string
 }
 
-// up is a URL parser initialized with a default scheme of "http".
 var up = parser.New(parser.WithDefaultScheme("http"))
 
-// New creates and initializes a new Finder instance.
-// It enables the specified sources, applies exclusions, and sets the required configuration.
+func init() {
+	cfg := hqgohttp.DefaultSprayingClientConfiguration
+
+	cfg.Timeout = 1 * time.Hour
+
+	hqgohttp.DefaultClient, _ = hqgohttp.NewClient(cfg)
+}
+
+// New initializes a new Finder instance with the specified configuration.
+// It sets up the enabled sources, applies exclusions, and configures the Finder.
 //
 // Parameters:
-// - cfg *Configuration: The configuration specifying sources, exclusions, and API keys.
+//   - cfg (*Configuration): The user-defined configuration for sources and API keys.
 //
 // Returns:
-// - finder *Finder: A pointer to the initialized Finder instance.
-// - err error: Returns an error if initialization fails, otherwise nil.
+//   - finder (*Finder): A pointer to the initialized Finder instance.
+//   - err (error): An error object if initialization fails, or nil on success.
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
 		sources: map[string]sources.Source{},
@@ -171,20 +161,6 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 			IncludeSubdomains: cfg.IncludeSubdomains,
 			Keys:              cfg.Keys,
 		},
-	}
-
-	if cfg.FilterPattern != "" {
-		finder.FilterRegex, err = regexp.Compile(cfg.FilterPattern)
-		if err != nil {
-			return
-		}
-	}
-
-	if cfg.MatchPattern != "" {
-		finder.MatchRegex, err = regexp.Compile(cfg.MatchPattern)
-		if err != nil {
-			return
-		}
 	}
 
 	if len(cfg.SourcesToUse) < 1 {
