@@ -1,6 +1,6 @@
 before:
     hooks:
-        - go mod tidy
+        - make go-mod-tidy
 
 builds:
     -
@@ -21,13 +21,13 @@ builds:
             - arm
             - arm64
         ignore:
-            - 
+            -
                 goos: darwin
                 goarch: 386
             -
                 goos: windows
                 goarch: arm
-            - 
+            -
                 goos: windows
                 goarch: arm64
 
@@ -37,7 +37,8 @@ builds:
 archives:
     -
         id: tgz
-        builds: [xurlfind3r-cli]
+        builds:
+            - xurlfind3r-cli
         format: tar.gz
         format_overrides:
             -
