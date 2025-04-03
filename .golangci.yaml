@@ -85,9 +85,6 @@ output:
     # Print linter name in the end of issue text.
     # Default: true
     print-linter-name: true
-    # Make issues output unique by line.
-    # Default: true
-    uniq-by-line: false
     # Add a prefix to the output file references.
     # Default: ""
     path-prefix: ""
@@ -281,3 +278,6 @@ issues:
     # Fix found issues (if it's supported by the linter).
     # Default: false
     fix: true
+    # Make issues output unique by line.
+    # Default: true
+    uniq-by-line: false
