@@ -11,7 +11,7 @@
 	- [Install release binaries (Without Go Installed)](#install-release-binaries-without-go-installed)
 	- [Install source (With Go Installed)](#install-source-with-go-installed)
 		- [`go install ...`](#go-install)
-		- [`go build ...` the development Version](#go-build--the-development-version)
+		- [`go build ...` the development version](#go-build--the-development-version)
 	- [Install on Docker (With Docker Installed)](#install-on-docker-with-docker-installed)
 - [Post Installation](#post-installation)
 - [Usage](#usage)
@@ -79,7 +79,7 @@ Before you install from source, you need to make sure that Go is installed on yo
 go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 ```
 
-#### `go build ...` the development Version
+#### `go build ...` the development version
 
 - Clone the repository
 
