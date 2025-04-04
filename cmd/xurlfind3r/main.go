@@ -47,8 +47,8 @@ func init() {
 	pflag.StringVarP(&inputDomainsListFilePath, "list", "l", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 	pflag.BoolVar(&listSources, "sources", false, "")
-	pflag.StringSliceVarP(&sourcesToExclude, "exclude-sources", "e", []string{}, "")
-	pflag.StringSliceVarP(&sourcesToUse, "use-sources", "u", []string{}, "")
+	pflag.StringSliceVarP(&sourcesToExclude, "sources-to-exclude", "e", []string{}, "")
+	pflag.StringSliceVarP(&sourcesToUse, "sources-to-use", "u", []string{}, "")
 	pflag.BoolVar(&outputInJSONL, "jsonl", false, "")
 	pflag.BoolVar(&monochrome, "monochrome", false, "")
 	pflag.StringVarP(&outputFilePath, "output", "o", "", "")
@@ -66,30 +66,30 @@ func init() {
 
 		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
 
-		h += fmt.Sprintf(" -c, --configuration string          configuration file path (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
+		h += fmt.Sprintf(" -c, --configuration string            configuration file path (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
 
 		h += "\nINPUT:\n"
-		h += " -d, --domain string[]               target domain\n"
-		h += " -l, --list string                   target domains list file path\n"
+		h += " -d, --domain string[]                 target domain\n"
+		h += " -l, --list string                     target domains list file path\n"
 
 		h += "\nTIP: For multiple input domains use comma(,) separated value with `-d`,\n"
 		h += "     specify multiple `-d`, load from file with `-l` or load from stdin.\n"
 
 		h += "\nSCOPE:\n"
-		h += "     --include-subdomains bool       match subdomain's URLs\n"
+		h += "     --include-subdomains bool         match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
-		h += "     --sources bool                  list available sources\n"
-		h += " -e, --exclude-sources string[]      comma(,) separated sources to exclude\n"
-		h += " -u, --use-sources string[]          comma(,) separated sources to use\n"
+		h += "     --sources bool                    list available sources\n"
+		h += " -e, --sources-to-exclude string[]     comma(,) separated sources to exclude\n"
+		h += " -u, --sources-to-use string[]         comma(,) separated sources to use\n"
 
 		h += "\nOUTPUT:\n"
-		h += "     --jsonl bool                    output URLs in JSONL format\n"
-		h += "     --monochrome bool               stdout monochrome output\n"
-		h += " -o, --output string                 output URLs file path\n"
-		h += " -O, --output-directory string       output URLs directory path\n"
-		h += " -s, --silent bool                   stdout URLs only output\n"
-		h += " -v, --verbose bool                  stdout verbose output\n"
+		h += "     --jsonl bool                      output URLs in JSONL format\n"
+		h += "     --monochrome bool                 stdout monochrome output\n"
+		h += " -o, --output string                   output URLs file path\n"
+		h += " -O, --output-directory string         output URLs directory path\n"
+		h += " -s, --silent bool                     stdout URLs only output\n"
+		h += " -v, --verbose bool                    stdout verbose output\n"
 
 		logger.Info().Label("").Msg(h)
 		logger.Print().Msg("")
