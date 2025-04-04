@@ -25,13 +25,13 @@ func (configuration *Configuration) Write(path string) (err error) {
 
 	if _, err = os.Stat(directory); os.IsNotExist(err) {
 		if directory != "" {
-			if err = os.MkdirAll(directory, os.ModePerm); err != nil {
+			if err = os.MkdirAll(directory, 0o750); err != nil {
 				return
 			}
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
+	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return
 	}

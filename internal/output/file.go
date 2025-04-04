@@ -29,26 +29,29 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 
 	extension := filepath.Ext(path)
 
-	if w.format == formatTXT && extension != ".txt" {
-		path += ".txt"
-	}
-
-	if w.format == formatJSONL && extension != ".json" {
-		path += ".json"
+	switch w.format {
+	case formatTXT:
+		if extension != ".txt" {
+			path += ".txt"
+		}
+	case formatJSONL:
+		if extension != ".json" {
+			path += ".json"
+		}
 	}
 
 	directory := filepath.Dir(path)
 
 	if directory != "" {
 		if _, err = os.Stat(directory); os.IsNotExist(err) {
-			err = os.MkdirAll(directory, os.ModePerm)
+			err = os.MkdirAll(directory, 0o750)
 			if err != nil {
 				return
 			}
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	file, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
 	}
@@ -57,9 +60,10 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 }
 
 func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (err error) {
-	if w.format == formatTXT {
+	switch w.format {
+	case formatTXT:
 		err = w.writeTXT(writer, result)
-	} else if w.format == formatJSONL {
+	case formatJSONL:
 		err = w.writeJSON(writer, domain, result)
 	}
 

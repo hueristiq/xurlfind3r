@@ -6,7 +6,7 @@ SHELL = /bin/bash
 
 .PHONY: lefthook-install
 lefthook-install:
-	command -v lefthook || go install github.com/evilmartians/lefthook@latest; lefthook install
+	(command -v lefthook || go install github.com/evilmartians/lefthook@latest) && lefthook install
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # --- Go(Golang) -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -27,11 +27,11 @@ go-mod-update:
 
 .PHONY: go-fmt
 go-fmt:
-	go fmt ./...
+	(command -v golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.2) && golangci-lint fmt ./...
 
 .PHONY: go-lint
 go-lint: go-fmt
-	(command -v golangci-lint || go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5) && golangci-lint run ./...
+	(command -v golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.2) && golangci-lint run ./...
 
 .PHONY: go-test
 go-test:
