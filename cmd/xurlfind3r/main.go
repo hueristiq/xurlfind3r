@@ -128,11 +128,9 @@ func init() {
 func main() {
 	logger.Info().Label("").Msg(configuration.BANNER(au))
 
-	var err error
-
 	var cfg *configuration.Configuration
 
-	if err = viper.Unmarshal(&cfg); err != nil {
+	if err := viper.Unmarshal(&cfg); err != nil {
 		logger.Fatal().Msg(err.Error())
 	}
 
@@ -162,9 +160,7 @@ func main() {
 	}
 
 	if inputDomainsListFilePath != "" {
-		var file *os.File
-
-		file, err = os.Open(inputDomainsListFilePath)
+		file, err := os.Open(inputDomainsListFilePath)
 		if err != nil {
 			logger.Fatal().Msg(err.Error())
 		}
@@ -179,7 +175,7 @@ func main() {
 			}
 		}
 
-		if err = scanner.Err(); err != nil {
+		if err := scanner.Err(); err != nil {
 			logger.Fatal().Msg(err.Error())
 		}
 
@@ -197,14 +193,12 @@ func main() {
 			}
 		}
 
-		if err = scanner.Err(); err != nil {
+		if err := scanner.Err(); err != nil {
 			logger.Fatal().Msg(err.Error())
 		}
 	}
 
-	var finder *xurlfind3r.Finder
-
-	finder, err = xurlfind3r.New(&xurlfind3r.Configuration{
+	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		IncludeSubdomains: includeSubdomains,
 		SourcesToUse:      sourcesToUse,
 		SourcesToExclude:  sourcesToExclude,
@@ -251,13 +245,13 @@ func main() {
 
 		for result := range finder.Find(domain) {
 			for index := range outputs {
-				o := outputs[index]
+				output := outputs[index]
 
 				switch result.Type {
 				case sources.ResultError:
 					logger.Error().Msgf("%s: %s", result.Source, result.Error)
 				case sources.ResultURL:
-					if err := writer.Write(o, domain, result); err != nil {
+					if err := writer.Write(output, domain, result); err != nil {
 						logger.Error().Msg(err.Error())
 					}
 				}
