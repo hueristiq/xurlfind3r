@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	hqgohttp "go.source.hueristiq.com/http"
 )
 
 // getURLsResponse defines the structure for decoding the JSON response from the Bevigil API.

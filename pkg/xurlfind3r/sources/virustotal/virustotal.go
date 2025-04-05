@@ -12,9 +12,9 @@ package virustotal
 import (
 	"encoding/json"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	hqgolimiter "github.com/hueristiq/hq-go-limiter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	hqgohttp "go.source.hueristiq.com/http"
-	hqgolimiter "go.source.hueristiq.com/limiter"
 )
 
 // getDomainReportResponse represents the structure of the JSON response returned by the VirusTotal

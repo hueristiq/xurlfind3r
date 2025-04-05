@@ -16,10 +16,10 @@ import (
 	"strings"
 	"time"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	"github.com/hueristiq/hq-go-http/header"
+	"github.com/hueristiq/hq-go-http/mime"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	hqgohttp "go.source.hueristiq.com/http"
-	"go.source.hueristiq.com/http/header"
-	"go.source.hueristiq.com/http/mime"
 )
 
 // searchRequestBody represents the structure of the JSON request body sent to the IntelX API

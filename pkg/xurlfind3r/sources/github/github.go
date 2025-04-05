@@ -18,12 +18,12 @@ import (
 	"strings"
 	"time"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	"github.com/hueristiq/hq-go-http/header"
+	hqgoheaderparser "github.com/hueristiq/hq-go-http/header/parser"
+	"github.com/hueristiq/hq-go-http/status"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
-	hqgohttp "go.source.hueristiq.com/http"
-	"go.source.hueristiq.com/http/header"
-	hqgoheaderparser "go.source.hueristiq.com/http/header/parser"
-	"go.source.hueristiq.com/http/status"
 )
 
 // codeSearchResponse represents the structure of the JSON response returned by the GitHub code search API.

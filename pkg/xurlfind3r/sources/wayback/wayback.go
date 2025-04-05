@@ -11,10 +11,10 @@ package wayback
 import (
 	"encoding/json"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	hqgolimiter "github.com/hueristiq/hq-go-limiter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
-	hqgohttp "go.source.hueristiq.com/http"
-	hqgolimiter "go.source.hueristiq.com/limiter"
 )
 
 // Source represents the Common Crawl data source implementation.

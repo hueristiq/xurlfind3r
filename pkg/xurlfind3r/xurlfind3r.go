@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	hqgourlextractor "github.com/hueristiq/hq-go-url/extractor"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
@@ -25,8 +27,6 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/virustotal"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
-	hqgohttp "go.source.hueristiq.com/http"
-	hqgourlextractor "go.source.hueristiq.com/url/extractor"
 )
 
 // Finder is the primary structure for performing URL discovery.

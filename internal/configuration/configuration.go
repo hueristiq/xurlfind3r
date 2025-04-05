@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 
 	"dario.cat/mergo"
+	hqgologger "github.com/hueristiq/hq-go-logger"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v4"
-	"go.source.hueristiq.com/logger"
 	"gopkg.in/yaml.v3"
 )
 
@@ -71,7 +71,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 
 		userDotConfig, err = os.UserConfigDir()
 		if err != nil {
-			logger.Fatal().Msg(err.Error())
+			hqgologger.Fatal().Msg(err.Error())
 		}
 
 		return

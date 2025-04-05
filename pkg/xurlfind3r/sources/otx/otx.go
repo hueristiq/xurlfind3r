@@ -12,9 +12,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
-	hqgohttp "go.source.hueristiq.com/http"
 )
 
 // getURLsResponse represents the structure of the JSON response returned by the
