@@ -32,9 +32,9 @@ var (
 	sourcesToExclude         []string
 	sourcesToUse             []string
 	outputInJSONL            bool
-	monochrome               bool
 	outputFilePath           string
 	outputDirectoryPath      string
+	monochrome               bool
 	silent                   bool
 	verbose                  bool
 
@@ -50,9 +50,9 @@ func init() {
 	pflag.StringSliceVarP(&sourcesToExclude, "sources-to-exclude", "e", []string{}, "")
 	pflag.StringSliceVarP(&sourcesToUse, "sources-to-use", "u", []string{}, "")
 	pflag.BoolVar(&outputInJSONL, "jsonl", false, "")
-	pflag.BoolVar(&monochrome, "monochrome", false, "")
 	pflag.StringVarP(&outputFilePath, "output", "o", "", "")
 	pflag.StringVarP(&outputDirectoryPath, "output-directory", "O", "", "")
+	pflag.BoolVar(&monochrome, "monochrome", false, "")
 	pflag.BoolVarP(&silent, "silent", "s", false, "")
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
@@ -84,10 +84,10 @@ func init() {
 		h += " -u, --sources-to-use string[]         comma(,) separated sources to use\n"
 
 		h += "\nOUTPUT:\n"
-		h += "     --jsonl bool                      output URLs in JSONL format\n"
-		h += "     --monochrome bool                 stdout monochrome output\n"
+		h += "     --jsonl bool                      output URLs in JSONL\n"
 		h += " -o, --output string                   output URLs file path\n"
 		h += " -O, --output-directory string         output URLs directory path\n"
+		h += "     --monochrome bool                 stdout monochrome output\n"
 		h += " -s, --silent bool                     stdout URLs only output\n"
 		h += " -v, --verbose bool                    stdout verbose output\n"
 
@@ -114,12 +114,12 @@ func init() {
 		Colorize: !monochrome,
 	}))
 
-	if verbose {
-		hqgologger.DefaultLogger.SetMaxLogLevel(levels.LevelDebug)
-	}
-
 	if silent {
 		hqgologger.DefaultLogger.SetMaxLogLevel(levels.LevelSilent)
+	}
+
+	if verbose {
+		hqgologger.DefaultLogger.SetMaxLogLevel(levels.LevelDebug)
 	}
 
 	au = aurora.New(aurora.WithColors(!monochrome))
@@ -198,6 +198,12 @@ func main() {
 		}
 	}
 
+	writer := output.NewWriter()
+
+	if outputInJSONL {
+		writer.SetFormatToJSONL()
+	}
+
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		IncludeSubdomains: includeSubdomains,
 		SourcesToUse:      sourcesToUse,
@@ -206,12 +212,6 @@ func main() {
 	})
 	if err != nil {
 		hqgologger.Fatal().Msg(err.Error())
-	}
-
-	writer := output.NewWriter()
-
-	if outputInJSONL {
-		writer.SetFormatToJSONL()
 	}
 
 	for index := range inputDomains {
@@ -243,13 +243,15 @@ func main() {
 			outputs = append(outputs, file)
 		}
 
-		for result := range finder.Find(domain) {
-			for index := range outputs {
-				output := outputs[index]
+		results := finder.Find(domain)
 
+		for result := range results {
+			for _, output := range outputs {
 				switch result.Type {
 				case sources.ResultError:
-					hqgologger.Error().Msgf("%s: %s", result.Source, result.Error)
+					if verbose {
+						hqgologger.Error().Msgf("%s: %s", result.Source, result.Error)
+					}
 				case sources.ResultURL:
 					if err := writer.Write(output, domain, result); err != nil {
 						hqgologger.Error().Msg(err.Error())
