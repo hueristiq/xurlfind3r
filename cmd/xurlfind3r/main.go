@@ -24,35 +24,35 @@ import (
 )
 
 var (
-	configurationFilePath    string
-	inputDomains             []string
-	inputDomainsListFilePath string
-	includeSubdomains        bool
-	listSources              bool
-	sourcesToExclude         []string
-	sourcesToUse             []string
-	outputInJSONL            bool
-	outputFilePath           string
-	outputDirectoryPath      string
-	monochrome               bool
-	silent                   bool
-	verbose                  bool
+	configurationFilePath string
+	domains               []string
+	domainsFilePath       string
+	includeSubdomains     bool
+	listSupportedSources  bool
+	sourcesToUse          []string
+	sourcesToExclude      []string
+	outputInJSONL         bool
+	outputFilePath        string
+	outputDirectoryPath   string
+	monochrome            bool
+	silent                bool
+	verbose               bool
 
 	au = aurora.New(aurora.WithColors(true))
 )
 
 func init() {
 	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath, "")
-	pflag.StringSliceVarP(&inputDomains, "domain", "d", []string{}, "")
-	pflag.StringVarP(&inputDomainsListFilePath, "list", "l", "", "")
+	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
+	pflag.StringVarP(&domainsFilePath, "list", "l", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
-	pflag.BoolVar(&listSources, "sources", false, "")
-	pflag.StringSliceVarP(&sourcesToExclude, "sources-to-exclude", "e", []string{}, "")
+	pflag.BoolVar(&listSupportedSources, "sources", false, "")
 	pflag.StringSliceVarP(&sourcesToUse, "sources-to-use", "u", []string{}, "")
+	pflag.StringSliceVarP(&sourcesToExclude, "sources-to-exclude", "e", []string{}, "")
 	pflag.BoolVar(&outputInJSONL, "jsonl", false, "")
 	pflag.StringVarP(&outputFilePath, "output", "o", "", "")
 	pflag.StringVarP(&outputDirectoryPath, "output-directory", "O", "", "")
-	pflag.BoolVar(&monochrome, "monochrome", false, "")
+	pflag.BoolVarP(&monochrome, "monochrome", "m", false, "")
 	pflag.BoolVarP(&silent, "silent", "s", false, "")
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
@@ -66,30 +66,30 @@ func init() {
 
 		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
 
-		h += fmt.Sprintf(" -c, --configuration string            configuration file path (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
+		h += fmt.Sprintf(" -c, --configuration string           (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
 
 		h += "\nINPUT:\n"
-		h += " -d, --domain string[]                 target domain\n"
-		h += " -l, --list string                     target domains list file path\n"
+		h += " -d, --domain string[]                target domain\n"
+		h += " -l, --list string                    target domains list file path\n"
 
-		h += "\nTIP: For multiple input domains use comma(,) separated value with `-d`,\n"
-		h += "     specify multiple `-d`, load from file with `-l` or load from stdin.\n"
+		h += "\n For multiple domains, use comma(,) separated value with `--domain`,\n"
+		h += " specify multiple `--domains`, load from file with `--list` or load from stdin.\n"
 
 		h += "\nSCOPE:\n"
-		h += "     --include-subdomains bool         match subdomain's URLs\n"
+		h += "     --include-subdomains bool        match subdomain's URLs\n"
 
 		h += "\nSOURCES:\n"
-		h += "     --sources bool                    list available sources\n"
-		h += " -e, --sources-to-exclude string[]     comma(,) separated sources to exclude\n"
-		h += " -u, --sources-to-use string[]         comma(,) separated sources to use\n"
+		h += "     --sources bool                   list supported sources\n"
+		h += " -u, --sources-to-use string[]        comma(,) separated sources to use\n"
+		h += " -e, --sources-to-exclude string[]    comma(,) separated sources to exclude\n"
 
 		h += "\nOUTPUT:\n"
-		h += "     --jsonl bool                      output URLs in JSONL\n"
-		h += " -o, --output string                   output URLs file path\n"
-		h += " -O, --output-directory string         output URLs directory path\n"
-		h += "     --monochrome bool                 stdout monochrome output\n"
-		h += " -s, --silent bool                     stdout URLs only output\n"
-		h += " -v, --verbose bool                    stdout verbose output\n"
+		h += "     --jsonl bool                     output in JSONL(ines)\n"
+		h += " -o, --output string                  output write file path\n"
+		h += " -O, --output-directory string        output write directory path\n"
+		h += " -m, --monochrome bool                stdout in monochrome\n"
+		h += " -s, --silent bool                    stdout in silent mode\n"
+		h += " -v, --verbose bool                   stdout in verbose mode\n"
 
 		hqgologger.Info().Label("").Msg(h)
 		hqgologger.Print().Msg("")
@@ -134,7 +134,7 @@ func main() {
 		hqgologger.Fatal().Msg(err.Error())
 	}
 
-	if listSources {
+	if listSupportedSources {
 		hqgologger.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold())
 		hqgologger.Info().Msgf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold())
 		hqgologger.Print().Msg("")
@@ -159,8 +159,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	if inputDomainsListFilePath != "" {
-		file, err := os.Open(inputDomainsListFilePath)
+	if domainsFilePath != "" {
+		file, err := os.Open(domainsFilePath)
 		if err != nil {
 			hqgologger.Fatal().Msg(err.Error())
 		}
@@ -171,7 +171,7 @@ func main() {
 			domain := scanner.Text()
 
 			if domain != "" {
-				inputDomains = append(inputDomains, domain)
+				domains = append(domains, domain)
 			}
 		}
 
@@ -189,7 +189,7 @@ func main() {
 			domain := scanner.Text()
 
 			if domain != "" {
-				inputDomains = append(inputDomains, domain)
+				domains = append(domains, domain)
 			}
 		}
 
@@ -214,8 +214,8 @@ func main() {
 		hqgologger.Fatal().Msg(err.Error())
 	}
 
-	for index := range inputDomains {
-		domain := inputDomains[index]
+	for index := range domains {
+		domain := domains[index]
 
 		hqgologger.Info().Msgf("Finding URLs for %s...", au.Underline(domain).Bold())
 		hqgologger.Print().Msg("")

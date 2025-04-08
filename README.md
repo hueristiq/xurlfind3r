@@ -156,30 +156,30 @@ USAGE:
  xurlfind3r [OPTIONS]
 
 CONFIGURATION:
- -c, --configuration string            configuration file path (default: $HOME/.config/xurlfind3r/config.yaml)
+ -c, --configuration string           (default: $HOME/.config/xurlfind3r/config.yaml)
 
 INPUT:
- -d, --domain string[]                 target domain
- -l, --list string                     target domains list file path
+ -d, --domain string[]                target domain
+ -l, --list string                    target domains list file path
 
-TIP: For multiple input domains use comma(,) separated value with `-d`,
-     specify multiple `-d`, load from file with `-l` or load from stdin.
+ For multiple domains, use comma(,) separated value with `--domain`,
+ specify multiple `--domains`, load from file with `--list` or load from stdin.
 
 SCOPE:
-     --include-subdomains bool         match subdomain's URLs
+     --include-subdomains bool        match subdomain's URLs
 
 SOURCES:
-     --sources bool                    list available sources
- -e, --sources-to-exclude string[]     comma(,) separated sources to exclude
- -u, --sources-to-use string[]         comma(,) separated sources to use
+     --sources bool                   list supported sources
+ -u, --sources-to-use string[]        comma(,) separated sources to use
+ -e, --sources-to-exclude string[]    comma(,) separated sources to exclude
 
 OUTPUT:
-     --jsonl bool                      output URLs in JSONL
- -o, --output string                   output URLs file path
- -O, --output-directory string         output URLs directory path
-     --monochrome bool                 stdout monochrome output
- -s, --silent bool                     stdout URLs only output
- -v, --verbose bool                    stdout verbose output
+     --jsonl bool                     output in JSONL(ines)
+ -o, --output string                  output write file path
+ -O, --output-directory string        output write directory path
+ -m, --monochrome bool                stdout in monochrome
+ -s, --silent bool                    stdout in silent mode
+ -v, --verbose bool                   stdout in verbose mode
 
 ```
 
