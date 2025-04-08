@@ -70,7 +70,7 @@ func init() {
 
 		h += "\nINPUT:\n"
 		h += " -d, --domain string[]                target domain\n"
-		h += " -l, --list string                    target domains list file path\n"
+		h += " -l, --list string                    target domains file path\n"
 
 		h += "\n For multiple domains, use comma(,) separated value with `--domain`,\n"
 		h += " specify multiple `--domains`, load from file with `--list` or load from stdin.\n"

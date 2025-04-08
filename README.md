@@ -160,7 +160,7 @@ CONFIGURATION:
 
 INPUT:
  -d, --domain string[]                target domain
- -l, --list string                    target domains list file path
+ -l, --list string                    target domains file path
 
  For multiple domains, use comma(,) separated value with `--domain`,
  specify multiple `--domains`, load from file with `--list` or load from stdin.
