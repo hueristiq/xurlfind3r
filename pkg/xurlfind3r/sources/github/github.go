@@ -1,3 +1,12 @@
+// Package github provides an implementation of the sources.Source interface
+// for interacting with the GitHub Code Search API.
+//
+// The GitHub API allows searching code repositories for occurrences of a given domain,
+// which can reveal URLs or references associated with that domain. This package defines a
+// Source type that implements the Run, Enumerate, and Name methods as specified by the
+// sources.Source interface. The Run method initiates a GitHub code search query for a target
+// domain, and the Enumerate method processes paginated search results, extracts URLs from both
+// raw file content and text matches, and streams discovered URLs or errors via a channel.
 package github
 
 import (
@@ -6,20 +15,23 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
-	"github.com/hueristiq/hq-go-http/headers"
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	"github.com/hueristiq/hq-go-http/header"
+	hqgoheaderparser "github.com/hueristiq/hq-go-http/header/parser"
 	"github.com/hueristiq/hq-go-http/status"
-	hqgourl "github.com/hueristiq/hq-go-url"
-	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
-	"github.com/tomnomnom/linkheader"
 )
 
-type searchResponse struct {
+// codeSearchResponse represents the structure of the JSON response returned by the GitHub code search API.
+//
+// It contains the total count of matching records and a slice of items where each item
+// represents a code search result. Each item includes the repository file name, the HTML URL for the file,
+// and any text matches found in the file.
+type codeSearchResponse struct {
 	TotalCount int `json:"total_count"`
 	Items      []struct {
 		Name        string `json:"name"`
@@ -30,9 +42,23 @@ type searchResponse struct {
 	} `json:"items"`
 }
 
+// Source represents the Common Crawl data source implementation.
+// It implements the sources.Source interface, providing functionality
+// for retrieving URLs by querying GitHub code search results.
 type Source struct{}
 
-func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+// Run initiates the process of retrieving URL information from Github for a given domain.
+//
+// Parameters:
+//   - domain (string): The target domain for which URLs are to be retrieved.
+//   - cfg (*sources.Configuration): The configuration instance containing API keys,
+//     the URL validation function, and any additional settings required by the source.
+//
+// Returns:
+//   - (<-chan sources.Result): A channel that asynchronously emits sources.Result values.
+//     Each result is either a discovered URL (ResultURL) or an error (ResultError)
+//     encountered during the operation.
+func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -46,13 +72,21 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 		searchReqURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
 
-		source.Enumerate(searchReqURL, domain, tokens, results, cfg)
+		source.Enumerate(searchReqURL, tokens, cfg, results)
 	}()
 
 	return results
 }
 
-func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, results chan sources.Result, cfg *sources.Configuration) {
+// Enumerate processes GitHub code search results by sending HTTP GET requests to the provided search URL,
+// handling pagination via the Link header, and extracting URLs from raw file content and text matches.
+//
+// Parameters:
+//   - searchReqURL (string): The URL for the GitHub code search API request.
+//   - tokens (*Tokens): A token manager containing GitHub API tokens to handle rate limiting.
+//   - cfg (*sources.Configuration): The configuration settings used for authentication and regex extraction.
+//   - results (chan sources.Result): A channel to stream discovered URLs or errors.
+func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *sources.Configuration, results chan sources.Result) {
 	token := tokens.Get()
 
 	if token.RetryAfter > 0 {
@@ -63,18 +97,16 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 		}
 	}
 
-	searchReqHeaders := map[string]string{
-		"Accept":        "application/vnd.github.v3.text-match+json",
-		"Authorization": "token " + token.Hash,
+	codeSearchResCFG := &hqgohttp.RequestConfiguration{
+		Headers: map[string]string{
+			header.Accept.String():        "application/vnd.github.v3.text-match+json",
+			header.Authorization.String(): "token " + token.Hash,
+		},
 	}
 
-	var err error
+	codeSearchRes, err := hqgohttp.Get(searchReqURL, codeSearchResCFG)
 
-	var searchRes *http.Response
-
-	searchRes, err = httpclient.Get(searchReqURL, "", searchReqHeaders)
-
-	isForbidden := searchRes != nil && searchRes.StatusCode == status.Forbidden
+	isForbidden := codeSearchRes != nil && codeSearchRes.StatusCode == status.Forbidden.Int()
 
 	if err != nil && !isForbidden {
 		result := sources.Result{
@@ -85,23 +117,21 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 		results <- result
 
-		httpclient.DiscardResponse(searchRes)
-
 		return
 	}
 
-	ratelimitRemaining := cast.ToInt64(searchRes.Header.Get(headers.XRatelimitRemaining))
+	ratelimitRemaining := cast.ToInt64(codeSearchRes.Header.Get(header.XRatelimitRemaining.String()))
 	if isForbidden && ratelimitRemaining == 0 {
-		retryAfterSeconds := cast.ToInt64(searchRes.Header.Get(headers.RetryAfter))
+		retryAfterSeconds := cast.ToInt64(codeSearchRes.Header.Get(header.RetryAfter.String()))
 
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchReqURL, domain, tokens, results, cfg)
+		source.Enumerate(searchReqURL, tokens, cfg, results)
 	}
 
-	var searchResData searchResponse
+	var codeSearchResData codeSearchResponse
 
-	if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
+	if err = json.NewDecoder(codeSearchRes.Body).Decode(&codeSearchResData); err != nil {
 		result := sources.Result{
 			Type:   sources.ResultError,
 			Source: source.Name(),
@@ -110,23 +140,20 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 		results <- result
 
-		searchRes.Body.Close()
+		codeSearchRes.Body.Close()
 
 		return
 	}
 
-	searchRes.Body.Close()
+	codeSearchRes.Body.Close()
 
-	mdExtractor := hqgourl.NewExtractor(
-		hqgourl.ExtractorWithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourl.ExtractorPortOptionalPattern + `)`),
-	).CompileRegex()
-
-	for _, item := range searchResData.Items {
-		getRawContentReqURL := getRawContentURL(item.HTMLURL)
+	for _, item := range codeSearchResData.Items {
+		getRawContentReqURL := strings.ReplaceAll(item.HTMLURL, "https://github.com/", "https://raw.githubusercontent.com/")
+		getRawContentReqURL = strings.ReplaceAll(getRawContentReqURL, "/blob/", "/")
 
 		var getRawContentRes *http.Response
 
-		getRawContentRes, err = httpclient.SimpleGet(getRawContentReqURL)
+		getRawContentRes, err = hqgohttp.Get(getRawContentReqURL)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -136,12 +163,10 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 
 			results <- result
 
-			httpclient.DiscardResponse(getRawContentRes)
-
 			continue
 		}
 
-		if getRawContentRes.StatusCode != status.OK {
+		if getRawContentRes.StatusCode != status.OK.Int() {
 			getRawContentRes.Body.Close()
 
 			continue
@@ -155,29 +180,12 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 				continue
 			}
 
-			URLs := mdExtractor.FindAllString(line, -1)
+			URLs := cfg.Extractor.FindAllString(line, -1)
 
 			for _, URL := range URLs {
-				URL = sources.FixURL(URL)
+				var valid bool
 
-				var parsedURL *hqgourl.URL
-
-				parsedURL, err = up.Parse(URL)
-				if err != nil {
-					result := sources.Result{
-						Type:   sources.ResultError,
-						Source: source.Name(),
-						Error:  err,
-					}
-
-					results <- result
-
-					continue
-				}
-
-				URL = parsedURL.String()
-
-				if !cfg.IsInScope(URL) {
+				if URL, valid = cfg.Validate(URL); !valid {
 					continue
 				}
 
@@ -208,27 +216,12 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 		getRawContentRes.Body.Close()
 
 		for _, textMatch := range item.TextMatches {
-			URLs := mdExtractor.FindAllString(textMatch.Fragment, -1)
+			URLs := cfg.Extractor.FindAllString(textMatch.Fragment, -1)
 
 			for _, URL := range URLs {
-				URL = sources.FixURL(URL)
+				var valid bool
 
-				parsedURL, err := up.Parse(URL)
-				if err != nil {
-					result := sources.Result{
-						Type:   sources.ResultError,
-						Source: source.Name(),
-						Error:  err,
-					}
-
-					results <- result
-
-					continue
-				}
-
-				URL = parsedURL.String()
-
-				if !cfg.IsInScope(URL) {
+				if URL, valid = cfg.Validate(URL); !valid {
 					continue
 				}
 
@@ -243,9 +236,9 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 		}
 	}
 
-	linksHeader := linkheader.Parse(searchRes.Header.Get(headers.Link))
+	links := hqgoheaderparser.ParseLinkHeader(codeSearchRes.Header.Get(header.Link.String()))
 
-	for _, link := range linksHeader {
+	for _, link := range links {
 		if link.Rel == "next" {
 			nextURL, err := url.QueryUnescape(link.URL)
 			if err != nil {
@@ -260,19 +253,16 @@ func (source *Source) Enumerate(searchReqURL, domain string, tokens *Tokens, res
 				return
 			}
 
-			source.Enumerate(nextURL, domain, tokens, results, cfg)
+			source.Enumerate(nextURL, tokens, cfg, results)
 		}
 	}
 }
 
-func (source *Source) Name() string {
+// Name returns the unique identifier for the data source.
+// This identifier is used for logging, debugging, and associating results with the correct data source.
+//
+// Returns:
+//   - name (string): The unique identifier for the data source.
+func (source *Source) Name() (name string) {
 	return sources.GITHUB
-}
-
-var up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))
-
-func getRawContentURL(htmlURL string) string {
-	domain := strings.ReplaceAll(htmlURL, "https://github.com/", "https://raw.githubusercontent.com/")
-
-	return strings.ReplaceAll(domain, "/blob/", "/")
 }

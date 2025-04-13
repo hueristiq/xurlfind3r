@@ -1,34 +1,60 @@
+// Package wayback provides an implementation of the sources.Source interface
+// for interacting with the Wayback Machine API.
+//
+// The Wayback Machine API (via Common Crawl's CDX server) allows retrieving historical
+// snapshots of URLs for a given domain. This package defines a Source type that implements
+// the Run and Name methods as specified by the sources.Source interface. The Run method
+// queries the Wayback Machine API for URL snapshots matching a target domain, validates
+// the retrieved URLs using the provided configuration, and streams valid URLs or errors via a channel.
 package wayback
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
 
+	hqgohttp "github.com/hueristiq/hq-go-http"
 	hqgolimiter "github.com/hueristiq/hq-go-limiter"
-	hqgourl "github.com/hueristiq/hq-go-url"
-	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/spf13/cast"
 )
 
+// Source represents the Common Crawl data source implementation.
+// It implements the sources.Source interface, providing functionality
+// for retrieving URLs from the Wayback Machine API.
 type Source struct{}
 
-func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+// Run initiates the process of retrieving URL information from the Wayback Machine API for a given domain.
+//
+// Parameters:
+//   - domain (string): The target domain for which URLs are to be retrieved.
+//   - cfg (*sources.Configuration): The configuration instance containing API keys,
+//     the URL validation function, and any additional settings required by the source.
+//
+// Returns:
+//   - (<-chan sources.Result): A channel that asynchronously emits sources.Result values.
+//     Each result is either a discovered URL (ResultURL) or an error (ResultError)
+//     encountered during the operation.
+func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		var err error
-
 		for page := uint(0); ; page++ {
-			getURLsReqURL := fmt.Sprintf("https://web.archive.org/cdx/search/cdx?url=*.%s/*&output=json&collapse=urlkey&fl=timestamp,original,mimetype,statuscode,digest&pageSize=100&page=%d", domain, page)
+			getURLsReqURL := "https://web.archive.org/cdx/search/cdx"
+			getURLsReqCFG := &hqgohttp.RequestConfiguration{
+				Params: map[string]string{
+					"url":      "*." + domain + "/*",
+					"output":   "json",
+					"collapse": "urlkey",
+					"fl":       "timestamp,original,mimetype,statuscode,digest",
+					"pageSize": "100",
+					"page":     cast.ToString(page),
+				},
+			}
 
 			limiter.Wait()
 
-			var getURLsRes *http.Response
-
-			getURLsRes, err = httpclient.SimpleGet(getURLsReqURL)
+			getURLsRes, err := hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -37,8 +63,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 				}
 
 				results <- result
-
-				httpclient.DiscardResponse(getURLsRes)
 
 				break
 			}
@@ -67,12 +91,13 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 				break
 			}
 
-			getURLsResData = getURLsResData[1:]
+			// Slicing as [1:] to skip first result by default
+			for _, record := range getURLsResData[1:] {
+				var URL string
 
-			for _, record := range getURLsResData {
-				URL := record[1]
+				var valid bool
 
-				if !cfg.IsInScope(URL) {
+				if URL, valid = cfg.Validate(record[1]); !valid {
 					continue
 				}
 
@@ -90,13 +115,19 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 	return results
 }
 
-func (source *Source) Name() string {
+// Name returns the unique identifier for the data source.
+// This identifier is used for logging, debugging, and associating results with the correct data source.
+//
+// Returns:
+//   - name (string): The unique identifier for the data source.
+func (source *Source) Name() (name string) {
 	return sources.WAYBACK
 }
 
+// limiter is a rate limiter instance configured to control the number of requests
+// sent to the Wayback Machine API. It ensures that no more than 40 requests are made per minute,
+// with a minimum delay of 30 seconds between requests.
 var limiter = hqgolimiter.New(&hqgolimiter.Configuration{
 	RequestsPerMinute:     40,
 	MinimumDelayInSeconds: 30,
 })
-
-var up = hqgourl.NewParser(hqgourl.ParserWithDefaultScheme("http"))

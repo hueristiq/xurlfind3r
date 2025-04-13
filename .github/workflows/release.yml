@@ -16,14 +16,14 @@ jobs:
                 name: Set up Go
                 uses: actions/setup-go@v5
                 with:
-                    go-version:  '>=1.23'
+                    go-version:  '>=1.24'
             -
-                name: Checkout the repository
+                name: Code Checkout
                 uses: actions/checkout@v4
                 with:
                     fetch-depth: 0
             -
-                name: Run GoReleaser
+                name: GoReleaser
                 uses: goreleaser/goreleaser-action@v6
                 with:
                     distribution: goreleaser

@@ -1,0 +1,6 @@
+pre-commit:
+    commands:
+        go-lint:
+            run: make go-lint
+        go-test:
+            run: make go-test

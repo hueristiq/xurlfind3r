@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 
 	"dario.cat/mergo"
-	"github.com/hueristiq/hqgolog"
+	hqgologger "github.com/hueristiq/hq-go-logger"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/logrusorgru/aurora/v3"
+	"github.com/logrusorgru/aurora/v4"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,13 +25,13 @@ func (configuration *Configuration) Write(path string) (err error) {
 
 	if _, err = os.Stat(directory); os.IsNotExist(err) {
 		if directory != "" {
-			if err = os.MkdirAll(directory, os.ModePerm); err != nil {
+			if err = os.MkdirAll(directory, 0o750); err != nil {
 				return
 			}
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
+	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return
 	}
@@ -47,55 +47,58 @@ func (configuration *Configuration) Write(path string) (err error) {
 
 const (
 	NAME    = "xurlfind3r"
-	VERSION = "0.6.0"
+	VERSION = "1.0.0"
 )
 
 var (
-	BANNER = aurora.Sprintf(
-		aurora.BrightBlue(`
+	BANNER = func(au *aurora.Aurora) (banner string) {
+		banner = au.Sprintf(
+			au.BrightBlue(`
                  _  __ _           _ _____      
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
                                           %s`).Bold(),
-		aurora.BrightRed("v"+VERSION).Bold(),
-	)
+			au.BrightRed("v"+VERSION).Bold().Italic(),
+		) + "\n\n"
+
+		return
+	}
+
 	UserDotConfigDirectoryPath = func() (userDotConfig string) {
 		var err error
 
 		userDotConfig, err = os.UserConfigDir()
 		if err != nil {
-			hqgolog.Fatal().Msg(err.Error())
+			hqgologger.Fatal().Msg(err.Error())
 		}
 
 		return
 	}()
-	projectRootDirectoryName = NAME
-	ProjectRootDirectoryPath = filepath.Join(UserDotConfigDirectoryPath, projectRootDirectoryName)
-	configurationFileName    = "config.yaml"
-	ConfigurationFilePath    = filepath.Join(ProjectRootDirectoryPath, configurationFileName)
+
+	DefaultConfigurationFilePath = filepath.Join(UserDotConfigDirectoryPath, NAME, "config.yaml")
+	DefaultConfiguration         = Configuration{
+		Version: VERSION,
+		Sources: sources.List,
+		Keys: sources.Keys{
+			Bevigil:    []string{},
+			Github:     []string{},
+			IntelX:     []string{},
+			URLScan:    []string{},
+			VirusTotal: []string{},
+		},
+	}
 )
 
 func CreateUpdate(path string) (err error) {
 	var cfg Configuration
 
-	defaultConfig := Configuration{
-		Version: VERSION,
-		Sources: sources.List,
-		Keys: sources.Keys{
-			Bevigil: []string{},
-			Github:  []string{},
-			IntelX:  []string{},
-			URLScan: []string{},
-		},
-	}
-
 	_, err = os.Stat(path)
 
 	switch {
 	case err != nil && os.IsNotExist(err):
-		cfg = defaultConfig
+		cfg = DefaultConfiguration
 
 		if err = cfg.Write(path); err != nil {
 			return
@@ -109,7 +112,7 @@ func CreateUpdate(path string) (err error) {
 		}
 
 		if cfg.Version != VERSION || len(cfg.Sources) != len(sources.List) {
-			if err = mergo.Merge(&cfg, defaultConfig); err != nil {
+			if err = mergo.Merge(&cfg, DefaultConfiguration); err != nil {
 				return
 			}
 

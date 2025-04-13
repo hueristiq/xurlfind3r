@@ -9,7 +9,7 @@ on:
 
 jobs:
     push:
-        name:  DockerHub Push
+        name: DockerHub Push
         runs-on: ubuntu-latest
         permissions:
             packages: write
@@ -18,24 +18,23 @@ jobs:
             id-token: write
         steps:
             -
-                name: Checkout
+                name: Code Checkout
                 uses: actions/checkout@v4
-
+                with:
+                    fetch-depth: 0
             -
-                name: Get Github tag
+                name: Get Github Tag
                 id: meta
                 run: |
                     curl --silent "https://api.github.com/repos/hueristiq/xurlfind3r/releases/latest" | jq -r .tag_name | xargs -I {} echo TAG={} >> $GITHUB_OUTPUT
-
             -
                 name: Log in to Docker Hub
-                uses: docker/login-action@v3 
+                uses: docker/login-action@v3
                 with:
                     username: ${{ secrets.DOCKERHUB_USERNAME }}
                     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
             -
-                name: Build and push Docker image
+                name: Build and Push Docker Image
                 uses: docker/build-push-action@v6
                 with:
                     context: .

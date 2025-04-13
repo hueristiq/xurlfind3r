@@ -1,126 +1,7 @@
-# Options for analysis running.
-run:
-    # Number of operating system threads (`GOMAXPROCS`) that can execute golangci-lint simultaneously.
-    # If it is explicitly set to 0 (i.e. not the default) then golangci-lint will automatically set the value to match Linux container CPU quota.
-    # Default: the number of logical CPUs in the machine
-    # concurrency: 4
-    # Timeout for analysis, e.g. 30s, 5m.
-    # Default: 1m
-    timeout: 5m
-    # Exit code when at least one issue was found.
-    # Default: 1
-    issues-exit-code: 1
-    # Include test files or not.
-    # Default: true
-    tests: true
-    # List of build tags, all linters use it.
-    # Default: []
-    build-tags: []
-    # If set, we pass it to "go list -mod={option}". From "go help modules":
-    # If invoked with -mod=readonly, the go command is disallowed from the implicit
-    # automatic updating of go.mod described above. Instead, it fails when any changes
-    # to go.mod are needed. This setting is most useful to check that go.mod does
-    # not need updates, such as in a continuous integration and testing system.
-    # If invoked with -mod=vendor, the go command assumes that the vendor
-    # directory holds the correct copies of dependencies and ignores
-    # the dependency descriptions in go.mod.
-    #
-    # Allowed values: readonly|vendor|mod
-    # Default: ""
-    modules-download-mode: readonly
-    # Allow multiple parallel golangci-lint instances running.
-    # If false, golangci-lint acquires file lock on start.
-    # Default: false
-    allow-parallel-runners: true
-    # Allow multiple golangci-lint instances running, but serialize them around a lock.
-    # If false, golangci-lint exits with an error if it fails to acquire file lock on start.
-    # Default: false
-    allow-serial-runners: true
-    # Define the Go version limit.
-    # Mainly related to generics support since go1.18.
-    # Default: use Go version from the go.mod file, fallback on the env var `GOVERSION`, fallback on 1.17
-    go: '1.23'
-
-# output configuration options
-output:
-    # The formats used to render issues.
-    # Formats:
-    # - `colored-line-number`
-    # - `line-number`
-    # - `json`
-    # - `colored-tab`
-    # - `tab`
-    # - `html`
-    # - `checkstyle`
-    # - `code-climate`
-    # - `junit-xml`
-    # - `junit-xml-extended`
-    # - `github-actions`
-    # - `teamcity`
-    # - `sarif`
-    # Output path can be either `stdout`, `stderr` or path to the file to write to.
-    #
-    # For the CLI flag (`--out-format`), multiple formats can be specified by separating them by comma.
-    # The output can be specified for each of them by separating format name and path by colon symbol.
-    # Example: "--out-format=checkstyle:report.xml,json:stdout,colored-line-number"
-    # The CLI flag (`--out-format`) override the configuration file.
-    #
-    # Default:
-    #   formats:
-    #     - format: colored-line-number
-    #       path: stdout
-    formats:
-        # -
-        #     format: json
-        #     path: stderr
-        # -
-        #     format: checkstyle
-        #     path: report.xml
-        -
-            format: colored-line-number
-            path: stderr
-    # Print lines of code with issue.
-    # Default: true
-    print-issued-lines: true
-    # Print linter name in the end of issue text.
-    # Default: true
-    print-linter-name: true
-    # Make issues output unique by line.
-    # Default: true
-    uniq-by-line: false
-    # Add a prefix to the output file references.
-    # Default: ""
-    path-prefix: ""
-    # Sort results by the order defined in `sort-order`.
-    # Default: false
-    sort-results: true
-    # Order to use when sorting results.
-    # Require `sort-results` to `true`.
-    # Possible values: `file`, `linter`, and `severity`.
-    #
-    # If the severity values are inside the following list, they are ordered in this order:
-    #   1. error
-    #   2. warning
-    #   3. high
-    #   4. medium
-    #   5. low
-    # Either they are sorted alphabetically.
-    #
-    # Default: ["file"]
-    sort-order:
-        - linter
-        - severity
-        - file # filepath, line, and column.
-    # Show statistics per linter.
-    # Default: false
-    show-stats: false
+version: "2"
 
 linters:
-    # Disable all linters.
-    # Default: false
-    disable-all: true
-    # Enable specific linter
-    # https://golangci-lint.run/usage/linters/#enabled-by-default
+    default: none
     enable:
         - asasalint
         - asciicheck
@@ -135,20 +16,20 @@ linters:
         # - depguard
         - dogsled
         - dupl
-        - dupword
+        # - dupword
         - durationcheck
         - err113
-        - errcheck
+        # - errcheck
         - errchkjson
         - errname
         - errorlint
         - exhaustive
         # - exhaustruct
+        - exptostd
         - fatcontext
         - forbidigo
         - forcetypeassert
         # - funlen
-        - gci
         - ginkgolinter
         - gocheckcompilerdirectives
         # - gochecknoglobals
@@ -160,18 +41,15 @@ linters:
         # - gocyclo
         - godot
         - godox
-        - gofmt
-        - gofumpt
         - goheader
-        - goimports
         - gomoddirectives
         - gomodguard
         - goprintffuncname
-        - gosec
-        - gosimple
+        # - gosec
         - gosmopolitan
         - govet
         - grouper
+        - iface
         - importas
         - inamedparam
         - ineffassign
@@ -189,6 +67,7 @@ linters:
         # - nakedret
         - nestif
         - nilerr
+        - nilnesserr
         - nilnil
         - nlreturn
         - noctx
@@ -196,22 +75,21 @@ linters:
         # - nonamedreturns
         - nosprintfhostport
         - paralleltest
-        # - perfsprint
+        - perfsprint
         - prealloc
         - predeclared
         - promlinter
         - protogetter
         - reassign
-        - revive
+        - recvcheck
+        # - revive
         - rowserrcheck
         - sloglint
         - spancheck
         - sqlclosecheck
         - staticcheck
-        - stylecheck
         - tagalign
         # - tagliatelle
-        - tenv
         - testableexamples
         - testifylint
         - testpackage
@@ -221,63 +99,50 @@ linters:
         - unparam
         - unused
         - usestdlibvars
+        - usetesting
         # - varnamelen
         - wastedassign
         - whitespace
         - wrapcheck
         - wsl
         - zerologlint
+    settings:
+        goconst:
+            min-len: 2
+            min-occurrences: 3
+        gocritic:
+            enabled-tags:
+                - performance
+                - experimental
+                - style
+                - opinionated
+            disabled-checks:
+                - captLocal
+                - whyNoLint
+        gocyclo:
+            min-complexity: 10
+        whitespace:
+            multi-if: true
+            multi-func: true
 
-linters-settings:
-    goconst:
-        min-len: 2
-        min-occurrences: 3
-    gocritic:
-        enabled-tags:
-            - performance
-            - experimental
-            - style
-            - opinionated
-        disabled-checks:
-            - captLocal
-            - whyNoLint
-    gocyclo:
-        # Minimal code complexity to report.
-        # Default: 30 (but we recommend 10-20)
-        min-complexity: 10
-    # varnamelen:
-    #     # The minimum length of a variable's name that is considered "long".
-    #     # Variable names that are at least this long will be ignored.
-    #     # Default: 3
-    #     min-name-length: 2
-    #     # Check method receivers.
-    #     # Default: false
-    #     check-receiver: true
-    #     # Check named return values.
-    #     # Default: false
-    #     check-return: true
-    #     # Check type parameters.
-    #     # Default: false
-    #     check-type-param: true
-    whitespace:
-        # Enforces newlines (or comments) after every multi-line if statement.
-        # Default: false
-        multi-if: true
-        # Enforces newlines (or comments) after every multi-line function signature.
-        # Default: false
-        multi-func: true
+formatters:
+    enable:
+        - gci
+        - gofmt
+        - gofumpt
+        - goimports
 
 issues:
-    # Which dirs to exclude: issues from them won't be reported.
-    # Can use regexp here: `generated.*`, regexp is applied on full path,
-    # including the path prefix if one is set.
-    # Default dirs are skipped independently of this option's value (see exclude-dirs-use-default).
-    # "/" will be replaced by current OS file path separator to properly work on Windows.
-    # Default: []
-    exclude-dirs: []
-    # Show issues in any part of update files (requires new-from-rev or new-from-patch).
-    # Default: false
     whole-files: false
-    # Fix found issues (if it's supported by the linter).
-    # Default: false
-    fix: true
+    uniq-by-line: false
+
+output:
+    show-stats: false
+
+run:
+    timeout: 5m
+    tests: true
+    modules-download-mode: readonly
+    allow-parallel-runners: true
+    allow-serial-runners: true
+    go: '1.24'

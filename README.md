@@ -1,4 +1,4 @@
-# X URLs Finder (`xurlfind3r`)
+# xurlfind3r
 
 ![made with go](https://img.shields.io/badge/made%20with-Go-1E90FF.svg) [![go report card](https://goreportcard.com/badge/github.com/hueristiq/xurlfind3r)](https://goreportcard.com/report/github.com/hueristiq/xurlfind3r) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/releases) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=1E90FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-1E90FF.svg) [![contribution](https://img.shields.io/badge/contributions-welcome-1E90FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
@@ -6,29 +6,24 @@
 
 ## Resource
 
-* [Features](#features)
-* [Installation](#installation)
-	* [Install release binaries (Without Go Installed)](#install-release-binaries-without-go-installed)
-	* [Install source (With Go Installed)](#install-source-with-go-installed)
-		* [`go install ...`](#go-install)
-		* [`go build ...` the development Version](#go-build--the-development-version)
-	* [Install on Docker (With Docker Installed)](#install-on-docker-with-docker-installed)
-* [Post Installation](#post-installation)
-* [Usage](#usage)
-	* [Basic](#basic)
-	* [Filter Regex](#filter-regex)
-	* [Match Regex](#match-regex)
-* [Contributing](#contributing)
-* [Licensing](#licensing)
-* [Credits](#credits)
-	* [Contributors](#contributors)
-	* [Similar Projects](#similar-projects)
+- [Features](#features)
+- [Installation](#installation)
+	- [Install release binaries (Without Go Installed)](#install-release-binaries-without-go-installed)
+	- [Install source (With Go Installed)](#install-source-with-go-installed)
+		- [`go install ...`](#go-install)
+		- [`go build ...` the development version](#go-build--the-development-version)
+	- [Install on Docker (With Docker Installed)](#install-on-docker-with-docker-installed)
+- [Post Installation](#post-installation)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [Licensing](#licensing)
 
 ## Features
 
-* Fetches URLs from multiple online passive sources to provide extensive results
-* Supports `stdin` and `stdout` for easy integration in automated workflows
-* Cross-Platform (Windows, Linux, and macOS)
+- Fetches URLs from multiple online passive sources to provide extensive results
+- Supports `stdin` and `stdout` for easy integration in automated workflows
+- Supports multiple output formats (JSONL, file, stdout)
+- Cross-Platform (Windows, Linux, and macOS)
 
 ## Installation
 
@@ -36,13 +31,13 @@
 
 Visit the [releases page](https://github.com/hueristiq/xurlfind3r/releases) and find the appropriate archive for your operating system and architecture. Download the archive from your browser or copy its URL and retrieve it with `wget` or `curl`:
 
-* ...with `wget`:
+- ...with `wget`:
 
 	```bash
 	wget https://github.com/hueristiq/xurlfind3r/releases/download/v<version>/xurlfind3r-<version>-linux-amd64.tar.gz
 	```
 
-* ...or, with `curl`:
+- ...or, with `curl`:
 
 	```bash
 	curl -OL https://github.com/hueristiq/xurlfind3r/releases/download/v<version>/xurlfind3r-<version>-linux-amd64.tar.gz
@@ -84,22 +79,22 @@ Before you install from source, you need to make sure that Go is installed on yo
 go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 ```
 
-#### `go build ...` the development Version
+#### `go build ...` the development version
 
-* Clone the repository
+- Clone the repository
 
 	```bash
 	git clone https://github.com/hueristiq/xurlfind3r.git 
 	```
 
-* Build the utility
+- Build the utility
 
 	```bash
 	cd xurlfind3r/cmd/xurlfind3r && \
 	go build .
 	```
 
-* Move the `xurlfind3r` binary to somewhere in your `PATH`. For example, on GNU/Linux and OS X systems:
+- Move the `xurlfind3r` binary to somewhere in your `PATH`. For example, on GNU/Linux and OS X systems:
 
 	```bash
 	sudo mv xurlfind3r /usr/local/bin/
@@ -115,13 +110,13 @@ go install -v github.com/hueristiq/xurlfind3r/cmd/xurlfind3r@latest
 
 To install `xurlfind3r` on docker:
 
-* Pull the docker image using:
+- Pull the docker image using:
 
     ```bash
     docker pull hueristiq/xurlfind3r:latest
     ```
 
-* Run `xurlfind3r` using the image:
+- Run `xurlfind3r` using the image:
 
     ```bash
     docker run --rm hueristiq/xurlfind3r:latest -h
@@ -155,83 +150,47 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 \ \/ / | | | '__| | |_| | '_ \ / _` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
-                                          v0.6.0
+                                          v1.0.0
 
 USAGE:
  xurlfind3r [OPTIONS]
 
 CONFIGURATION:
- -c, --configuration string          configuration file (default: $HOME/.config/xurlfind3r/config.yaml)
+ -c, --configuration string           (default: $HOME/.config/xurlfind3r/config.yaml)
 
 INPUT:
- -d, --domain string[]               target domain
- -l, --list string                   target domains' list file path
+ -d, --domain string[]                target domain
+ -l, --list string                    target domains file path
 
-TIP: For multiple input domains use comma(,) separated value with `-d`,
-     specify multiple `-d`, load from file with `-l` or load from stdin.
+ For multiple domains, use comma(,) separated value with `--domain`,
+ specify multiple `--domains`, load from file with `--list` or load from stdin.
 
 SCOPE:
-     --include-subdomains bool       match subdomain's URLs
+     --include-subdomains bool        match subdomain's URLs
 
 SOURCES:
-     --sources bool                  list supported sources
- -u, --use-sources string[]          comma(,) separated sources to use
- -e, --exclude-sources string[]      comma(,) separated sources to exclude
-
-FILTER & MATCH:
- -f, --filter string                 regex to filter URLs
- -m, --match string                  regex to match URLs
+     --sources bool                   list supported sources
+ -u, --sources-to-use string[]        comma(,) separated sources to use
+ -e, --sources-to-exclude string[]    comma(,) separated sources to exclude
 
 OUTPUT:
-     --no-color bool                 disable colored output
- -o, --output string                 output URLs file path
- -O, --output-directory string       output URLs directory path
- -s, --silent bool                   display output subdomains only
- -v, --verbose bool                  display verbose output
+     --jsonl bool                     output in JSONL(ines)
+ -o, --output string                  output write file path
+ -O, --output-directory string        output write directory path
+ -m, --monochrome bool                stdout in monochrome
+ -s, --silent bool                    stdout in silent mode
+ -v, --verbose bool                   stdout in verbose mode
 
-pflag: help requested
-```
-
-### Examples
-
-#### Basic
-
-```bash
-xurlfind3r -d hackerone.com --include-subdomains
-```
-
-#### Filter Regex
-
-```bash
-# filter images
-xurlfind3r -d hackerone.com --include-subdomains -f '`^https?://[^/]*?/.*\.(jpg|jpeg|png|gif|bmp)(\?[^\s]*)?$`'
-```
-
-#### Match Regex
-
-```bash
-# match js URLs
-xurlfind3r -d hackerone.com --include-subdomains -m '^https?://[^/]*?/.*\.js(\?[^\s]*)?$'
 ```
 
 ## Contributing
 
-We welcome contributions! Feel free to submit [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) or report [Issues](https://github.com/hueristiq/xurlfind3r/issues). For more details, check out the [contribution guidelines](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md).
+Contributions are welcome and encouraged! Feel free to submit [Pull Requests](https://github.com/hueristiq/xurlfind3r/pulls) or report [Issues](https://github.com/hueristiq/xurlfind3r/issues). For more details, check out the [contribution guidelines](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md).
+
+A big thank you to all the [contributors](https://github.com/hueristiq/xurlfind3r/graphs/contributors) for your ongoing support!
+
+![contributors](https://contrib.rocks/image?repo=hueristiq/xurlfind3r&max=500)
 
 ## Licensing
 
-This utility is licensed under the [MIT license](https://opensource.org/license/mit). You are free to use, modify, and distribute it, as long as you follow the terms of the license. You can find the full license text in the repository - [Full MIT license text](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE).
-
-## Credits
-
-### Contributors
-
-A huge thanks to all the contributors who have helped make `xurlfind3r` what it is today!
-
-[![contributors](https://contrib.rocks/image?repo=hueristiq/xurlfind3r&max=500)](https://github.com/hueristiq/xurlfind3r/graphs/contributors)
-
-### Similar Projects
-
-If you're interested in more utilities like this, check out:
-
-[gau](https://github.com/lc/gau) ◇ [waybackurls](https://github.com/tomnomnom/waybackurls) ◇ [waymore](https://github.com/xnl-h4ck3r/waymore)
+This package is licensed under the [MIT license](https://opensource.org/license/mit). You are free to use, modify, and distribute it, as long as you follow the terms of the license. You can find the full license text in the repository - [Full MIT license text](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE).

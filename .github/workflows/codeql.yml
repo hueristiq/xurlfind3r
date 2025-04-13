@@ -29,18 +29,26 @@ jobs:
             security-events: write
         steps:
             -
-                name: Checkout the repository
+                name: Code Checkout
                 uses: actions/checkout@v4
                 with:
                     fetch-depth: 0
-            - 
+            -
                 name: Initialize CodeQL
                 uses: github/codeql-action/init@v3
                 with:
                     languages: ${{ matrix.language }}
-            - 
-                name: Autobuild
-                uses: github/codeql-action/autobuild@v3
-            - 
+            -
+                name: Go Module Management
+                run: |
+                    make go-mod-clean
+                    make go-mod-tidy
+                working-directory: .
+            -
+                name: Go Build
+                run: |
+                    make go-build
+                working-directory: .
+            -
                 name: Perform CodeQL Analysis
                 uses: github/codeql-action/analyze@v3

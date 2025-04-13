@@ -1,16 +1,36 @@
+// Package urlscan provides an implementation of the sources.Source interface
+// for interacting with the urlscan.io API.
+//
+// The urlscan.io API enables scanning of URLs and retrieving associated data such as
+// domain, MIME type, HTTP status, and more. This package defines a Source type that
+// implements the Run and Name methods as specified by the sources.Source interface.
+// The Run method queries the urlscan.io API for URLs associated with a target domain,
+// handles pagination via the "search_after" parameter, validates discovered URLs using the
+// provided configuration, and streams valid URLs or errors asynchronously via a channel.
 package urlscan
 
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
-	"github.com/hueristiq/xurlfind3r/pkg/httpclient"
+	hqgohttp "github.com/hueristiq/hq-go-http"
+	"github.com/hueristiq/hq-go-http/header"
+	"github.com/hueristiq/hq-go-http/mime"
+	"github.com/hueristiq/hq-go-http/status"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
 
+// searchResponse represents the structure of the JSON response returned by the urlscan.io API.
+//
+// It contains the following fields:
+//   - Results: A slice of result objects, each containing details about a scanned page.
+//     Each result includes a Page field with domain-related data and a Sort field used for pagination.
+//   - Status: An integer representing the status code of the API response.
+//   - Total: An integer representing the total number of results.
+//   - Took: An integer representing the time taken for the search (in milliseconds).
+//   - HasMore: A boolean indicating whether more results are available for pagination.
 type searchResponse struct {
 	Results []struct {
 		Page struct {
@@ -27,9 +47,23 @@ type searchResponse struct {
 	HasMore bool `json:"has_more"`
 }
 
+// Source represents the Common Crawl data source implementation.
+// It implements the sources.Source interface, providing functionality
+// for retrieving URLs from the urlscan.io API.
 type Source struct{}
 
-func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+// Run initiates the process of retrieving URL information from the urlscan.io API for a given domain.
+//
+// Parameters:
+//   - domain (string): The target domain for which URLs are to be retrieved.
+//   - cfg (*sources.Configuration): The configuration instance containing API keys,
+//     the URL validation function, and any additional settings required by the source.
+//
+// Returns:
+//   - (<-chan sources.Result): A channel that asynchronously emits sources.Result values.
+//     Each result is either a discovered URL (ResultURL) or an error (ResultError)
+//     encountered during the operation.
+func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -48,24 +82,26 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 			return
 		}
 
-		searchReqHeaders := map[string]string{
-			"Content-Type": "application/json",
-		}
-
-		if key != "" {
-			searchReqHeaders["API-Key"] = key
-		}
-
 		var after string
 
 		for {
-			searchReqURL := fmt.Sprintf("https://urlscan.io/api/v1/search/?q=domain:%s&size=100", domain)
-
-			if after != "" {
-				searchReqURL += "&search_after=" + after
+			searchReqURL := "https://urlscan.io/api/v1/search"
+			searchReqCFG := &hqgohttp.RequestConfiguration{
+				Params: map[string]string{
+					"q":    "domain:" + domain,
+					"size": "10000",
+				},
+				Headers: map[string]string{
+					header.Accept.String(): mime.JSON.String(),
+					"API-Key":              key,
+				},
 			}
 
-			searchRes, err := httpclient.Get(searchReqURL, "", searchReqHeaders)
+			if after != "" {
+				searchReqCFG.Params["search_after"] = after
+			}
+
+			searchRes, err := hqgohttp.Get(searchReqURL, searchReqCFG)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -74,8 +110,6 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 				}
 
 				results <- result
-
-				httpclient.DiscardResponse(searchRes)
 
 				break
 			}
@@ -98,14 +132,16 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 			searchRes.Body.Close()
 
-			if searchResData.Status == 429 {
+			if searchResData.Status == status.TooManyRequests.Int() {
 				break
 			}
 
 			for _, result := range searchResData.Results {
-				URL := result.Page.URL
+				var URL string
 
-				if !cfg.IsInScope(URL) {
+				var valid bool
+
+				if URL, valid = cfg.Validate(result.Page.URL); !valid {
 					continue
 				}
 
@@ -143,6 +179,11 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 	return results
 }
 
-func (source *Source) Name() string {
+// Name returns the unique identifier for the data source.
+// This identifier is used for logging, debugging, and associating results with the correct data source.
+//
+// Returns:
+//   - name (string): The unique identifier for the data source.
+func (source *Source) Name() (name string) {
 	return sources.URLSCAN
 }
