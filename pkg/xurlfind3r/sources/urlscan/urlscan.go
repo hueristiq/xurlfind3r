@@ -91,9 +91,9 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 					"q":    "domain:" + domain,
 					"size": "10000",
 				},
-				Headers: map[string]string{
-					header.Accept.String(): mime.JSON.String(),
-					"API-Key":              key,
+				Headers: []hqgohttp.Header{
+					hqgohttp.NewHeader(header.Accept.String(), mime.JSON.String(), hqgohttp.HeaderModeSet),
+					hqgohttp.NewHeader("API-Key", key, hqgohttp.HeaderModeSet),
 				},
 			}
 

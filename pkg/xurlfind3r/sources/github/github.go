@@ -20,7 +20,6 @@ import (
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/hq-go-http/header"
-	hqgoheaderparser "github.com/hueristiq/hq-go-http/header/parser"
 	"github.com/hueristiq/hq-go-http/status"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
@@ -98,9 +97,9 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 	}
 
 	codeSearchResCFG := &hqgohttp.RequestConfiguration{
-		Headers: map[string]string{
-			header.Accept.String():        "application/vnd.github.v3.text-match+json",
-			header.Authorization.String(): "token " + token.Hash,
+		Headers: []hqgohttp.Header{
+			hqgohttp.NewHeader(header.Accept.String(), "application/vnd.github.v3.text-match+json", hqgohttp.HeaderModeSet),
+			hqgohttp.NewHeader(header.Authorization.String(), "token "+token.Hash, hqgohttp.HeaderModeSet),
 		},
 	}
 
@@ -236,7 +235,7 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 		}
 	}
 
-	links := hqgoheaderparser.ParseLinkHeader(codeSearchRes.Header.Get(header.Link.String()))
+	links := header.ParseLinkHeader(codeSearchRes.Header.Get(header.Link.String()))
 
 	for _, link := range links {
 		if link.Rel == "next" {

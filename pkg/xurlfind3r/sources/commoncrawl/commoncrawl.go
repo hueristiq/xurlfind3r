@@ -155,8 +155,8 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 					"fl":           "url",
 					"showNumPages": "true",
 				},
-				Headers: map[string]string{
-					header.Host.String(): "index.commoncrawl.org",
+				Headers: []hqgohttp.Header{
+					hqgohttp.NewHeader(header.Host.String(), "index.commoncrawl.org", hqgohttp.HeaderModeSet),
 				},
 			}
 
@@ -205,8 +205,8 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 						"fl":     "url",
 						"page":   cast.ToString(page),
 					},
-					Headers: map[string]string{
-						header.Host.String(): "index.commoncrawl.org",
+					Headers: []hqgohttp.Header{
+						hqgohttp.NewHeader(header.Host.String(), "index.commoncrawl.org", hqgohttp.HeaderModeSet),
 					},
 				}
 
