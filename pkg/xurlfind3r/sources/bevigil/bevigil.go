@@ -63,7 +63,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
 		getURLsReqCFG := &hqgohttp.RequestConfiguration{
 			Headers: []hqgohttp.Header{
-				hqgohttp.NewHeader("X-Access-Token", key, hqgohttp.HeaderModeSet),
+				hqgohttp.NewSetHeader("X-Access-Token", key),
 			},
 		}
 

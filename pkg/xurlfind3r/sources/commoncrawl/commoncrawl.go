@@ -21,7 +21,7 @@ import (
 	"time"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
-	"github.com/hueristiq/hq-go-http/header"
+	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
@@ -156,7 +156,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 					"showNumPages": "true",
 				},
 				Headers: []hqgohttp.Header{
-					hqgohttp.NewHeader(header.Host.String(), "index.commoncrawl.org", hqgohttp.HeaderModeSet),
+					hqgohttp.NewSetHeader(hqgohttpheader.Host.String(), "index.commoncrawl.org"),
 				},
 			}
 
@@ -206,7 +206,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 						"page":   cast.ToString(page),
 					},
 					Headers: []hqgohttp.Header{
-						hqgohttp.NewHeader(header.Host.String(), "index.commoncrawl.org", hqgohttp.HeaderModeSet),
+						hqgohttp.NewSetHeader(hqgohttpheader.Host.String(), "index.commoncrawl.org"),
 					},
 				}
 

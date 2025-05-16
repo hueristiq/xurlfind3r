@@ -17,8 +17,8 @@ import (
 	"time"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
-	"github.com/hueristiq/hq-go-http/header"
-	"github.com/hueristiq/hq-go-http/mime"
+	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
+	hqgohttpmime "github.com/hueristiq/hq-go-http/mime"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -149,7 +149,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 				"k": intelXKey,
 			},
 			Headers: []hqgohttp.Header{
-				hqgohttp.NewHeader(header.ContentType.String(), mime.JSON.String(), hqgohttp.HeaderModeSet),
+				hqgohttp.NewSetHeader(hqgohttpheader.ContentType.String(), hqgohttpmime.JSON.String()),
 			},
 		}
 

@@ -19,8 +19,8 @@ import (
 	"time"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
-	"github.com/hueristiq/hq-go-http/header"
-	"github.com/hueristiq/hq-go-http/status"
+	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
+	hqgohttpstatus "github.com/hueristiq/hq-go-http/status"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
@@ -98,14 +98,14 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 
 	codeSearchResCFG := &hqgohttp.RequestConfiguration{
 		Headers: []hqgohttp.Header{
-			hqgohttp.NewHeader(header.Accept.String(), "application/vnd.github.v3.text-match+json", hqgohttp.HeaderModeSet),
-			hqgohttp.NewHeader(header.Authorization.String(), "token "+token.Hash, hqgohttp.HeaderModeSet),
+			hqgohttp.NewSetHeader(hqgohttpheader.Accept.String(), "application/vnd.github.v3.text-match+json"),
+			hqgohttp.NewSetHeader(hqgohttpheader.Authorization.String(), "token "+token.Hash),
 		},
 	}
 
 	codeSearchRes, err := hqgohttp.Get(searchReqURL, codeSearchResCFG)
 
-	isForbidden := codeSearchRes != nil && codeSearchRes.StatusCode == status.Forbidden.Int()
+	isForbidden := codeSearchRes != nil && codeSearchRes.StatusCode == hqgohttpstatus.Forbidden.Int()
 
 	if err != nil && !isForbidden {
 		result := sources.Result{
@@ -119,9 +119,9 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 		return
 	}
 
-	ratelimitRemaining := cast.ToInt64(codeSearchRes.Header.Get(header.XRatelimitRemaining.String()))
+	ratelimitRemaining := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.XRatelimitRemaining.String()))
 	if isForbidden && ratelimitRemaining == 0 {
-		retryAfterSeconds := cast.ToInt64(codeSearchRes.Header.Get(header.RetryAfter.String()))
+		retryAfterSeconds := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.RetryAfter.String()))
 
 		tokens.setCurrentTokenExceeded(retryAfterSeconds)
 
@@ -165,7 +165,7 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 			continue
 		}
 
-		if getRawContentRes.StatusCode != status.OK.Int() {
+		if getRawContentRes.StatusCode != hqgohttpstatus.OK.Int() {
 			getRawContentRes.Body.Close()
 
 			continue
@@ -235,7 +235,7 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 		}
 	}
 
-	links := header.ParseLinkHeader(codeSearchRes.Header.Get(header.Link.String()))
+	links := hqgohttpheader.ParseLinkHeader(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
 
 	for _, link := range links {
 		if link.Rel == "next" {

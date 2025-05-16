@@ -4,7 +4,7 @@ go 1.24.2
 
 require (
 	dario.cat/mergo v1.0.2
-	github.com/hueristiq/hq-go-http v0.0.0-20250513191711-d5b56b281cc1
+	github.com/hueristiq/hq-go-http v0.0.0-20250516172240-2531fddd509c
 	github.com/hueristiq/hq-go-limiter v0.0.0-20250515162639-b2464255e416
 	github.com/hueristiq/hq-go-logger v0.0.0-20250515163117-7145cef02603
 	github.com/hueristiq/hq-go-url v0.0.0-20250513180855-22cafaf83fb4
