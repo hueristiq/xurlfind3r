@@ -9,7 +9,7 @@ require (
 	github.com/hueristiq/hq-go-logger v0.0.0-20250515163117-7145cef02603
 	github.com/hueristiq/hq-go-url v0.0.0-20250513180855-22cafaf83fb4
 	github.com/logrusorgru/aurora/v4 v4.0.0
-	github.com/spf13/cast v1.8.0
+	github.com/spf13/cast v1.9.2
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
 	gopkg.in/yaml.v3 v3.0.1
