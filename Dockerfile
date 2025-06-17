@@ -1,4 +1,4 @@
-FROM golang:1.24.3-alpine3.21 AS build-stage
+FROM golang:1.24.4-alpine3.21 AS build-stage
 
 RUN <<-EOF
 	apk --no-cache update
