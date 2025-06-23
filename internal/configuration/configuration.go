@@ -39,7 +39,9 @@ func (configuration *Configuration) Write(path string) (err error) {
 	defer file.Close()
 
 	enc := yaml.NewEncoder(file)
+
 	enc.SetIndent(identation)
+
 	err = enc.Encode(&configuration)
 
 	return
@@ -71,7 +73,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 
 		userDotConfig, err = os.UserConfigDir()
 		if err != nil {
-			hqgologger.Fatal().Msg(err.Error())
+			hqgologger.Fatal("failed getting `$HOME/.config/`", hqgologger.WithError(err))
 		}
 
 		return
