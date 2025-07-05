@@ -164,6 +164,7 @@ const (
 	BEVIGIL            = "bevigil"
 	COMMONCRAWL        = "commoncrawl"
 	GITHUB             = "github"
+	HUDSONROCK         = "hudsonrock"
 	INTELLIGENCEX      = "intelx"
 	OPENTHREATEXCHANGE = "otx"
 	URLSCAN            = "urlscan"
@@ -184,6 +185,7 @@ var List = []string{
 	BEVIGIL,
 	COMMONCRAWL,
 	GITHUB,
+	HUDSONROCK,
 	INTELLIGENCEX,
 	OPENTHREATEXCHANGE,
 	URLSCAN,

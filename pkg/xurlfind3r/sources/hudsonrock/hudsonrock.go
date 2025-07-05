@@ -1,36 +1,44 @@
-// Package bevigil provides an implementation of the sources.Source interface
-// for interacting with the Bevigil data source.
+// Package hudsonrock provides an implementation of the sources.Source interface
+// for interacting with the Hudson Rock data source.
 //
-// The Bevigil service exposes an API endpoint that returns URLs associated with a given domain.
+// The Hudson Rock service exposes an API endpoint that returns URLs associated with a given domain.
 // This package defines a Source type that implements the Run and Name methods as specified
 // by the sources.Source interface. The Run method retrieves URLs for a specified domain,
 // decodes the JSON response, and streams each valid URL asynchronously via a channel.
-package bevigil
+package hudsonrock
 
 import (
 	"encoding/json"
-	"fmt"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-// getURLsResponse defines the structure for decoding the JSON response from the Bevigil API.
+// getURLsResponse defines the structure for decoding the JSON response from the Hudson Rock API.
 //
 // Fields:
-//   - Domain (string): The queried domain as returned by the API.
-//   - URLs ([]string): A slice of URL strings associated with the domain.
+//   - Data (struct): Contains the URLs data from the API response.
+//   - EmployeesUrls ([]struct): A slice of employee-related URL structures.
+//   - URL (string): The employee-related URL.
+//   - ClientsUrls ([]struct): A slice of client-related URL structures.
+//   - URL (string): The client-related URL.
 type getURLsResponse struct {
-	Domain string   `json:"domain"`
-	URLs   []string `json:"urls"`
+	Data struct {
+		EmployeesUrls []struct {
+			URL string `json:"url"`
+		} `json:"employees_urls"`
+		ClientsUrls []struct {
+			URL string `json:"url"`
+		} `json:"clients_urls"`
+	} `json:"data"`
 }
 
-// Source represents the Bevigil data source implementation.
+// Source represents the Hudson Rock data source implementation.
 // It implements the sources.Source interface, providing functionality
-// for retrieving URLs from the Bevigil OSINT API.
+// for retrieving URLs from the Hudson Rock OSINT API.
 type Source struct{}
 
-// Run initiates the URL discovery process for the specified domain using the Bevigil API.
+// Run initiates the URL discovery process for the specified domain using the Hudson Rock API.
 //
 // Parameters:
 //   - domain (string): The target domain for which URLs are to be retrieved.
@@ -47,23 +55,10 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 	go func() {
 		defer close(results)
 
-		key, err := cfg.Keys.Bevigil.PickRandom()
-		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  err,
-			}
-
-			results <- result
-
-			return
-		}
-
-		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
+		getURLsReqURL := "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/urls-by-domain"
 		getURLsReqCFG := &hqgohttp.RequestConfiguration{
-			Headers: []hqgohttp.Header{
-				hqgohttp.NewSetHeader("X-Access-Token", key),
+			Params: map[string]string{
+				"domain": domain,
 			},
 		}
 
@@ -98,7 +93,9 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 
 		getURLsRes.Body.Close()
 
-		for _, URL := range getURLsResData.URLs {
+		for _, record := range append(getURLsResData.Data.EmployeesUrls, getURLsResData.Data.ClientsUrls...) {
+			URL := record.URL
+
 			var valid bool
 
 			if URL, valid = cfg.Validate(URL); !valid {
@@ -124,5 +121,5 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 // Returns:
 //   - name (string): The unique identifier for the data source.
 func (source *Source) Name() (name string) {
-	return sources.BEVIGIL
+	return sources.HUDSONROCK
 }

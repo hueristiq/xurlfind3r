@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	hqgologger "github.com/hueristiq/hq-go-logger"
-	"github.com/hueristiq/hq-go-logger/formatter"
-	"github.com/hueristiq/hq-go-logger/levels"
+	hqgologgerformatter "github.com/hueristiq/hq-go-logger/formatter"
+	hqgologgerlevels "github.com/hueristiq/hq-go-logger/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/internal/input"
 	"github.com/hueristiq/xurlfind3r/internal/output"
@@ -57,7 +57,7 @@ func init() {
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
 	pflag.Usage = func() {
-		hqgologger.Info().Label("").Msg(configuration.BANNER(au))
+		hqgologger.Info(configuration.BANNER(au), hqgologger.WithLabel(""))
 
 		h := "USAGE:\n"
 		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
@@ -91,14 +91,14 @@ func init() {
 		h += " -s, --silent bool                    stdout in silent mode\n"
 		h += " -v, --verbose bool                   stdout in verbose mode\n"
 
-		hqgologger.Info().Label("").Msg(h)
-		hqgologger.Print().Msg("")
+		hqgologger.Info(h, hqgologger.WithLabel(""))
+		hqgologger.Print("")
 	}
 
 	pflag.Parse()
 
 	if err := configuration.CreateUpdate(configurationFilePath); err != nil {
-		hqgologger.Fatal().Msg(err.Error())
+		hqgologger.Fatal("failed creating or updating Configuration!", hqgologger.WithError(err))
 	}
 
 	viper.SetConfigFile(configurationFilePath)
@@ -107,37 +107,37 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
-		hqgologger.Fatal().Msg(err.Error())
+		hqgologger.Fatal("failed reading in Configuration!", hqgologger.WithError(err))
 	}
 
-	hqgologger.DefaultLogger.SetFormatter(formatter.NewConsoleFormatter(&formatter.ConsoleFormatterConfiguration{
+	hqgologger.DefaultLogger.SetFormatter(hqgologgerformatter.NewConsoleFormatter(&hqgologgerformatter.ConsoleFormatterConfiguration{
 		Colorize: !monochrome,
 	}))
 
 	if silent {
-		hqgologger.DefaultLogger.SetMaxLogLevel(levels.LevelSilent)
+		hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelSilent)
 	}
 
 	if verbose {
-		hqgologger.DefaultLogger.SetMaxLogLevel(levels.LevelDebug)
+		hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelDebug)
 	}
 
 	au = aurora.New(aurora.WithColors(!monochrome))
 }
 
 func main() {
-	hqgologger.Info().Label("").Msg(configuration.BANNER(au))
+	hqgologger.Info(configuration.BANNER(au), hqgologger.WithLabel(""))
 
 	var cfg *configuration.Configuration
 
 	if err := viper.Unmarshal(&cfg); err != nil {
-		hqgologger.Fatal().Msg(err.Error())
+		hqgologger.Fatal("failed unmarshalling Configuration!", hqgologger.WithError(err))
 	}
 
 	if listSupportedSources {
-		hqgologger.Info().Msgf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold())
-		hqgologger.Info().Msgf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold())
-		hqgologger.Print().Msg("")
+		hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold()))
+		hqgologger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold()))
+		hqgologger.Print("")
 
 		needsKey := make(map[string]interface{})
 		keysElem := reflect.ValueOf(&cfg.Keys).Elem()
@@ -146,15 +146,17 @@ func main() {
 			needsKey[strings.ToLower(keysElem.Type().Field(i).Name)] = keysElem.Field(i).Interface()
 		}
 
-		for _, source := range cfg.Sources {
+		for index := range cfg.Sources {
+			source := cfg.Sources[index]
+
 			if _, ok := needsKey[source]; ok {
-				hqgologger.Print().Msgf("> %s *", source)
+				hqgologger.Print("> " + source + " *")
 			} else {
-				hqgologger.Print().Msgf("> %s", source)
+				hqgologger.Print("> " + source)
 			}
 		}
 
-		hqgologger.Print().Msg("")
+		hqgologger.Print("")
 
 		os.Exit(0)
 	}
@@ -162,7 +164,7 @@ func main() {
 	if domainsFilePath != "" {
 		file, err := os.Open(domainsFilePath)
 		if err != nil {
-			hqgologger.Fatal().Msg(err.Error())
+			hqgologger.Fatal("failed opening input file", hqgologger.WithError(err))
 		}
 
 		scanner := bufio.NewScanner(file)
@@ -176,7 +178,7 @@ func main() {
 		}
 
 		if err := scanner.Err(); err != nil {
-			hqgologger.Fatal().Msg(err.Error())
+			hqgologger.Fatal("failed reading input file!", hqgologger.WithError(err))
 		}
 
 		file.Close()
@@ -194,7 +196,7 @@ func main() {
 		}
 
 		if err := scanner.Err(); err != nil {
-			hqgologger.Fatal().Msg(err.Error())
+			hqgologger.Fatal("failed reading stdin!", hqgologger.WithError(err))
 		}
 	}
 
@@ -205,20 +207,23 @@ func main() {
 	}
 
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
+		Client: &xurlfind3r.ClientConfiguration{
+			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.NAME, configuration.VERSION, configuration.NAME),
+		},
 		IncludeSubdomains: includeSubdomains,
 		SourcesToUse:      sourcesToUse,
 		SourcesToExclude:  sourcesToExclude,
 		Keys:              cfg.Keys,
 	})
 	if err != nil {
-		hqgologger.Fatal().Msg(err.Error())
+		hqgologger.Fatal("failed creating finder!", hqgologger.WithError(err))
 	}
 
 	for index := range domains {
 		domain := domains[index]
 
-		hqgologger.Info().Msgf("Finding URLs for %s...", au.Underline(domain).Bold())
-		hqgologger.Print().Msg("")
+		hqgologger.Info(fmt.Sprintf("Finding URLs for %v...", au.Underline(domain).Bold()))
+		hqgologger.Print("")
 
 		outputs := []io.Writer{
 			os.Stdout,
@@ -230,14 +235,14 @@ func main() {
 		case outputFilePath != "":
 			file, err = writer.CreateFile(outputFilePath)
 			if err != nil {
-				hqgologger.Error().Msg(err.Error())
+				hqgologger.Fatal("failed creating output file!", hqgologger.WithError(err), hqgologger.WithString("file", outputFilePath))
 			}
 
 			outputs = append(outputs, file)
 		case outputDirectoryPath != "":
 			file, err = writer.CreateFile(filepath.Join(outputDirectoryPath, domain))
 			if err != nil {
-				hqgologger.Error().Msg(err.Error())
+				hqgologger.Fatal("failed creating output file!", hqgologger.WithError(err), hqgologger.WithString("file", outputFilePath))
 			}
 
 			outputs = append(outputs, file)
@@ -250,11 +255,11 @@ func main() {
 				switch result.Type {
 				case sources.ResultError:
 					if verbose {
-						hqgologger.Error().Msgf("%s: %s", result.Source, result.Error)
+						hqgologger.Error("error finding subdomains!", hqgologger.WithError(err), hqgologger.WithString("source", result.Source))
 					}
 				case sources.ResultURL:
 					if err := writer.Write(output, domain, result); err != nil {
-						hqgologger.Error().Msg(err.Error())
+						hqgologger.Error("error writing subdomain!", hqgologger.WithError(err), hqgologger.WithString("source", result.Source))
 					}
 				}
 			}
@@ -262,6 +267,6 @@ func main() {
 
 		file.Close()
 
-		hqgologger.Print().Msg("")
+		hqgologger.Print("")
 	}
 }

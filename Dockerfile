@@ -1,4 +1,4 @@
-FROM golang:1.24.2-alpine3.21 AS build-stage
+FROM golang:1.24.4-alpine3.21 AS build-stage
 
 RUN <<-EOF
 	apk --no-cache update
@@ -17,7 +17,7 @@ COPY . .
 
 RUN make go-build
 
-FROM alpine:3.21
+FROM alpine:3.22
 
 RUN <<-EOF
 	apk --no-cache update
