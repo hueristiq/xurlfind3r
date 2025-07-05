@@ -23,6 +23,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/hudsonrock"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
@@ -180,6 +181,8 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 			finder.sources[source] = &commoncrawl.Source{}
 		case sources.GITHUB:
 			finder.sources[source] = &github.Source{}
+		case sources.HUDSONROCK:
+			finder.sources[source] = &hudsonrock.Source{}
 		case sources.INTELLIGENCEX:
 			finder.sources[source] = &intelx.Source{}
 		case sources.OPENTHREATEXCHANGE:
