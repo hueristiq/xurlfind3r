@@ -49,7 +49,7 @@ func (configuration *Configuration) Write(path string) (err error) {
 
 const (
 	NAME    = "xurlfind3r"
-	VERSION = "1.0.0"
+	VERSION = "1.1.0"
 )
 
 var (
