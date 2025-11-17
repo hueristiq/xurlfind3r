@@ -10,7 +10,7 @@ install-lefthook:
 	(command -v lefthook || go install github.com/evilmartians/lefthook@latest) && lefthook install
 
 install-golangci-lint:
-	command -v golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.2
+	command -v golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # --- Go (Golang) ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
