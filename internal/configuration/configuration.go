@@ -49,7 +49,7 @@ func (configuration *Configuration) Write(path string) (err error) {
 
 const (
 	NAME    = "xurlfind3r"
-	VERSION = "1.2.0"
+	VERSION = "1.3.0"
 )
 
 var (
@@ -73,7 +73,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 
 		userDotConfig, err = os.UserConfigDir()
 		if err != nil {
-			hqgologger.Fatal("failed getting `$HOME/.config/`", hqgologger.WithError(err))
+			hqgologger.Fatal("failed to get `$HOME/.config/`", hqgologger.WithError(err))
 		}
 
 		return

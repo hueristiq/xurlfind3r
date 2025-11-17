@@ -14,12 +14,12 @@ jobs:
         steps:
             -
                 name: Set up Go
-                uses: actions/setup-go@v5
+                uses: actions/setup-go@v6
                 with:
-                    go-version:  '>=1.24'
+                    go-version:  '>=1.25'
             -
                 name: Code Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v5
                 with:
                     fetch-depth: 0
             -

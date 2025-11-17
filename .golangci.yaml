@@ -104,7 +104,8 @@ linters:
         - wastedassign
         - whitespace
         - wrapcheck
-        - wsl
+        # - wsl
+        - wsl_v5
         - zerologlint
     settings:
         goconst:
@@ -145,4 +146,4 @@ run:
     modules-download-mode: readonly
     allow-parallel-runners: true
     allow-serial-runners: true
-    go: '1.24'
+    go: '1.25'

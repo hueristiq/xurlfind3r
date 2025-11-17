@@ -20,6 +20,7 @@ import (
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
 	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
+	hqgohttpheaderutils "github.com/hueristiq/hq-go-http/header/utils"
 	hqgohttpstatus "github.com/hueristiq/hq-go-http/status"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
@@ -235,7 +236,7 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 		}
 	}
 
-	links := hqgohttpheader.ParseLinkHeader(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
+	links := hqgohttpheaderutils.ParseLinkHeaderValue(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
 
 	for _, link := range links {
 		if link.Rel == "next" {

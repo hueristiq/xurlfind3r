@@ -30,12 +30,12 @@ jobs:
         steps:
             -
                 name: Code Checkout
-                uses: actions/checkout@v4
+                uses: actions/checkout@v5
                 with:
                     fetch-depth: 0
             -
                 name: Initialize CodeQL
-                uses: github/codeql-action/init@v3
+                uses: github/codeql-action/init@v4
                 with:
                     languages: ${{ matrix.language }}
             -
@@ -51,4 +51,4 @@ jobs:
                 working-directory: .
             -
                 name: Perform CodeQL Analysis
-                uses: github/codeql-action/analyze@v3
+                uses: github/codeql-action/analyze@v4
