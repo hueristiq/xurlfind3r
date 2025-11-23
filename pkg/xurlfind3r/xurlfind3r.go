@@ -153,7 +153,9 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 		cfg.SourcesToUse = sources.List
 	}
 
-	for _, source := range cfg.SourcesToUse {
+	for i := range cfg.SourcesToUse {
+		source := cfg.SourcesToUse[i]
+
 		s, k := NameToSourceMap[source]
 		if !k {
 			continue
