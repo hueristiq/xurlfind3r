@@ -1,12 +1,3 @@
-// Package github provides an implementation of the sources.Source interface
-// for interacting with the GitHub Code Search API.
-//
-// The GitHub API allows searching code repositories for occurrences of a given domain,
-// which can reveal URLs or references associated with that domain. This package defines a
-// Source type that implements the Run, Enumerate, and Name methods as specified by the
-// sources.Source interface. The Run method initiates a GitHub code search query for a target
-// domain, and the Enumerate method processes paginated search results, extracts URLs from both
-// raw file content and text matches, and streams discovered URLs or errors via a channel.
 package github
 
 import (
@@ -16,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
@@ -26,11 +18,6 @@ import (
 	"github.com/spf13/cast"
 )
 
-// codeSearchResponse represents the structure of the JSON response returned by the GitHub code search API.
-//
-// It contains the total count of matching records and a slice of items where each item
-// represents a code search result. Each item includes the repository file name, the HTML URL for the file,
-// and any text matches found in the file.
 type codeSearchResponse struct {
 	TotalCount int `json:"total_count"`
 	Items      []struct {
@@ -42,65 +29,56 @@ type codeSearchResponse struct {
 	} `json:"items"`
 }
 
-// Source represents the Common Crawl data source implementation.
-// It implements the sources.Source interface, providing functionality
-// for retrieving URLs by querying GitHub code search results.
-type Source struct{}
+type Source struct {
+	keys        sources.Keys
+	keysManager *KeysManager
+}
 
-// Run initiates the process of retrieving URL information from Github for a given domain.
-//
-// Parameters:
-//   - domain (string): The target domain for which URLs are to be retrieved.
-//   - cfg (*sources.Configuration): The configuration instance containing API keys,
-//     the URL validation function, and any additional settings required by the source.
-//
-// Returns:
-//   - (<-chan sources.Result): A channel that asynchronously emits sources.Result values.
-//     Each result is either a discovered URL (ResultURL) or an error (ResultError)
-//     encountered during the operation.
-func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sources.Result {
+func (s *Source) Name() (name string) {
+	name = sources.GITHUB
+
+	return
+}
+
+func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
+}
+
+func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		if len(cfg.Keys.Github) == 0 {
+		if len(s.keys) == 0 {
 			return
 		}
 
-		tokens := NewTokenManager(cfg.Keys.Github)
+		s.keysManager = NewKeyManager(s.keys)
 
 		searchReqURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
 
-		source.Enumerate(searchReqURL, tokens, cfg, results)
+		s.Enumerate(searchReqURL, cfg, results)
 	}()
 
 	return results
 }
 
-// Enumerate processes GitHub code search results by sending HTTP GET requests to the provided search URL,
-// handling pagination via the Link header, and extracting URLs from raw file content and text matches.
-//
-// Parameters:
-//   - searchReqURL (string): The URL for the GitHub code search API request.
-//   - tokens (*Tokens): A token manager containing GitHub API tokens to handle rate limiting.
-//   - cfg (*sources.Configuration): The configuration settings used for authentication and regex extraction.
-//   - results (chan sources.Result): A channel to stream discovered URLs or errors.
-func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *sources.Configuration, results chan sources.Result) {
-	token := tokens.Get()
+func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, results chan sources.Result) {
+	token := s.keysManager.GetCurrentKey()
 
 	if token.RetryAfter > 0 {
-		if len(tokens.pool) == 1 {
+		if len(s.keysManager.pool) == 1 {
 			time.Sleep(time.Duration(token.RetryAfter) * time.Second)
 		} else {
-			token = tokens.Get()
+			token = s.keysManager.GetCurrentKey()
 		}
 	}
 
 	codeSearchResCFG := &hqgohttp.RequestConfiguration{
 		Headers: []hqgohttp.Header{
 			hqgohttp.NewSetHeader(hqgohttpheader.Accept.String(), "application/vnd.github.v3.text-match+json"),
-			hqgohttp.NewSetHeader(hqgohttpheader.Authorization.String(), "token "+token.Hash),
+			hqgohttp.NewSetHeader(hqgohttpheader.Authorization.String(), "token "+token.Value),
 		},
 	}
 
@@ -111,8 +89,8 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 	if err != nil && !isForbidden {
 		result := sources.Result{
 			Type:   sources.ResultError,
-			Source: source.Name(),
-			Error:  err,
+			Source: s.Name(),
+			Error:  fmt.Errorf("request failed: %w", err),
 		}
 
 		results <- result
@@ -124,9 +102,9 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 	if isForbidden && ratelimitRemaining == 0 {
 		retryAfterSeconds := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.RetryAfter.String()))
 
-		tokens.setCurrentTokenExceeded(retryAfterSeconds)
+		s.keysManager.SetCurrentKeyExceeded(retryAfterSeconds)
 
-		source.Enumerate(searchReqURL, tokens, cfg, results)
+		s.Enumerate(searchReqURL, cfg, results)
 	}
 
 	var codeSearchResData codeSearchResponse
@@ -134,8 +112,8 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 	if err = json.NewDecoder(codeSearchRes.Body).Decode(&codeSearchResData); err != nil {
 		result := sources.Result{
 			Type:   sources.ResultError,
-			Source: source.Name(),
-			Error:  err,
+			Source: s.Name(),
+			Error:  fmt.Errorf("failed to parse JSON response: %w", err),
 		}
 
 		results <- result
@@ -157,8 +135,8 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  err,
+				Source: s.Name(),
+				Error:  fmt.Errorf("request failed: %w", err),
 			}
 
 			results <- result
@@ -191,7 +169,7 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 
 				result := sources.Result{
 					Type:   sources.ResultURL,
-					Source: source.Name(),
+					Source: s.Name(),
 					Value:  URL,
 				}
 
@@ -202,8 +180,8 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 		if err = scanner.Err(); err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  err,
+				Source: s.Name(),
+				Error:  fmt.Errorf("failed to read response body: %w", err),
 			}
 
 			results <- result
@@ -227,7 +205,7 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 
 				result := sources.Result{
 					Type:   sources.ResultURL,
-					Source: source.Name(),
+					Source: s.Name(),
 					Value:  URL,
 				}
 
@@ -244,7 +222,7 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
-					Source: source.Name(),
+					Source: s.Name(),
 					Error:  err,
 				}
 
@@ -253,16 +231,83 @@ func (source *Source) Enumerate(searchReqURL string, tokens *Tokens, cfg *source
 				return
 			}
 
-			source.Enumerate(nextURL, tokens, cfg, results)
+			s.Enumerate(nextURL, cfg, results)
 		}
 	}
 }
 
-// Name returns the unique identifier for the data source.
-// This identifier is used for logging, debugging, and associating results with the correct data source.
-//
-// Returns:
-//   - name (string): The unique identifier for the data source.
-func (source *Source) Name() (name string) {
-	return sources.GITHUB
+type ManagedKey struct {
+	ExceededTime time.Time
+	RetryAfter   int64
+	Value        string
+}
+
+type KeysManager struct {
+	mu      sync.Mutex
+	current int
+	pool    []ManagedKey
+}
+
+func NewKeyManager(keys []string) (manager *KeysManager) {
+	pool := make([]ManagedKey, len(keys))
+
+	for i, key := range keys {
+		pool[i] = ManagedKey{Value: key}
+	}
+
+	manager = &KeysManager{
+		pool: pool,
+	}
+
+	return
+}
+
+func (m *KeysManager) GetCurrentKey() (key *ManagedKey) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i := range m.pool {
+		key := &m.pool[i]
+
+		if key.RetryAfter > 0 && time.Since(key.ExceededTime) > time.Duration(key.RetryAfter)*time.Second {
+			key.ExceededTime = time.Time{}
+			key.RetryAfter = 0
+		}
+	}
+
+	if m.current >= len(m.pool) {
+		m.current %= len(m.pool)
+	}
+
+	key = &m.pool[m.current]
+
+	m.current++
+
+	return
+}
+
+func (m *KeysManager) SetCurrentKeyExceeded(retryAfter int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.current >= len(m.pool) {
+		m.current %= len(m.pool)
+	}
+
+	key := &m.pool[m.current]
+
+	if key.RetryAfter == 0 {
+		key.ExceededTime = time.Now()
+		key.RetryAfter = retryAfter
+	}
+}
+
+var _ sources.Source = (*Source)(nil)
+
+func New() (source sources.Source) {
+	source = &Source{
+		keys: make(sources.Keys, 0),
+	}
+
+	return
 }

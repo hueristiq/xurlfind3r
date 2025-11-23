@@ -1,32 +1,14 @@
-// Package virustotal provides an implementation of the sources.Source interface
-// for interacting with the VirusTotal API.
-//
-// The VirusTotal API aggregates threat intelligence data for domains, URLs, and files.
-// This package defines a Source type that implements the Run and Name methods as specified
-// by the sources.Source interface. The Run method retrieves URL information for a target domain
-// by querying the VirusTotal domain report endpoint, processes the detected URLs, subdomains,
-// and undetected URLs from the response, validates them using the provided configuration, and
-// streams valid URLs or errors asynchronously via a channel.
 package virustotal
 
 import (
 	"encoding/json"
+	"fmt"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
 	hqgolimiter "github.com/hueristiq/hq-go-limiter"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-// getDomainReportResponse represents the structure of the JSON response returned by the VirusTotal
-// API when requesting a domain report.
-//
-// It contains the following fields:
-//   - DetectedURLs ([]struct): A slice of objects, each containing a detected URL from the domain report.
-//     Each object includes:
-//   - URL (string): The URL that was detected.
-//   - Subdomains ([]string): A slice of subdomains discovered in the domain report.
-//   - UndetectedURLs ([][]interface{}): A slice of arrays where each array represents an undetected URL.
-//     The first element of each array is expected to be a string URL.
 type getDomainReportResponse struct {
 	DetectedURLs []struct {
 		URL string `json:"url"`
@@ -35,34 +17,32 @@ type getDomainReportResponse struct {
 	UndetectedURLs [][]interface{} `json:"undetected_urls"`
 }
 
-// Source represents the Common Crawl data source implementation.
-// It implements the sources.Source interface, providing functionality
-// for retrieving URLs from the VirusTotal API.
-type Source struct{}
+type Source struct {
+	keys sources.Keys
+}
 
-// Run initiates the process of retrieving URL information from the VirusTotal API for a given domain.
-//
-// Parameters:
-//   - domain (string): The target domain for which URLs are to be retrieved.
-//   - cfg (*sources.Configuration): The configuration instance containing API keys,
-//     the URL validation function, and any additional settings required by the source.
-//
-// Returns:
-//   - (<-chan sources.Result): A channel that asynchronously emits sources.Result values.
-//     Each result is either a discovered URL (ResultURL) or an error (ResultError)
-//     encountered during the operation.
-func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sources.Result {
+func (s *Source) Name() (name string) {
+	name = sources.VIRUSTOTAL
+
+	return
+}
+
+func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
+}
+
+func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		key, err := cfg.Keys.VirusTotal.PickRandom()
+		key, err := s.keys.PickRandom()
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  err,
+				Source: s.Name(),
+				Error:  fmt.Errorf("failed to select key: %w", err),
 			}
 
 			results <- result
@@ -84,8 +64,8 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  err,
+				Source: s.Name(),
+				Error:  fmt.Errorf("request failed: %w", err),
 			}
 
 			results <- result
@@ -98,8 +78,8 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 		if err = json.NewDecoder(getDomainReportRes.Body).Decode(&getDomainReportResData); err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  err,
+				Source: s.Name(),
+				Error:  fmt.Errorf("failed to parse JSON response: %w", err),
 			}
 
 			results <- result
@@ -122,7 +102,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 
 			result := sources.Result{
 				Type:   sources.ResultURL,
-				Source: source.Name(),
+				Source: s.Name(),
 				Value:  URL,
 			}
 
@@ -140,7 +120,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 
 			result := sources.Result{
 				Type:   sources.ResultURL,
-				Source: source.Name(),
+				Source: s.Name(),
 				Value:  URL,
 			}
 
@@ -158,7 +138,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 
 					result := sources.Result{
 						Type:   sources.ResultURL,
-						Source: source.Name(),
+						Source: s.Name(),
 						Value:  URL,
 					}
 
@@ -171,19 +151,17 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 	return results
 }
 
-// Name returns the unique identifier for the data source.
-// This identifier is used for logging, debugging, and associating results with the correct data source.
-//
-// Returns:
-//   - name (string): The unique identifier for the data source.
-func (source *Source) Name() (name string) {
-	return sources.VIRUSTOTAL
-}
-
-// limiter is a rate limiter instance configured to control the number of requests
-// sent to the VirusTotal API. It ensures that no more than 4 requests are made per minute,
-// with a minimum delay of 30 seconds between requests.
 var limiter = hqgolimiter.New(&hqgolimiter.Configuration{
 	RequestsPerMinute:     4,
 	MinimumDelayInSeconds: 30,
 })
+
+var _ sources.Source = (*Source)(nil)
+
+func New() (source sources.Source) {
+	source = &Source{
+		keys: make(sources.Keys, 0),
+	}
+
+	return
+}

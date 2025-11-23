@@ -1,27 +1,13 @@
-// Package hudsonrock provides an implementation of the sources.Source interface
-// for interacting with the Hudson Rock data source.
-//
-// The Hudson Rock service exposes an API endpoint that returns URLs associated with a given domain.
-// This package defines a Source type that implements the Run and Name methods as specified
-// by the sources.Source interface. The Run method retrieves URLs for a specified domain,
-// decodes the JSON response, and streams each valid URL asynchronously via a channel.
 package hudsonrock
 
 import (
 	"encoding/json"
+	"fmt"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-// getURLsResponse defines the structure for decoding the JSON response from the Hudson Rock API.
-//
-// Fields:
-//   - Data (struct): Contains the URLs data from the API response.
-//   - EmployeesUrls ([]struct): A slice of employee-related URL structures.
-//   - URL (string): The employee-related URL.
-//   - ClientsUrls ([]struct): A slice of client-related URL structures.
-//   - URL (string): The client-related URL.
 type getURLsResponse struct {
 	Data struct {
 		EmployeesUrls []struct {
@@ -33,23 +19,18 @@ type getURLsResponse struct {
 	} `json:"data"`
 }
 
-// Source represents the Hudson Rock data source implementation.
-// It implements the sources.Source interface, providing functionality
-// for retrieving URLs from the Hudson Rock OSINT API.
 type Source struct{}
 
-// Run initiates the URL discovery process for the specified domain using the Hudson Rock API.
-//
-// Parameters:
-//   - domain (string): The target domain for which URLs are to be retrieved.
-//   - cfg (*sources.Configuration): The configuration instance containing API keys,
-//     the URL validation function, and any additional settings required by the source.
-//
-// Returns:
-//   - (<-chan sources.Result): A channel that asynchronously emits sources.Result values.
-//     Each result is either a discovered URL (ResultURL) or an error (ResultError)
-//     encountered during the operation.
-func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sources.Result {
+func (s *Source) Name() (name string) {
+	name = sources.HUDSONROCK
+
+	return
+}
+
+func (s *Source) UseKeys(keys ...string) {
+}
+
+func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -67,7 +48,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 			result := sources.Result{
 				Type:   sources.ResultError,
 				Source: source.Name(),
-				Error:  err,
+				Error:  fmt.Errorf("request failed: %w", err),
 			}
 
 			results <- result
@@ -81,7 +62,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 			result := sources.Result{
 				Type:   sources.ResultError,
 				Source: source.Name(),
-				Error:  err,
+				Error:  fmt.Errorf("failed to parse JSON response: %w", err),
 			}
 
 			results <- result
@@ -115,11 +96,10 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 	return results
 }
 
-// Name returns the unique identifier for the data source.
-// This identifier is used for logging, debugging, and associating results with the correct data source.
-//
-// Returns:
-//   - name (string): The unique identifier for the data source.
-func (source *Source) Name() (name string) {
-	return sources.HUDSONROCK
+var _ sources.Source = (*Source)(nil)
+
+func New() (source sources.Source) {
+	source = &Source{}
+
+	return
 }

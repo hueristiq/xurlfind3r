@@ -12,9 +12,9 @@ import (
 )
 
 type Configuration struct {
-	Version string       `yaml:"version"`
-	Sources []string     `yaml:"sources"`
-	Keys    sources.Keys `yaml:"keys"`
+	Version string                  `yaml:"version"`
+	Sources []string                `yaml:"sources"`
+	Keys    map[string]sources.Keys `yaml:"keys"`
 }
 
 func (configuration *Configuration) Write(path string) (err error) {
@@ -83,12 +83,12 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 	DefaultConfiguration         = Configuration{
 		Version: VERSION,
 		Sources: sources.List,
-		Keys: sources.Keys{
-			Bevigil:    []string{},
-			Github:     []string{},
-			IntelX:     []string{},
-			URLScan:    []string{},
-			VirusTotal: []string{},
+		Keys: map[string]sources.Keys{
+			sources.BEVIGIL:       {},
+			sources.GITHUB:        {},
+			sources.INTELLIGENCEX: {},
+			sources.URLSCAN:       {},
+			sources.VIRUSTOTAL:    {},
 		},
 	}
 )

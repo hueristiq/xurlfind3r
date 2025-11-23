@@ -1,12 +1,3 @@
-// Package xurlfind3r provides the core functionality for performing URL
-// discovery using multiple data sources. It integrates various sources that implement
-// the sources.Source interface, coordinates concurrent URL enumeration, and
-// aggregates the results.
-//
-// The package defines a Finder type, which manages enabled sources and configuration
-// settings, and provides a Find method to initiate URL discovery for a given domain.
-// It also defines a Configuration type for user-defined settings and API keys, and
-// initializes HTTP client configurations for reliable network requests.
 package xurlfind3r
 
 import (
@@ -31,56 +22,41 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
 )
 
-// Finder is the primary structure for performing URL discovery.
-// It manages data sources and configuration settings.
-//
-// Fields:
-//   - sources (map[string]sources.Source): A map of string keys to sources.Source interfaces representing the enabled enumeration sources.
-//   - configuration (*sources.Configuration): A pointer to the sources.Configuration struct containing API keys and other settings.
 type Finder struct {
-	sources       map[string]sources.Source
-	configuration *sources.Configuration
+	sources            map[string]sources.Source
+	includceSubdomains bool
 }
 
-// Find initiates the URL discovery process for a specific domain.
-// It normalizes the domain name, applies source-specific logic, and streams results via a channel.
-// The method uses all enabled sources concurrently and aggregates their results.
-//
-// Parameters:
-//   - domain (string): The target domain for URL discovery.
-//
-// Returns:
-//   - results (chan sources.Result): A channel that streams URL enumeration results.
 func (finder *Finder) Find(domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
-	finder.configuration.Extractor = hqgourlextractor.New(
-		hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.ExtractorPortOptionalPattern + `)`),
-	).CompileRegex()
+	configuration := &sources.Configuration{
+		Extractor:         hqgourlextractor.New(hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.ExtractorPortOptionalPattern + `)`)).CompileRegex(),
+		IncludeSubdomains: finder.includceSubdomains,
+		Validate: func(target string) (URL string, valid bool) {
+			scheme := "https"
 
-	finder.configuration.Validate = func(target string) (URL string, valid bool) {
-		scheme := "https"
+			switch {
+			case strings.HasPrefix(target, "//"):
+				URL = scheme + ":" + target
+			case strings.HasPrefix(target, "://"):
+				URL = scheme + target
+			case !strings.Contains(target, "//"):
+				URL = scheme + "://" + target
+			default:
+				URL = target
+			}
 
-		switch {
-		case strings.HasPrefix(target, "//"):
-			URL = scheme + ":" + target
-		case strings.HasPrefix(target, "://"):
-			URL = scheme + target
-		case !strings.Contains(target, "//"):
-			URL = scheme + "://" + target
-		default:
-			URL = target
-		}
+			pattern := fmt.Sprintf(`https?://(www\.)?%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
 
-		pattern := fmt.Sprintf(`https?://(www\.)?%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
+			if finder.includceSubdomains {
+				pattern = fmt.Sprintf(`https?://([a-z0-9-]+\.)*%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
+			}
 
-		if finder.configuration.IncludeSubdomains {
-			pattern = fmt.Sprintf(`https?://([a-z0-9-]+\.)*%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
-		}
+			valid = regexp.MustCompile(pattern).MatchString(URL)
 
-		valid = regexp.MustCompile(pattern).MatchString(URL)
-
-		return
+			return
+		},
 	}
 
 	go func() {
@@ -96,7 +72,7 @@ func (finder *Finder) Find(domain string) (results chan sources.Result) {
 			go func(source sources.Source) {
 				defer wg.Done()
 
-				sResults := source.Run(domain, finder.configuration)
+				sResults := source.Run(configuration, domain)
 
 				for sResult := range sResults {
 					if sResult.Type == sources.ResultURL {
@@ -121,38 +97,18 @@ type ClientConfiguration struct {
 	UserAgent string
 }
 
-// Configuration represents the user-defined settings for the Finder.
-// It specifies which sources to use or exclude and includes API keys for external sources.
-//
-// Fields:
-// - IncludeSubdomains bool: Whether to include subdomains in the scope.
-// - SourcesToUSe ([]string): List of source names to be used for enumeration.
-// - SourcesToExclude ([]string): List of source names to be excluded from enumeration.
-// - Keys (sources.Keys): API keys for authenticated sources.
 type Configuration struct {
 	Client            *ClientConfiguration
+	Keys              map[string]sources.Keys
 	IncludeSubdomains bool
 	SourcesToUse      []string
 	SourcesToExclude  []string
-	Keys              sources.Keys
 }
 
-// New initializes a new Finder instance with the specified configuration.
-// It sets up the enabled sources, applies exclusions, and configures the Finder.
-//
-// Parameters:
-//   - cfg (*Configuration): The user-defined configuration for sources and API keys.
-//
-// Returns:
-//   - finder (*Finder): A pointer to the initialized Finder instance.
-//   - err (error): An error object if initialization fails, or nil on success.
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
-		sources: map[string]sources.Source{},
-		configuration: &sources.Configuration{
-			IncludeSubdomains: cfg.IncludeSubdomains,
-			Keys:              cfg.Keys,
-		},
+		includceSubdomains: cfg.IncludeSubdomains,
+		sources:            map[string]sources.Source{},
 	}
 
 	cc := hqgohttp.DefaultSprayingClientConfiguration
@@ -166,6 +122,8 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 
 	hqgohttp.DefaultClient, err = hqgohttp.NewClient(cc)
 	if err != nil {
+		err = fmt.Errorf("failed to initialize HTTP client: %w", err)
+
 		return
 	}
 
@@ -176,23 +134,23 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	for _, source := range cfg.SourcesToUse {
 		switch source {
 		case sources.BEVIGIL:
-			finder.sources[source] = &bevigil.Source{}
+			finder.sources[source] = bevigil.New()
 		case sources.COMMONCRAWL:
-			finder.sources[source] = &commoncrawl.Source{}
+			finder.sources[source] = commoncrawl.New()
 		case sources.GITHUB:
-			finder.sources[source] = &github.Source{}
+			finder.sources[source] = github.New()
 		case sources.HUDSONROCK:
-			finder.sources[source] = &hudsonrock.Source{}
+			finder.sources[source] = hudsonrock.New()
 		case sources.INTELLIGENCEX:
-			finder.sources[source] = &intelx.Source{}
+			finder.sources[source] = intelx.New()
 		case sources.OPENTHREATEXCHANGE:
-			finder.sources[source] = &otx.Source{}
+			finder.sources[source] = otx.New()
 		case sources.URLSCAN:
-			finder.sources[source] = &urlscan.Source{}
+			finder.sources[source] = urlscan.New()
 		case sources.VIRUSTOTAL:
-			finder.sources[source] = &virustotal.Source{}
+			finder.sources[source] = virustotal.New()
 		case sources.WAYBACK:
-			finder.sources[source] = &wayback.Source{}
+			finder.sources[source] = wayback.New()
 		}
 	}
 
@@ -200,6 +158,14 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 		source := cfg.SourcesToExclude[index]
 
 		delete(finder.sources, source)
+	}
+
+	for index := range finder.sources {
+		source := finder.sources[index]
+
+		if keys, ok := cfg.Keys[source.Name()]; ok {
+			source.UseKeys(keys...)
+		}
 	}
 
 	return

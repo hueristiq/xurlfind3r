@@ -1,17 +1,8 @@
-// Package urlscan provides an implementation of the sources.Source interface
-// for interacting with the urlscan.io API.
-//
-// The urlscan.io API enables scanning of URLs and retrieving associated data such as
-// domain, MIME type, HTTP status, and more. This package defines a Source type that
-// implements the Run and Name methods as specified by the sources.Source interface.
-// The Run method queries the urlscan.io API for URLs associated with a target domain,
-// handles pagination via the "search_after" parameter, validates discovered URLs using the
-// provided configuration, and streams valid URLs or errors asynchronously via a channel.
 package urlscan
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"strings"
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
@@ -22,15 +13,6 @@ import (
 	"github.com/spf13/cast"
 )
 
-// searchResponse represents the structure of the JSON response returned by the urlscan.io API.
-//
-// It contains the following fields:
-//   - Results: A slice of result objects, each containing details about a scanned page.
-//     Each result includes a Page field with domain-related data and a Sort field used for pagination.
-//   - Status: An integer representing the status code of the API response.
-//   - Total: An integer representing the total number of results.
-//   - Took: An integer representing the time taken for the search (in milliseconds).
-//   - HasMore: A boolean indicating whether more results are available for pagination.
 type searchResponse struct {
 	Results []struct {
 		Page struct {
@@ -47,34 +29,32 @@ type searchResponse struct {
 	HasMore bool `json:"has_more"`
 }
 
-// Source represents the Common Crawl data source implementation.
-// It implements the sources.Source interface, providing functionality
-// for retrieving URLs from the urlscan.io API.
-type Source struct{}
+type Source struct {
+	keys sources.Keys
+}
 
-// Run initiates the process of retrieving URL information from the urlscan.io API for a given domain.
-//
-// Parameters:
-//   - domain (string): The target domain for which URLs are to be retrieved.
-//   - cfg (*sources.Configuration): The configuration instance containing API keys,
-//     the URL validation function, and any additional settings required by the source.
-//
-// Returns:
-//   - (<-chan sources.Result): A channel that asynchronously emits sources.Result values.
-//     Each result is either a discovered URL (ResultURL) or an error (ResultError)
-//     encountered during the operation.
-func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sources.Result {
+func (s *Source) Name() (name string) {
+	name = sources.URLSCAN
+
+	return
+}
+
+func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
+}
+
+func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
-		key, err := cfg.Keys.URLScan.PickRandom()
-		if err != nil && !errors.Is(err, sources.ErrNoKeys) {
+		key, err := s.keys.PickRandom()
+		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  err,
+				Source: s.Name(),
+				Error:  fmt.Errorf("failed to select key: %w", err),
 			}
 
 			results <- result
@@ -105,8 +85,8 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
-					Source: source.Name(),
-					Error:  err,
+					Source: s.Name(),
+					Error:  fmt.Errorf("request failed: %w", err),
 				}
 
 				results <- result
@@ -119,8 +99,8 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 			if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
-					Source: source.Name(),
-					Error:  err,
+					Source: s.Name(),
+					Error:  fmt.Errorf("failed to parse JSON response: %w", err),
 				}
 
 				results <- result
@@ -147,7 +127,7 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 
 				result := sources.Result{
 					Type:   sources.ResultURL,
-					Source: source.Name(),
+					Source: s.Name(),
 					Value:  URL,
 				}
 
@@ -179,11 +159,12 @@ func (source *Source) Run(domain string, cfg *sources.Configuration) <-chan sour
 	return results
 }
 
-// Name returns the unique identifier for the data source.
-// This identifier is used for logging, debugging, and associating results with the correct data source.
-//
-// Returns:
-//   - name (string): The unique identifier for the data source.
-func (source *Source) Name() (name string) {
-	return sources.URLSCAN
+var _ sources.Source = (*Source)(nil)
+
+func New() (source sources.Source) {
+	source = &Source{
+		keys: make(sources.Keys, 0),
+	}
+
+	return
 }
