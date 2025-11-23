@@ -96,16 +96,16 @@ type ClientConfiguration struct {
 
 type Configuration struct {
 	Client            *ClientConfiguration
-	Keys              map[string]sources.Keys
-	IncludeSubdomains bool
 	SourcesToUse      []string
 	SourcesToExclude  []string
+	Keys              map[string]sources.Keys
+	IncludeSubdomains bool
 }
 
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
-		includceSubdomains: cfg.IncludeSubdomains,
 		sources:            map[string]sources.Source{},
+		includceSubdomains: cfg.IncludeSubdomains,
 	}
 
 	cc := hqgohttp.DefaultSprayingClientConfiguration

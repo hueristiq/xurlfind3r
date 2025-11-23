@@ -232,6 +232,10 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 	}
 }
 
+func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
+}
+
 type ManagedKey struct {
 	ExceededTime time.Time
 	RetryAfter   int64
@@ -296,10 +300,6 @@ func (m *KeysManager) SetCurrentKeyExceeded(retryAfter int64) {
 		key.ExceededTime = time.Now()
 		key.RetryAfter = retryAfter
 	}
-}
-
-func (s *Source) UseKeys(keys ...string) {
-	s.keys = append(s.keys, keys...)
 }
 
 var _ sources.Source = (*Source)(nil)

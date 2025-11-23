@@ -214,10 +214,10 @@ func main() {
 		Client: &xurlfind3r.ClientConfiguration{
 			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.NAME, configuration.VERSION, configuration.NAME),
 		},
-		IncludeSubdomains: includeSubdomains,
 		SourcesToUse:      sourcesToUse,
 		SourcesToExclude:  sourcesToExclude,
 		Keys:              cfg.Keys,
+		IncludeSubdomains: includeSubdomains,
 	})
 	if err != nil {
 		hqgologger.Fatal("failed creating finder!", hqgologger.WithError(err))
