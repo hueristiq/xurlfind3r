@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -139,24 +138,17 @@ func main() {
 	}
 
 	if listSupportedSources {
-		hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(cfg.Sources))).Bold()), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(xurlfind3r.Sources))).Bold()), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 		hqgologger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold()), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
-		needsKey := make(map[string]interface{})
-		keysElem := reflect.ValueOf(&cfg.Keys).Elem()
+		for i := range xurlfind3r.Sources {
+			source := xurlfind3r.Sources[i]
 
-		for i := range keysElem.NumField() {
-			needsKey[strings.ToLower(keysElem.Type().Field(i).Name)] = keysElem.Field(i).Interface()
-		}
-
-		for index := range cfg.Sources {
-			source := cfg.Sources[index]
-
-			if _, ok := needsKey[source]; ok {
-				hqgologger.Print("> "+source+" *", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+			if source.NeedsKeys() {
+				hqgologger.Print("> "+source.Name()+" *", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 			} else {
-				hqgologger.Print("> "+source, hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+				hqgologger.Print("> "+source.Name(), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 			}
 		}
 

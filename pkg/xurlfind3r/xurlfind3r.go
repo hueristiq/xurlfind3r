@@ -103,9 +103,33 @@ type Configuration struct {
 	IncludeSubdomains bool
 }
 
+var (
+	Sources = [...]sources.Source{
+		bevigil.New(),
+		commoncrawl.New(),
+		github.New(),
+		hudsonrock.New(),
+		intelx.New(),
+		leakradar.New(),
+		otx.New(),
+		urlscan.New(),
+		virustotal.New(),
+		wayback.New(),
+	}
+	NameToSourceMap = make(map[string]sources.Source, len(Sources))
+)
+
+func init() {
+	for i := range Sources {
+		source := Sources[i]
+
+		NameToSourceMap[source.Name()] = source
+	}
+}
+
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
-		sources:            map[string]sources.Source{},
+		sources:            make(map[string]sources.Source, len(Sources)),
 		includceSubdomains: cfg.IncludeSubdomains,
 	}
 
@@ -130,38 +154,22 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	}
 
 	for _, source := range cfg.SourcesToUse {
-		switch source {
-		case sources.BEVIGIL:
-			finder.sources[source] = bevigil.New()
-		case sources.COMMONCRAWL:
-			finder.sources[source] = commoncrawl.New()
-		case sources.GITHUB:
-			finder.sources[source] = github.New()
-		case sources.HUDSONROCK:
-			finder.sources[source] = hudsonrock.New()
-		case sources.INTELLIGENCEX:
-			finder.sources[source] = intelx.New()
-		case sources.LEAKRADAR:
-			finder.sources[source] = leakradar.New()
-		case sources.OPENTHREATEXCHANGE:
-			finder.sources[source] = otx.New()
-		case sources.URLSCAN:
-			finder.sources[source] = urlscan.New()
-		case sources.VIRUSTOTAL:
-			finder.sources[source] = virustotal.New()
-		case sources.WAYBACK:
-			finder.sources[source] = wayback.New()
+		s, k := NameToSourceMap[source]
+		if !k {
+			continue
 		}
+
+		finder.sources[source] = s
 	}
 
-	for index := range cfg.SourcesToExclude {
-		source := cfg.SourcesToExclude[index]
+	for i := range cfg.SourcesToExclude {
+		source := cfg.SourcesToExclude[i]
 
 		delete(finder.sources, source)
 	}
 
-	for index := range finder.sources {
-		source := finder.sources[index]
+	for i := range finder.sources {
+		source := finder.sources[i]
 
 		if keys, ok := cfg.Keys[source.Name()]; ok {
 			source.UseKeys(keys...)

@@ -11,6 +11,7 @@ import (
 type Source interface {
 	Name() (name string)
 	Run(cfg *Configuration, domain string) <-chan Result
+	NeedsKeys() (needs bool)
 	UseKeys(keys ...string)
 }
 

@@ -232,6 +232,12 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 	}
 }
 
+func (s *Source) NeedsKeys() (needs bool) {
+	needs = true
+
+	return
+}
+
 func (s *Source) UseKeys(keys ...string) {
 	s.keys = append(s.keys, keys...)
 }

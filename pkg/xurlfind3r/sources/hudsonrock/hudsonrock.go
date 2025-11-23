@@ -93,6 +93,12 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 	return results
 }
 
+func (s *Source) NeedsKeys() (needs bool) {
+	needs = false
+
+	return
+}
+
 func (s *Source) UseKeys(keys ...string) {
 }
 
