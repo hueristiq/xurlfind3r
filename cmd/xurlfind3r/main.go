@@ -239,7 +239,7 @@ func main() {
 		case outputFilePath != "":
 			file, err = writer.CreateFile(outputFilePath)
 			if err != nil {
-				hqgologger.Fatal("failed creating output file!", hqgologger.WithError(err), hqgologger.WithString("file", outputFilePath))
+				hqgologger.Fatal("failed to create output file!", hqgologger.WithString("file", outputFilePath), hqgologger.WithError(err))
 			}
 
 			outputs = append(outputs, file)
@@ -248,7 +248,7 @@ func main() {
 
 			file, err = writer.CreateFile(domainOutputFilePath)
 			if err != nil {
-				hqgologger.Fatal("failed creating output file!", hqgologger.WithError(err), hqgologger.WithString("file", domainOutputFilePath))
+				hqgologger.Fatal("failed to create output file!", hqgologger.WithString("file", domainOutputFilePath), hqgologger.WithError(err))
 			}
 
 			outputs = append(outputs, file)
@@ -265,7 +265,7 @@ func main() {
 					}
 				case sources.ResultURL:
 					if err := writer.Write(output, domain, result); err != nil {
-						hqgologger.Error("failed write subdomains!", hqgologger.WithString("source", result.Source), hqgologger.WithError(err))
+						hqgologger.Error("failed to write subdomains!", hqgologger.WithString("source", result.Source), hqgologger.WithError(err))
 					}
 				}
 			}
