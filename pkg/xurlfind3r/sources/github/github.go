@@ -40,10 +40,6 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) UseKeys(keys ...string) {
-	s.keys = append(s.keys, keys...)
-}
-
 func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
@@ -163,7 +159,7 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 			for _, URL := range URLs {
 				var valid bool
 
-				if URL, valid = cfg.Validate(URL); !valid {
+				if URL, valid = cfg.Validator(URL); !valid {
 					continue
 				}
 
@@ -199,7 +195,7 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 			for _, URL := range URLs {
 				var valid bool
 
-				if URL, valid = cfg.Validate(URL); !valid {
+				if URL, valid = cfg.Validator(URL); !valid {
 					continue
 				}
 
@@ -300,6 +296,10 @@ func (m *KeysManager) SetCurrentKeyExceeded(retryAfter int64) {
 		key.ExceededTime = time.Now()
 		key.RetryAfter = retryAfter
 	}
+}
+
+func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
 }
 
 var _ sources.Source = (*Source)(nil)

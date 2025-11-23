@@ -9,7 +9,6 @@ import (
 
 	hqgohttp "github.com/hueristiq/hq-go-http"
 	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
-	hqgourlextractor "github.com/hueristiq/hq-go-url/extractor"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
@@ -31,9 +30,7 @@ func (finder *Finder) Find(domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
 	configuration := &sources.Configuration{
-		Extractor:         hqgourlextractor.New(hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.ExtractorPortOptionalPattern + `)`)).CompileRegex(),
-		IncludeSubdomains: finder.includceSubdomains,
-		Validate: func(target string) (URL string, valid bool) {
+		Validator: func(target string) (URL string, valid bool) {
 			scheme := "https"
 
 			switch {

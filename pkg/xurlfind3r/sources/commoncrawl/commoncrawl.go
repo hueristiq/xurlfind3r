@@ -43,9 +43,6 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) UseKeys(keys ...string) {
-}
-
 func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
@@ -216,7 +213,7 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 					var valid bool
 
-					if URL, valid = cfg.Validate(getURLsResData.URL); !valid {
+					if URL, valid = cfg.Validator(getURLsResData.URL); !valid {
 						continue
 					}
 
@@ -249,6 +246,9 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 	}()
 
 	return results
+}
+
+func (s *Source) UseKeys(keys ...string) {
 }
 
 var _ sources.Source = (*Source)(nil)

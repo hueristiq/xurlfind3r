@@ -18,9 +18,6 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) UseKeys(keys ...string) {
-}
-
 func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
@@ -85,7 +82,7 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 				var valid bool
 
-				if URL, valid = cfg.Validate(record[1]); !valid {
+				if URL, valid = cfg.Validator(record[1]); !valid {
 					continue
 				}
 
@@ -101,6 +98,9 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 	}()
 
 	return results
+}
+
+func (s *Source) UseKeys(keys ...string) {
 }
 
 var limiter = hqgolimiter.New(&hqgolimiter.Configuration{

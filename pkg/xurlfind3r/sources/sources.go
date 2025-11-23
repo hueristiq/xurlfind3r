@@ -10,14 +10,13 @@ import (
 
 type Source interface {
 	Name() (name string)
-	UseKeys(keys ...string)
 	Run(cfg *Configuration, domain string) <-chan Result
+	UseKeys(keys ...string)
 }
 
 type Configuration struct {
-	Extractor         *regexp.Regexp
-	IncludeSubdomains bool
-	Validate          func(target string) (URL string, valid bool)
+	Extractor *regexp.Regexp
+	Validator func(target string) (URL string, valid bool)
 }
 
 type Result struct {
