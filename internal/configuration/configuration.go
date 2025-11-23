@@ -87,6 +87,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 			sources.BEVIGIL:       {},
 			sources.GITHUB:        {},
 			sources.INTELLIGENCEX: {},
+			sources.LEAKRADAR:     {},
 			sources.URLSCAN:       {},
 			sources.VIRUSTOTAL:    {},
 		},

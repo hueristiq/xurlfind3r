@@ -68,6 +68,7 @@ const (
 	GITHUB             = "github"
 	HUDSONROCK         = "hudsonrock"
 	INTELLIGENCEX      = "intelx"
+	LEAKRADAR          = "leakradar"
 	OPENTHREATEXCHANGE = "otx"
 	URLSCAN            = "urlscan"
 	VIRUSTOTAL         = "virustotal"
@@ -80,6 +81,7 @@ var List = []string{
 	GITHUB,
 	HUDSONROCK,
 	INTELLIGENCEX,
+	LEAKRADAR,
 	OPENTHREATEXCHANGE,
 	URLSCAN,
 	VIRUSTOTAL,

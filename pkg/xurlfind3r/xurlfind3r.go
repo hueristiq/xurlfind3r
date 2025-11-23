@@ -15,6 +15,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/hudsonrock"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/leakradar"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/virustotal"
@@ -140,6 +141,8 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 			finder.sources[source] = hudsonrock.New()
 		case sources.INTELLIGENCEX:
 			finder.sources[source] = intelx.New()
+		case sources.LEAKRADAR:
+			finder.sources[source] = leakradar.New()
 		case sources.OPENTHREATEXCHANGE:
 			finder.sources[source] = otx.New()
 		case sources.URLSCAN:
