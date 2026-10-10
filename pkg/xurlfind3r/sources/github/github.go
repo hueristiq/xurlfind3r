@@ -2,6 +2,7 @@ package github
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,10 +11,9 @@ import (
 	"sync"
 	"time"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
-	hqgohttpheaderutils "github.com/hueristiq/hq-go-http/header/utils"
-	hqgohttpstatus "github.com/hueristiq/hq-go-http/status"
+	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
+	hqgohttpheaderutils "github.com/hueristiq/hq-lib-http-go/header/utils"
+	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
@@ -40,7 +40,7 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -54,13 +54,13 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 		searchReqURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
 
-		s.Enumerate(searchReqURL, cfg, results)
+		s.Enumerate(ctx, searchReqURL, cfg, results)
 	}()
 
 	return results
 }
 
-func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, results chan sources.Result) {
+func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *sources.Configuration, results chan sources.Result) {
 	token := s.keysManager.GetCurrentKey()
 
 	if token.RetryAfter > 0 {
@@ -71,14 +71,11 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 		}
 	}
 
-	codeSearchResCFG := &hqgohttp.RequestConfiguration{
-		Headers: []hqgohttp.Header{
-			hqgohttp.NewSetHeader(hqgohttpheader.Accept.String(), "application/vnd.github.v3.text-match+json"),
-			hqgohttp.NewSetHeader(hqgohttpheader.Authorization.String(), "token "+token.Value),
-		},
-	}
-
-	codeSearchRes, err := hqgohttp.Get(searchReqURL, codeSearchResCFG)
+	codeSearchRes, err := cfg.Client.NewRequest().
+		URL(searchReqURL).
+		SetHeader(hqgohttpheader.Accept.String(), "application/vnd.github.v3.text-match+json").
+		SetHeader(hqgohttpheader.Authorization.String(), "token "+token.Value).
+		Do(ctx)
 
 	isForbidden := codeSearchRes != nil && codeSearchRes.StatusCode == hqgohttpstatus.Forbidden.Int()
 
@@ -100,7 +97,7 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 
 		s.keysManager.SetCurrentKeyExceeded(retryAfterSeconds)
 
-		s.Enumerate(searchReqURL, cfg, results)
+		s.Enumerate(ctx, searchReqURL, cfg, results)
 	}
 
 	var codeSearchResData codeSearchResponse
@@ -127,7 +124,9 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 
 		var getRawContentRes *http.Response
 
-		getRawContentRes, err = hqgohttp.Get(getRawContentReqURL)
+		getRawContentRes, err = cfg.Client.NewRequest().
+			URL(getRawContentReqURL).
+			Do(ctx)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -210,7 +209,7 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 		}
 	}
 
-	links := hqgohttpheaderutils.ParseLinkHeaderValue(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
+	links := hqgohttpheaderutils.Parse(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
 
 	for _, link := range links {
 		if link.Rel == "next" {
@@ -227,7 +226,7 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 				return
 			}
 
-			s.Enumerate(nextURL, cfg, results)
+			s.Enumerate(ctx, nextURL, cfg, results)
 		}
 	}
 }

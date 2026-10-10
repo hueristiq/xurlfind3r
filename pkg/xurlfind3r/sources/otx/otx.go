@@ -1,10 +1,10 @@
 package otx
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
@@ -39,7 +39,7 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -47,14 +47,12 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 		for page := 1; ; page++ {
 			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list", domain)
-			getURLsReqCFG := &hqgohttp.RequestConfiguration{
-				Params: map[string]string{
-					"limit": "100",
-					"page":  cast.ToString(page),
-				},
-			}
 
-			getURLsRes, err := hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
+			getURLsRes, err := cfg.Client.NewRequest().
+				URL(getURLsReqURL).
+				Param("limit", "100").
+				Param("page", cast.ToString(page)).
+				Do(ctx)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,

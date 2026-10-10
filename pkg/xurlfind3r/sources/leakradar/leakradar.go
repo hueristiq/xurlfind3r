@@ -1,10 +1,10 @@
 package leakradar
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
@@ -31,7 +31,7 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -52,17 +52,13 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 			}
 
 			getURLsReqURL := fmt.Sprintf("https://api.leakradar.io/search/domain/%s/urls", domain)
-			getURLsReqCFG := &hqgohttp.RequestConfiguration{
-				Headers: []hqgohttp.Header{
-					hqgohttp.NewSetHeader("Authorization", "Bearer "+key),
-				},
-				Params: map[string]string{
-					"page":      cast.ToString(page),
-					"page_size": "100",
-				},
-			}
 
-			getURLsRes, err := hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
+			getURLsRes, err := cfg.Client.NewRequest().
+				URL(getURLsReqURL).
+				SetHeader("Authorization", "Bearer "+key).
+				Param("page", cast.ToString(page)).
+				Param("page_size", "100").
+				Do(ctx)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,

@@ -1,14 +1,14 @@
 package xurlfind3r
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
+	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
@@ -25,12 +25,14 @@ import (
 type Finder struct {
 	sources            map[string]sources.Source
 	includceSubdomains bool
+	client             *hqgohttp.Client
 }
 
-func (finder *Finder) Find(domain string) (results chan sources.Result) {
+func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
 	configuration := &sources.Configuration{
+		Client: finder.client,
 		Validator: func(target string) (URL string, valid bool) {
 			scheme := "https"
 
@@ -70,7 +72,7 @@ func (finder *Finder) Find(domain string) (results chan sources.Result) {
 			go func(source sources.Source) {
 				defer wg.Done()
 
-				sResults := source.Run(configuration, domain)
+				sResults := source.Run(ctx, configuration, domain)
 
 				for sResult := range sResults {
 					if sResult.Type == sources.ResultURL {
@@ -133,16 +135,20 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 		includceSubdomains: cfg.IncludeSubdomains,
 	}
 
-	cc := hqgohttp.DefaultSprayingClientConfiguration
-
-	cc.Headers = []hqgohttp.Header{}
-	cc.Timeout = 1 * time.Hour
-
-	if cfg.Client != nil && cfg.Client.UserAgent != "" {
-		cc.Headers = append(cc.Headers, hqgohttp.NewSetHeader(hqgohttpheader.UserAgent.String(), cfg.Client.UserAgent))
+	ofs := []hqgohttp.ClientOptionFunc{
+		hqgohttp.WithHTTPClient(hqgohttp.DefaultHTTPClient()),
+		hqgohttp.WithTimeout(1 * time.Hour),
+		hqgohttp.WithMaxRetries(3),
+		hqgohttp.WithRetryWaitMin(1 * time.Second),
+		hqgohttp.WithRetryWaitMax(30 * time.Second),
+		hqgohttp.WithResponseReadLimit(4096),
 	}
 
-	hqgohttp.DefaultClient, err = hqgohttp.NewClient(cc)
+	if cfg.Client != nil && cfg.Client.UserAgent != "" {
+		ofs = append(ofs, hqgohttp.WithUserAgent(cfg.Client.UserAgent))
+	}
+
+	finder.client, err = hqgohttp.NewClient(ofs...)
 	if err != nil {
 		err = fmt.Errorf("failed to initialize HTTP client: %w", err)
 

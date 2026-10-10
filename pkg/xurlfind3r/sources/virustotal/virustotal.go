@@ -1,11 +1,12 @@
 package virustotal
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgolimiter "github.com/hueristiq/hq-go-limiter"
+	hqgolimiter "github.com/hueristiq/hq-lib-limiter-go"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -27,7 +28,7 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -47,16 +48,24 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 		}
 
 		getDomainReportReqURL := "https://www.virustotal.com/vtapi/v2/domain/report"
-		getDomainReportReqCFG := &hqgohttp.RequestConfiguration{
-			Params: map[string]string{
-				"apikey": key,
-				"domain": domain,
-			},
+
+		if err := limiter.Wait(ctx); err != nil {
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  fmt.Errorf("failed to wait on rate limiter: %w", err),
+			}
+
+			results <- result
+
+			return
 		}
 
-		limiter.Wait()
-
-		getDomainReportRes, err := hqgohttp.Get(getDomainReportReqURL, getDomainReportReqCFG)
+		getDomainReportRes, err := cfg.Client.NewRequest().
+			URL(getDomainReportReqURL).
+			Param("apikey", key).
+			Param("domain", domain).
+			Do(ctx)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -157,10 +166,10 @@ func (s *Source) UseKeys(keys ...string) {
 	s.keys = append(s.keys, keys...)
 }
 
-var limiter = hqgolimiter.New(&hqgolimiter.Configuration{
-	RequestsPerMinute:     4,
-	MinimumDelayInSeconds: 30,
-})
+var limiter = hqgolimiter.New(
+	hqgolimiter.WithRequestsPerMinute(4),
+	hqgolimiter.WithRate(1, 30*time.Second),
+)
 
 var _ sources.Source = (*Source)(nil)
 

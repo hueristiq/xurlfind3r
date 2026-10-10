@@ -1,21 +1,25 @@
 package sources
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
 	"regexp"
+
+	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 )
 
 type Source interface {
 	Name() (name string)
-	Run(cfg *Configuration, domain string) <-chan Result
+	Run(ctx context.Context, cfg *Configuration, domain string) <-chan Result
 	NeedsKeys() (needs bool)
 	UseKeys(keys ...string)
 }
 
 type Configuration struct {
+	Client    *hqgohttp.Client
 	Extractor *regexp.Regexp
 	Validator func(target string) (URL string, valid bool)
 }

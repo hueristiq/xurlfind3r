@@ -1,10 +1,10 @@
 package bevigil
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -23,7 +23,7 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -43,13 +43,11 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 		}
 
 		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
-		getURLsReqCFG := &hqgohttp.RequestConfiguration{
-			Headers: []hqgohttp.Header{
-				hqgohttp.NewSetHeader("X-Access-Token", key),
-			},
-		}
 
-		getURLsRes, err := hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
+		getURLsRes, err := cfg.Client.NewRequest().
+			URL(getURLsReqURL).
+			SetHeader("X-Access-Token", key).
+			Do(ctx)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,

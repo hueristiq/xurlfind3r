@@ -2,15 +2,16 @@ package intelx
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
-	hqgohttpmime "github.com/hueristiq/hq-go-http/mime"
+	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
+	hqgohttpmethod "github.com/hueristiq/hq-lib-http-go/method"
+	hqgohttpmime "github.com/hueristiq/hq-lib-http-go/mime"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -47,7 +48,7 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -104,18 +105,15 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 		searchReqBodyReader := bytes.NewBuffer(searchReqBodyBytes)
 
-		searchReqCFG := &hqgohttp.RequestConfiguration{
-			Params: map[string]string{
-				"k": intelXKey,
-			},
-			Headers: []hqgohttp.Header{
-				hqgohttp.NewSetHeader(hqgohttpheader.ContentType.String(), hqgohttpmime.JSON.String()),
-			},
-		}
-
 		var searchRes *http.Response
 
-		searchRes, err = hqgohttp.Post(searchReqURL, searchReqBodyReader, searchReqCFG)
+		searchRes, err = cfg.Client.NewRequest().
+			Method(hqgohttpmethod.POST).
+			URL(searchReqURL).
+			Param("k", intelXKey).
+			SetHeader(hqgohttpheader.ContentType.String(), hqgohttpmime.JSON.String()).
+			Body(searchReqBodyReader).
+			Do(ctx)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -147,19 +145,17 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 		searchRes.Body.Close()
 
 		getResultsReqURL := fmt.Sprintf("https://%s/phonebook/search/result", intelXHost)
-		getResultsReqCFG := &hqgohttp.RequestConfiguration{
-			Params: map[string]string{
-				"k":     intelXKey,
-				"id":    searchResData.ID,
-				"limit": "10000",
-			},
-		}
 		status := 0
 
 		for status == 0 || status == 3 {
 			var getResultsRes *http.Response
 
-			getResultsRes, err = hqgohttp.Get(getResultsReqURL, getResultsReqCFG)
+			getResultsRes, err = cfg.Client.NewRequest().
+				URL(getResultsReqURL).
+				Param("k", intelXKey).
+				Param("id", searchResData.ID).
+				Param("limit", "10000").
+				Do(ctx)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,

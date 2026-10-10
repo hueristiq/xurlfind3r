@@ -2,16 +2,18 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	hqgologger "github.com/hueristiq/hq-go-logger"
-	hqgologgerformatter "github.com/hueristiq/hq-go-logger/formatter"
-	hqgologgerlevels "github.com/hueristiq/hq-go-logger/levels"
+	hqgologger "github.com/hueristiq/hq-lib-logger-go"
+	hqgologgerformatter "github.com/hueristiq/hq-lib-logger-go/formatter"
+	hqgologgerlevels "github.com/hueristiq/hq-lib-logger-go/levels"
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/internal/input"
 	"github.com/hueristiq/xurlfind3r/internal/output"
@@ -202,6 +204,9 @@ func main() {
 		writer.SetFormatToJSONL()
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		Client: &xurlfind3r.ClientConfiguration{
 			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.NAME, configuration.VERSION, configuration.NAME),
@@ -246,7 +251,7 @@ func main() {
 			outputs = append(outputs, file)
 		}
 
-		results := finder.Find(domain)
+		results := finder.Find(ctx, domain)
 
 		for result := range results {
 			for _, output := range outputs {

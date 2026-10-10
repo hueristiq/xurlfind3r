@@ -1,14 +1,14 @@
 package urlscan
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
-	hqgohttpmime "github.com/hueristiq/hq-go-http/mime"
-	hqgohttpstatus "github.com/hueristiq/hq-go-http/status"
+	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
+	hqgohttpmime "github.com/hueristiq/hq-lib-http-go/mime"
+	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
 )
@@ -39,7 +39,7 @@ func (s *Source) Name() (name string) {
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -62,22 +62,19 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 		for {
 			searchReqURL := "https://urlscan.io/api/v1/search"
-			searchReqCFG := &hqgohttp.RequestConfiguration{
-				Params: map[string]string{
-					"q":    "domain:" + domain,
-					"size": "10000",
-				},
-				Headers: []hqgohttp.Header{
-					hqgohttp.NewSetHeader(hqgohttpheader.Accept.String(), hqgohttpmime.JSON.String()),
-					hqgohttp.NewSetHeader("API-Key", key),
-				},
-			}
+
+			searchReq := cfg.Client.NewRequest().
+				URL(searchReqURL).
+				Param("q", "domain:"+domain).
+				Param("size", "10000").
+				SetHeader(hqgohttpheader.Accept.String(), hqgohttpmime.JSON.String()).
+				SetHeader("API-Key", key)
 
 			if after != "" {
-				searchReqCFG.Params["search_after"] = after
+				searchReq = searchReq.Param("search_after", after)
 			}
 
-			searchRes, err := hqgohttp.Get(searchReqURL, searchReqCFG)
+			searchRes, err := searchReq.Do(ctx)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
