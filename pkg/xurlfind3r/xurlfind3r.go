@@ -23,9 +23,9 @@ import (
 )
 
 type Finder struct {
-	sources            map[string]sources.Source
-	includceSubdomains bool
-	client             *hqgohttp.Client
+	sources           map[string]sources.Source
+	includeSubdomains bool
+	client            *hqgohttp.Client
 }
 
 func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
@@ -49,7 +49,7 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 
 			pattern := fmt.Sprintf(`https?://(www\.)?%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
 
-			if finder.includceSubdomains {
+			if finder.includeSubdomains {
 				pattern = fmt.Sprintf(`https?://([a-z0-9-]+\.)*%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
 			}
 
@@ -131,8 +131,8 @@ func init() {
 
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
-		sources:            make(map[string]sources.Source, len(Sources)),
-		includceSubdomains: cfg.IncludeSubdomains,
+		sources:           make(map[string]sources.Source, len(Sources)),
+		includeSubdomains: cfg.IncludeSubdomains,
 	}
 
 	ofs := []hqgohttp.ClientOptionFunc{
