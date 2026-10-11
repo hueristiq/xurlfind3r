@@ -37,11 +37,26 @@ type Finder struct {
 func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
+	extractor, err := hqgourlextractor.New(
+		hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`),
+	).CompileRegex()
+	if err != nil {
+		result := sources.Result{
+			Type:   sources.ResultError,
+			Source: "xurlfind3r",
+			Error:  fmt.Errorf("failed to compile URL extractor: %w", err),
+		}
+
+		results <- result
+
+		close(results)
+
+		return results
+	}
+
 	configuration := &sources.Configuration{
-		Client: finder.client,
-		Extractor: hqgourlextractor.New(
-			hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.ExtractorPortOptionalPattern + `)`),
-		).CompileRegex(),
+		Client:    finder.client,
+		Extractor: extractor,
 		Validator: func(target string) (URL string, valid bool) {
 			scheme := "https"
 
