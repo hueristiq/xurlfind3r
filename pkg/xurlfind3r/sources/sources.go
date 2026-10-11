@@ -11,6 +11,49 @@ import (
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 )
 
+// ExtractURLs extracts candidate URLs from text using extractor.
+//
+// Matches whose end is immediately followed by a host-label character
+// ([a-zA-Z0-9._-]) are dropped: they are prefixes of longer hosts
+// (e.g. example.com inside example.com.evil.com) and would otherwise
+// surface URLs that never existed.
+//
+// Parameters:
+//   - extractor (*regexp.Regexp): the compiled URL extractor.
+//   - text (string): the text to scan for URLs.
+//
+// Returns:
+//   - URLs ([]string): the extracted URLs.
+func ExtractURLs(extractor *regexp.Regexp, text string) (URLs []string) {
+	URLs = make([]string, 0)
+
+	for _, indexes := range extractor.FindAllStringIndex(text, -1) {
+		end := indexes[1]
+
+		if end < len(text) && isHostLabelCharacter(text[end]) {
+			continue
+		}
+
+		URLs = append(URLs, text[indexes[0]:end])
+	}
+
+	return
+}
+
+// isHostLabelCharacter reports whether character can continue a host
+// label (letters, digits, dot, hyphen or underscore).
+func isHostLabelCharacter(character byte) (ok bool) {
+	switch {
+	case character >= 'a' && character <= 'z',
+		character >= 'A' && character <= 'Z',
+		character >= '0' && character <= '9',
+		character == '.', character == '-', character == '_':
+		ok = true
+	}
+
+	return
+}
+
 type Source interface {
 	Name() (name string)
 	Run(ctx context.Context, cfg *Configuration, domain string) <-chan Result

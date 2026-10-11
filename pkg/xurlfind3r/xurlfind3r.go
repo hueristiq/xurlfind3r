@@ -3,6 +3,7 @@ package xurlfind3r
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	"sync"
@@ -37,14 +38,12 @@ type Finder struct {
 func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
-	extractor, err := hqgourlextractor.New(
-		hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`),
-	).CompileRegex()
+	extractor, err := compileExtractor(domain)
 	if err != nil {
 		result := sources.Result{
 			Type:   sources.ResultError,
 			Source: "xurlfind3r",
-			Error:  fmt.Errorf("failed to compile URL extractor: %w", err),
+			Error:  err,
 		}
 
 		results <- result
@@ -58,26 +57,7 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 		Client:    finder.client,
 		Extractor: extractor,
 		Validator: func(target string) (URL string, valid bool) {
-			scheme := "https"
-
-			switch {
-			case strings.HasPrefix(target, "//"):
-				URL = scheme + ":" + target
-			case strings.HasPrefix(target, "://"):
-				URL = scheme + target
-			case !strings.Contains(target, "//"):
-				URL = scheme + "://" + target
-			default:
-				URL = target
-			}
-
-			pattern := fmt.Sprintf(`https?://(www\.)?%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
-
-			if finder.includeSubdomains {
-				pattern = fmt.Sprintf(`https?://([a-z0-9-]+\.)*%s(:\d+)?(?:/[^?\s#]*)?(?:\?[^#\s]*)?(?:#[^\s]*)?`, regexp.QuoteMeta(domain))
-			}
-
-			valid = regexp.MustCompile(pattern).MatchString(URL)
+			URL, valid = validateURL(target, domain, finder.includeSubdomains)
 
 			return
 		},
@@ -115,6 +95,135 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 	}()
 
 	return
+}
+
+// hostPattern returns the extractor host pattern scoped to domain.
+//
+// The pattern is case-insensitive so that uppercase hosts (e.g.
+// EXAMPLE.COM) are extracted; the trailing host-boundary enforcement
+// happens in [sources.ExtractURLs], where the match context is known.
+//
+// Parameters:
+//   - domain (string): the target domain.
+//
+// Returns:
+//   - pattern (string): the host pattern for the extractor.
+func hostPattern(domain string) (pattern string) {
+	pattern = `(?i)(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
+
+	return
+}
+
+// compileExtractor compiles the URL extractor scoped to domain.
+//
+// Parameters:
+//   - domain (string): the target domain.
+//
+// Returns:
+//   - extractor (*regexp.Regexp): the compiled extractor regular expression.
+//   - err (error): non-nil if the extractor pattern fails to compile.
+func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
+	extractor, err = hqgourlextractor.New(
+		hqgourlextractor.WithHostPattern(hostPattern(domain)),
+	).CompileRegex()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile URL extractor: %w", err)
+	}
+
+	return
+}
+
+// hasScheme reports whether the target starts with a URI scheme
+// (e.g. "mailto:", "https:").
+//
+// Parameters:
+//   - target (string): the candidate URL.
+//
+// Returns:
+//   - ok (bool): true if target starts with a scheme.
+func hasScheme(target string) (ok bool) {
+	if target == "" {
+		return false
+	}
+
+	if !isASCIIAlpha(target[0]) {
+		return false
+	}
+
+	for index := 1; index < len(target); index++ {
+		character := target[index]
+
+		switch {
+		case character == ':':
+			return true
+		case isASCIIAlpha(character), character >= '0' && character <= '9', character == '+', character == '-', character == '.':
+			continue
+		default:
+			return false
+		}
+	}
+
+	return false
+}
+
+// isASCIIAlpha reports whether the character is an ASCII letter.
+func isASCIIAlpha(character byte) (ok bool) {
+	return character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
+}
+
+// validateURL normalizes the candidate target URL and checks that its
+// host belongs to domain's scope.
+//
+// Parameters:
+//   - target (string): the candidate URL, as extracted from a source.
+//   - domain (string): the target domain defining the scope.
+//   - includeSubdomains (bool): whether subdomains of domain are in scope.
+//
+// Returns:
+//   - URL (string): the normalized URL.
+//   - valid (bool): true if the URL is http(s), its host is domain,
+//     www.domain or, when includeSubdomains is set, a subdomain of domain.
+func validateURL(target, domain string, includeSubdomains bool) (URL string, valid bool) {
+	scheme := "https"
+
+	switch {
+	case strings.HasPrefix(target, "//"):
+		URL = scheme + ":" + target
+	case strings.HasPrefix(target, "://"):
+		URL = scheme + target
+	case hasScheme(target):
+		URL = target
+	case !strings.Contains(target, "//"):
+		URL = scheme + "://" + target
+	default:
+		URL = target
+	}
+
+	parsed, err := url.Parse(URL)
+	if err != nil {
+		return URL, false
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return URL, false
+	}
+
+	hostname := strings.ToLower(parsed.Hostname())
+	if hostname == "" {
+		return URL, false
+	}
+
+	domain = strings.ToLower(domain)
+
+	if includeSubdomains {
+		valid = hostname == domain || strings.HasSuffix(hostname, "."+domain)
+
+		return URL, valid
+	}
+
+	valid = hostname == domain || hostname == "www."+domain
+
+	return URL, valid
 }
 
 type ClientConfiguration struct {

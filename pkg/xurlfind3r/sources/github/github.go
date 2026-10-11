@@ -157,7 +157,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 				continue
 			}
 
-			URLs := cfg.Extractor.FindAllString(line, -1)
+			URLs := sources.ExtractURLs(cfg.Extractor, line)
 
 			for _, URL := range URLs {
 				var valid bool
@@ -195,7 +195,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		_ = getRawContentRes.Body.Close()
 
 		for _, textMatch := range item.TextMatches {
-			URLs := cfg.Extractor.FindAllString(textMatch.Fragment, -1)
+			URLs := sources.ExtractURLs(cfg.Extractor, textMatch.Fragment)
 
 			for _, URL := range URLs {
 				var valid bool

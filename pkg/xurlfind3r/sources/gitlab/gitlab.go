@@ -97,7 +97,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			_ = searchRes.Body.Close()
 
 			for _, item := range items {
-				URLs := cfg.Extractor.FindAllString(item.Data, -1)
+				URLs := sources.ExtractURLs(cfg.Extractor, item.Data)
 
 				for _, URL := range URLs {
 					var valid bool
@@ -149,7 +149,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 						continue
 					}
 
-					URLs := cfg.Extractor.FindAllString(line, -1)
+					URLs := sources.ExtractURLs(cfg.Extractor, line)
 
 					for _, URL := range URLs {
 						var valid bool
