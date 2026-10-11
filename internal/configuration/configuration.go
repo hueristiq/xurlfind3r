@@ -70,7 +70,7 @@ func (configuration *Configuration) Write(path string) (err error) {
 
 	enc.SetIndent(indentation)
 
-	err = enc.Encode(&configuration)
+	err = enc.Encode(configuration)
 
 	return
 }
