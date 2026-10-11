@@ -44,7 +44,7 @@ var (
 	au = aurora.New(aurora.WithColors(true))
 )
 
-func init() {
+func bootstrap() {
 	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath, "")
 	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
 	pflag.StringVarP(&domainsFilePath, "list", "l", "", "")
@@ -60,14 +60,14 @@ func init() {
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
 	pflag.Usage = func() {
-		hqgologger.Info(configuration.BANNER(au), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(configuration.Banner(au), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
 		h := "USAGE:\n"
-		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.NAME)
+		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.Name)
 
 		h += "\nCONFIGURATION:\n"
 
-		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath, "$HOME/.config")
+		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath(), "$HOME/.config")
 
 		h += fmt.Sprintf(" -c, --configuration string           (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
 
@@ -108,7 +108,7 @@ func init() {
 
 	viper.AutomaticEnv()
 
-	viper.SetEnvPrefix(strings.ToUpper(configuration.NAME))
+	viper.SetEnvPrefix(strings.ToUpper(configuration.Name))
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
@@ -135,7 +135,9 @@ func init() {
 }
 
 func main() {
-	hqgologger.Info(configuration.BANNER(au), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+	bootstrap()
+
+	hqgologger.Info(configuration.Banner(au), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
 	var cfg *configuration.Configuration
 
@@ -227,7 +229,7 @@ func main() {
 
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		Client: &xurlfind3r.ClientConfiguration{
-			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.NAME, configuration.Version, configuration.NAME),
+			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.Name, configuration.Version, configuration.Name),
 		},
 		SourcesToUse:      sourcesToUseList,
 		SourcesToExclude:  sourcesToExclude,

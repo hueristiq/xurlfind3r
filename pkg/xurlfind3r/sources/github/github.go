@@ -35,7 +35,7 @@ type Source struct {
 }
 
 func (s *Source) Name() (name string) {
-	name = sources.GITHUB
+	name = sources.Github
 
 	return
 }

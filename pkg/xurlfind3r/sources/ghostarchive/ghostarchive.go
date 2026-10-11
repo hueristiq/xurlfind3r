@@ -20,7 +20,7 @@ var resultPattern = regexp.MustCompile(`<a href="/archive/[^"]*">([^<]+)</a>`)
 type Source struct{}
 
 func (s *Source) Name() (name string) {
-	name = sources.GHOSTARCHIVE
+	name = sources.Ghostarchive
 
 	return
 }

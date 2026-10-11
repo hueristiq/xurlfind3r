@@ -29,12 +29,30 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/zoomeye"
 )
 
+// Finder discovers URLs for a domain across the configured sources.
+//
+// Construct one with [New]; a Finder is safe for concurrent use.
+//
+// Fields:
+//   - sources (map[string]sources.Source): the sources to query, by name.
+//   - includeSubdomains (bool): whether subdomains are in scope.
+//   - client (*hqgohttp.Client): the shared HTTP client.
 type Finder struct {
 	sources           map[string]sources.Source
 	includeSubdomains bool
 	client            *hqgohttp.Client
 }
 
+// Find queries every configured source for URLs belonging to domain
+// and streams the deduplicated results.
+//
+// Parameters:
+//   - ctx (context.Context): the run context.
+//   - domain (string): the target domain.
+//
+// Returns:
+//   - results (chan sources.Result): the result stream, closed when
+//     all sources finish.
 func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
@@ -226,10 +244,23 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 	return URL, valid
 }
 
+// ClientConfiguration configures the finder's HTTP client.
+//
+// Fields:
+//   - UserAgent (string): the User-Agent header; empty selects the
+//     client default.
 type ClientConfiguration struct {
 	UserAgent string
 }
 
+// Configuration configures a [Finder].
+//
+// Fields:
+//   - Client (*ClientConfiguration): HTTP client settings.
+//   - SourcesToUse ([]string): source names to use; empty selects all.
+//   - SourcesToExclude ([]string): source names to skip.
+//   - Keys (map[string]sources.Keys): per-source API keys.
+//   - IncludeSubdomains (bool): whether subdomains are in scope.
 type Configuration struct {
 	Client            *ClientConfiguration
 	SourcesToUse      []string
@@ -240,40 +271,40 @@ type Configuration struct {
 
 // Sources lists the registered source names in canonical order.
 var Sources = []string{
-	sources.ARQUIVO,
-	sources.BEVIGIL,
-	sources.COMMONCRAWL,
-	sources.GHOSTARCHIVE,
-	sources.GITHUB,
-	sources.GITLAB,
-	sources.HUDSONROCK,
-	sources.INTELLIGENCEX,
-	sources.LEAKRADAR,
-	sources.OPENTHREATEXCHANGE,
-	sources.URLSCAN,
-	sources.VIRUSTOTAL,
-	sources.WAYBACK,
-	sources.ZOOMEYE,
+	sources.Arquivo,
+	sources.Bevigil,
+	sources.Commoncrawl,
+	sources.Ghostarchive,
+	sources.Github,
+	sources.Gitlab,
+	sources.Hudsonrock,
+	sources.IntelligenceX,
+	sources.Leakradar,
+	sources.OpenThreatExchange,
+	sources.URLScan,
+	sources.Virustotal,
+	sources.Wayback,
+	sources.Zoomeye,
 }
 
 // sourceRegistry maps source names to their constructors. It is written
 // once at package load and only read afterwards, so constructors are
 // safe for concurrent use.
 var sourceRegistry = map[string]func() sources.Source{
-	sources.ARQUIVO:            arquivo.New,
-	sources.BEVIGIL:            bevigil.New,
-	sources.COMMONCRAWL:        commoncrawl.New,
-	sources.GHOSTARCHIVE:       ghostarchive.New,
-	sources.GITHUB:             github.New,
-	sources.GITLAB:             gitlab.New,
-	sources.HUDSONROCK:         hudsonrock.New,
-	sources.INTELLIGENCEX:      intelx.New,
-	sources.LEAKRADAR:          leakradar.New,
-	sources.OPENTHREATEXCHANGE: otx.New,
-	sources.URLSCAN:            urlscan.New,
-	sources.VIRUSTOTAL:         virustotal.New,
-	sources.WAYBACK:            wayback.New,
-	sources.ZOOMEYE:            zoomeye.New,
+	sources.Arquivo:            arquivo.New,
+	sources.Bevigil:            bevigil.New,
+	sources.Commoncrawl:        commoncrawl.New,
+	sources.Ghostarchive:       ghostarchive.New,
+	sources.Github:             github.New,
+	sources.Gitlab:             gitlab.New,
+	sources.Hudsonrock:         hudsonrock.New,
+	sources.IntelligenceX:      intelx.New,
+	sources.Leakradar:          leakradar.New,
+	sources.OpenThreatExchange: otx.New,
+	sources.URLScan:            urlscan.New,
+	sources.Virustotal:         virustotal.New,
+	sources.Wayback:            wayback.New,
+	sources.Zoomeye:            zoomeye.New,
 }
 
 // NewSource returns a fresh instance of the source registered under

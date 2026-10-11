@@ -35,7 +35,7 @@ type getURLsResponse struct {
 type Source struct{}
 
 func (s *Source) Name() (name string) {
-	name = sources.OPENTHREATEXCHANGE
+	name = sources.OpenThreatExchange
 
 	return
 }

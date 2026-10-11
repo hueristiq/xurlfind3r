@@ -12,14 +12,29 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
+// Writer writes results to any io.Writer in TXT or JSONL format.
+//
+// Fields:
+//   - format (format): the output format.
 type Writer struct {
 	format format
 }
 
+// SetFormatToJSONL switches the writer to JSONL output.
 func (w *Writer) SetFormatToJSONL() {
 	w.format = formatJSONL
 }
 
+// CreateFile opens the output file at path for appending, creating
+// parent directories as needed. Paths without an extension get the
+// format's default extension appended.
+//
+// Parameters:
+//   - path (string): the output file path.
+//
+// Returns:
+//   - file (*os.File): the opened file.
+//   - err (error): non-nil on failure.
 func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 	if path == "" {
 		err = ErrNoFilePathSpecified
@@ -27,16 +42,12 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 		return
 	}
 
-	extension := filepath.Ext(path)
-
-	switch w.format {
-	case formatTXT:
-		if extension != ".txt" {
+	if extension := filepath.Ext(path); extension == "" {
+		switch w.format {
+		case formatTXT:
 			path += ".txt"
-		}
-	case formatJSONL:
-		if extension != ".json" {
-			path += ".json"
+		case formatJSONL:
+			path += ".jsonl"
 		}
 	}
 
@@ -60,6 +71,15 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 	return
 }
 
+// Write writes one result to writer in the configured format.
+//
+// Parameters:
+//   - writer (io.Writer): the destination.
+//   - domain (string): the target domain, recorded in JSONL output.
+//   - result (sources.Result): the result to write.
+//
+// Returns:
+//   - err (error): non-nil on failure.
 func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (err error) {
 	switch w.format {
 	case formatTXT:
@@ -127,10 +147,16 @@ const (
 	formatTXT   format = "TXT"
 )
 
+// ErrNoFilePathSpecified is returned when an empty output path is
+// given.
 var ErrNoFilePathSpecified = errors.New("no file path specified")
 
-func NewWriter() (writter *Writer) {
-	writter = &Writer{
+// NewWriter returns a TXT-format writer.
+//
+// Returns:
+//   - writer (*Writer): the new writer.
+func NewWriter() (writer *Writer) {
+	writer = &Writer{
 		format: formatTXT,
 	}
 

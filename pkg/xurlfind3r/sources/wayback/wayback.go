@@ -32,7 +32,7 @@ const (
 type Source struct{}
 
 func (s *Source) Name() (name string) {
-	name = sources.WAYBACK
+	name = sources.Wayback
 
 	return
 }

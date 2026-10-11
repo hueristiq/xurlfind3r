@@ -27,7 +27,7 @@ type Source struct {
 }
 
 func (s *Source) Name() (name string) {
-	name = sources.LEAKRADAR
+	name = sources.Leakradar
 
 	return
 }

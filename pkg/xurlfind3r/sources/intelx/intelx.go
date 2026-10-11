@@ -66,7 +66,7 @@ type Source struct {
 }
 
 func (s *Source) Name() (name string) {
-	name = sources.INTELLIGENCEX
+	name = sources.IntelligenceX
 
 	return
 }

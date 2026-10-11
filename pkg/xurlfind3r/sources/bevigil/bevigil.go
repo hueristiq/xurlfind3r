@@ -18,7 +18,7 @@ type Source struct {
 }
 
 func (s *Source) Name() (name string) {
-	name = sources.BEVIGIL
+	name = sources.Bevigil
 
 	return
 }

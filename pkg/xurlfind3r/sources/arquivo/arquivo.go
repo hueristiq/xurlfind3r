@@ -16,7 +16,7 @@ type cdxRecord struct {
 type Source struct{}
 
 func (s *Source) Name() (name string) {
-	name = sources.ARQUIVO
+	name = sources.Arquivo
 
 	return
 }

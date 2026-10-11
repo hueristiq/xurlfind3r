@@ -25,7 +25,7 @@ type Source struct {
 }
 
 func (s *Source) Name() (name string) {
-	name = sources.GITLAB
+	name = sources.Gitlab
 
 	return
 }
