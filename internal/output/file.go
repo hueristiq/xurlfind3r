@@ -12,12 +12,20 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
+// bufferSize is the buffered output chunk size. A large buffer keeps
+// the number of syscalls low on million-URL runs.
+const bufferSize = 256 * 1024
+
 // Writer writes results to any io.Writer in TXT or JSONL format.
+//
+// Each destination gets its own buffered writer, flushed by [Writer.Flush].
 //
 // Fields:
 //   - format (format): the output format.
+//   - buffers (map[io.Writer]*bufio.Writer): per-destination buffers.
 type Writer struct {
-	format format
+	format  format
+	buffers map[io.Writer]*bufio.Writer
 }
 
 // SetFormatToJSONL switches the writer to JSONL output.
@@ -71,7 +79,7 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 	return
 }
 
-// Write writes one result to writer in the configured format.
+// Write buffers one result for writer in the configured format.
 //
 // Parameters:
 //   - writer (io.Writer): the destination.
@@ -81,31 +89,58 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 // Returns:
 //   - err (error): non-nil on failure.
 func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (err error) {
+	bw := w.buffer(writer)
+
 	switch w.format {
 	case formatTXT:
-		err = w.writeTXT(writer, result)
+		err = writeTXT(bw, result)
 	case formatJSONL:
-		err = w.writeJSON(writer, domain, result)
+		err = writeJSON(bw, domain, result)
 	}
 
 	return
 }
 
-func (w *Writer) writeTXT(writer io.Writer, result sources.Result) (err error) {
-	bw := bufio.NewWriter(writer)
-
-	if _, err = fmt.Fprintln(bw, result.Value); err != nil {
-		return
+// Flush flushes every destination's pending output.
+//
+// Returns:
+//   - err (error): the joined flush failures, if any.
+func (w *Writer) Flush() (err error) {
+	for _, bw := range w.buffers {
+		if ferr := bw.Flush(); ferr != nil {
+			err = errors.Join(err, ferr)
+		}
 	}
 
-	if err = bw.Flush(); err != nil {
+	return
+}
+
+// buffer returns the buffered writer for destination, creating one on
+// first use.
+func (w *Writer) buffer(writer io.Writer) (bw *bufio.Writer) {
+	if w.buffers == nil {
+		w.buffers = make(map[io.Writer]*bufio.Writer)
+	}
+
+	bw, ok := w.buffers[writer]
+	if !ok {
+		bw = bufio.NewWriterSize(writer, bufferSize)
+
+		w.buffers[writer] = bw
+	}
+
+	return bw
+}
+
+func writeTXT(writer io.Writer, result sources.Result) (err error) {
+	if _, err = fmt.Fprintln(writer, result.Value); err != nil {
 		return
 	}
 
 	return
 }
 
-func (w *Writer) writeJSON(writer io.Writer, domain string, result sources.Result) (err error) {
+func writeJSON(writer io.Writer, domain string, result sources.Result) (err error) {
 	data := resultForJSONL{
 		Domain: domain,
 		URL:    result.Value,
@@ -119,15 +154,7 @@ func (w *Writer) writeJSON(writer io.Writer, domain string, result sources.Resul
 		return
 	}
 
-	dataJSONString := string(dataJSONBytes)
-
-	bw := bufio.NewWriter(writer)
-
-	if _, err = fmt.Fprintln(bw, dataJSONString); err != nil {
-		return
-	}
-
-	if err = bw.Flush(); err != nil {
+	if _, err = fmt.Fprintln(writer, string(dataJSONBytes)); err != nil {
 		return
 	}
 
@@ -157,7 +184,8 @@ var ErrNoFilePathSpecified = errors.New("no file path specified")
 //   - writer (*Writer): the new writer.
 func NewWriter() (writer *Writer) {
 	writer = &Writer{
-		format: formatTXT,
+		format:  formatTXT,
+		buffers: make(map[io.Writer]*bufio.Writer),
 	}
 
 	return

@@ -288,6 +288,10 @@ func main() {
 			}
 		}
 
+		if err := writer.Flush(); err != nil {
+			hqgologger.Error("failed to flush output!", hqgologger.WithError(err))
+		}
+
 		if file != nil {
 			if err := file.Close(); err != nil {
 				hqgologger.Fatal("failed closing output file!", hqgologger.WithString("file", file.Name()), hqgologger.WithError(err))
