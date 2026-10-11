@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
+	hqgolimiter "github.com/hueristiq/hq-lib-limiter-go"
 	"github.com/spf13/cast"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
@@ -116,7 +116,6 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 				Param("output", "json").
 				Param("fl", "url").
 				Param("showNumPages", "true").
-				SetHeader(hqgohttpheader.Host.String(), "index.commoncrawl.org").
 				Do(ctx)
 			if err != nil {
 				result := sources.Result{
@@ -155,6 +154,18 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 			}
 
 			for page := range getPaginationData.Pages {
+				if err := limiter.Wait(ctx); err != nil {
+					result := sources.Result{
+						Type:   sources.ResultError,
+						Source: source.Name(),
+						Error:  fmt.Errorf("failed to wait on rate limiter: %w", err),
+					}
+
+					results <- result
+
+					break
+				}
+
 				var getURLsRes *http.Response
 
 				getURLsRes, err = cfg.Client.NewRequest().
@@ -163,7 +174,6 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 					Param("output", "json").
 					Param("fl", "url").
 					Param("page", cast.ToString(page)).
-					SetHeader(hqgohttpheader.Host.String(), "index.commoncrawl.org").
 					Do(ctx)
 				if err != nil {
 					result := sources.Result{
@@ -255,6 +265,10 @@ func (s *Source) NeedsKeys() (needs bool) {
 
 func (s *Source) UseKeys(keys ...string) {
 }
+
+var limiter = hqgolimiter.New(
+	hqgolimiter.WithRequestsPerMinute(30),
+)
 
 var _ sources.Source = (*Source)(nil)
 

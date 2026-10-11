@@ -7,9 +7,65 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strings"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 )
+
+// RedactError returns err with every occurrence of each secret replaced
+// by "[REDACTED]" in its message, preserving the error chain for
+// errors.Is and errors.As.
+//
+// Sources that authenticate through query parameters (e.g. API keys in
+// request URLs) use it to keep keys out of error results, which may be
+// logged or printed.
+//
+// Parameters:
+//   - err (error): the error whose message may embed secrets.
+//   - secrets (...string): the secrets to redact.
+//
+// Returns:
+//   - redacted (error): the redacted error, or err unchanged when it
+//     contains none of the secrets.
+func RedactError(err error, secrets ...string) (redacted error) {
+	if err == nil || len(secrets) == 0 {
+		return err
+	}
+
+	message := err.Error()
+
+	for _, secret := range secrets {
+		if secret == "" {
+			continue
+		}
+
+		message = strings.ReplaceAll(message, secret, "[REDACTED]")
+	}
+
+	if message == err.Error() {
+		return err
+	}
+
+	return &redactedError{
+		err:     err,
+		message: message,
+	}
+}
+
+type redactedError struct {
+	err     error
+	message string
+}
+
+func (e *redactedError) Error() (message string) {
+	return e.message
+}
+
+func (e *redactedError) Unwrap() (err error) {
+	return e.err
+}
+
+var _ error = (*redactedError)(nil)
 
 // ExtractURLs extracts candidate URLs from text using extractor.
 //

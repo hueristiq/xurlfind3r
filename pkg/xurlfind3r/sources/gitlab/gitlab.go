@@ -115,7 +115,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					results <- result
 				}
 
-				getRawContentReqURL := fmt.Sprintf("https://gitlab.com/api/v4/projects/%d/repository/files/%s/raw?ref=%s", item.ProjectID, url.QueryEscape(item.Path), item.Ref)
+				getRawContentReqURL := fmt.Sprintf("https://gitlab.com/api/v4/projects/%d/repository/files/%s/raw?ref=%s", item.ProjectID, url.PathEscape(item.Path), url.QueryEscape(item.Ref))
 
 				getRawContentRes, err := cfg.Client.NewRequest().
 					URL(getRawContentReqURL).

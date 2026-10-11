@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	hqgolimiter "github.com/hueristiq/hq-lib-limiter-go"
 
@@ -71,7 +70,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			result := sources.Result{
 				Type:   sources.ResultError,
 				Source: s.Name(),
-				Error:  fmt.Errorf("request failed: %w", err),
+				Error:  fmt.Errorf("request failed: %w", sources.RedactError(err, key)),
 			}
 
 			results <- result
@@ -171,7 +170,6 @@ func (s *Source) UseKeys(keys ...string) {
 
 var limiter = hqgolimiter.New(
 	hqgolimiter.WithRequestsPerMinute(4),
-	hqgolimiter.WithRate(1, 30*time.Second),
 )
 
 var _ sources.Source = (*Source)(nil)
