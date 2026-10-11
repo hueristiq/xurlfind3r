@@ -68,9 +68,12 @@ const (
 )
 
 const (
+	ARQUIVO            = "arquivo"
 	BEVIGIL            = "bevigil"
 	COMMONCRAWL        = "commoncrawl"
+	GHOSTARCHIVE       = "ghostarchive"
 	GITHUB             = "github"
+	GITLAB             = "gitlab"
 	HUDSONROCK         = "hudsonrock"
 	INTELLIGENCEX      = "intelx"
 	LEAKRADAR          = "leakradar"
@@ -78,12 +81,16 @@ const (
 	URLSCAN            = "urlscan"
 	VIRUSTOTAL         = "virustotal"
 	WAYBACK            = "wayback"
+	ZOOMEYE            = "zoomeye"
 )
 
 var List = []string{
+	ARQUIVO,
 	BEVIGIL,
 	COMMONCRAWL,
+	GHOSTARCHIVE,
 	GITHUB,
+	GITLAB,
 	HUDSONROCK,
 	INTELLIGENCEX,
 	LEAKRADAR,
@@ -91,4 +98,5 @@ var List = []string{
 	URLSCAN,
 	VIRUSTOTAL,
 	WAYBACK,
+	ZOOMEYE,
 }

@@ -9,10 +9,14 @@ import (
 	"time"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
+	hqgourlextractor "github.com/hueristiq/hq-lib-url-go/extractor"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/arquivo"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/commoncrawl"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/ghostarchive"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/gitlab"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/hudsonrock"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/intelx"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/leakradar"
@@ -20,6 +24,7 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/virustotal"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/wayback"
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/zoomeye"
 )
 
 type Finder struct {
@@ -33,6 +38,9 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 
 	configuration := &sources.Configuration{
 		Client: finder.client,
+		Extractor: hqgourlextractor.New(
+			hqgourlextractor.WithHostPattern(`(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.ExtractorPortOptionalPattern + `)`),
+		).CompileRegex(),
 		Validator: func(target string) (URL string, valid bool) {
 			scheme := "https"
 
@@ -107,9 +115,12 @@ type Configuration struct {
 
 var (
 	Sources = [...]sources.Source{
+		arquivo.New(),
 		bevigil.New(),
 		commoncrawl.New(),
+		ghostarchive.New(),
 		github.New(),
+		gitlab.New(),
 		hudsonrock.New(),
 		intelx.New(),
 		leakradar.New(),
@@ -117,6 +128,7 @@ var (
 		urlscan.New(),
 		virustotal.New(),
 		wayback.New(),
+		zoomeye.New(),
 	}
 	NameToSourceMap = make(map[string]sources.Source, len(Sources))
 )

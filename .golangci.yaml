@@ -122,6 +122,10 @@ linters:
                 - whyNoLint
         gocyclo:
             min-complexity: 10
+        gomoddirectives:
+            replace-local: true
+            replace-allow-list:
+                - github.com/hueristiq/hq-lib-http-go
         whitespace:
             multi-if: true
             multi-func: true

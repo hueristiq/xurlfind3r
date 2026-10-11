@@ -86,10 +86,12 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 		Keys: map[string]sources.Keys{
 			sources.BEVIGIL:       {},
 			sources.GITHUB:        {},
+			sources.GITLAB:        {},
 			sources.INTELLIGENCEX: {},
 			sources.LEAKRADAR:     {},
 			sources.URLSCAN:       {},
 			sources.VIRUSTOTAL:    {},
+			sources.ZOOMEYE:       {},
 		},
 	}
 )
