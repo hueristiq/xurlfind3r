@@ -3,10 +3,6 @@ SHELL = /bin/sh
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
-MODULE := github.com/hueristiq/xurlfind3r
-BINARY := xurlfind3r
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.0.0")
-
 COLOR_BLUE := \033[34m
 COLOR_BOLD := \033[1m
 COLOR_CYAN := \033[36m
@@ -53,6 +49,10 @@ LEFTHOOK_BIN_VER = 2.1.6
 LEFTHOOK_BIN_DIR = $(BIN_DIR)/lefthook/$(LEFTHOOK_BIN_VER)
 
 LEFTHOOK_BIN = $(LEFTHOOK_BIN_DIR)/lefthook
+
+MODULE := github.com/hueristiq/xurlfind3r
+BINARY := xurlfind3r
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.0.0")
 
 .PHONY: install-golangci-lint install-lefthook
 
