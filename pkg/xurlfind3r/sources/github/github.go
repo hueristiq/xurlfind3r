@@ -31,8 +31,7 @@ type codeSearchResponse struct {
 }
 
 type Source struct {
-	keys        sources.Keys
-	keysManager *KeysManager
+	keys sources.Keys
 }
 
 func (s *Source) Name() (name string) {
@@ -51,7 +50,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			return
 		}
 
-		s.keysManager = NewKeyManager(s.keys)
+		keysManager := NewKeyManager(s.keys)
 
 		parameters := url.Values{}
 		parameters.Set("per_page", "100")
@@ -61,17 +60,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		searchReqURL := "https://api.github.com/search/code?" + parameters.Encode()
 
-		s.Enumerate(ctx, searchReqURL, cfg, results)
+		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
 	}()
 
 	return results
 }
 
-func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *sources.Configuration, results chan sources.Result) {
-	token, index := s.keysManager.GetCurrentKey()
+func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *sources.Configuration, results chan sources.Result, keysManager *KeysManager) {
+	token, index := keysManager.GetCurrentKey()
 
 	if token.RetryAfter > 0 {
-		if len(s.keysManager.pool) == 1 {
+		if len(keysManager.pool) == 1 {
 			retryAfter := time.Duration(token.RetryAfter)*time.Second - time.Since(token.ExceededTime)
 
 			if retryAfter > 0 {
@@ -86,7 +85,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 				}
 			}
 		} else {
-			token, index = s.keysManager.GetCurrentKey()
+			token, index = keysManager.GetCurrentKey()
 		}
 	}
 
@@ -122,9 +121,9 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		// Close errors on a consumed response body are not actionable.
 		_ = codeSearchRes.Body.Close()
 
-		s.keysManager.SetKeyExceeded(index, retryAfterSeconds)
+		keysManager.SetKeyExceeded(index, retryAfterSeconds)
 
-		s.Enumerate(ctx, searchReqURL, cfg, results)
+		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
 
 		return
 	}
@@ -260,7 +259,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 				return
 			}
 
-			s.Enumerate(ctx, nextURL, cfg, results)
+			s.Enumerate(ctx, nextURL, cfg, results, keysManager)
 		}
 	}
 }

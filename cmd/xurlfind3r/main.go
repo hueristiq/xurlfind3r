@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	hqgologger "github.com/hueristiq/hq-lib-logger-go"
 	hqgologgerformatter "github.com/hueristiq/hq-lib-logger-go/formatter"
@@ -148,12 +149,17 @@ func main() {
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
 		for i := range xurlfind3r.Sources {
-			source := xurlfind3r.Sources[i]
+			name := xurlfind3r.Sources[i]
+
+			source, ok := xurlfind3r.NewSource(name)
+			if !ok {
+				continue
+			}
 
 			if source.NeedsKeys() {
-				hqgologger.Print("> "+source.Name()+" *", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+				hqgologger.Print("> "+name+" *", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 			} else {
-				hqgologger.Print("> "+source.Name(), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+				hqgologger.Print("> "+name, hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 			}
 		}
 
@@ -163,29 +169,12 @@ func main() {
 	}
 
 	if domainsFilePath != "" {
-		//nolint:gosec // file path is user-provided via the --list flag; opening it is the intended behavior.
-		file, err := os.Open(domainsFilePath)
+		fileDomains, err := readDomainsFromFile(domainsFilePath)
 		if err != nil {
-			hqgologger.Fatal("failed opening input file", hqgologger.WithError(err))
+			hqgologger.Fatal("failed reading domains from file!", hqgologger.WithString("file", domainsFilePath), hqgologger.WithError(err))
 		}
 
-		scanner := bufio.NewScanner(file)
-
-		for scanner.Scan() {
-			domain := scanner.Text()
-
-			if domain != "" {
-				domains = append(domains, domain)
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			hqgologger.Fatal("failed reading input file!", hqgologger.WithError(err))
-		}
-
-		if err := file.Close(); err != nil {
-			hqgologger.Fatal("failed closing input file!", hqgologger.WithError(err))
-		}
+		domains = append(domains, fileDomains...)
 	}
 
 	if input.HasStdin() {
@@ -194,14 +183,32 @@ func main() {
 		for scanner.Scan() {
 			domain := scanner.Text()
 
-			if domain != "" {
-				domains = append(domains, domain)
+			if domain == "" {
+				continue
 			}
+
+			validated, err := input.ValidateDomain(domain)
+			if err != nil {
+				hqgologger.Fatal("invalid domain!", hqgologger.WithError(err))
+			}
+
+			domains = append(domains, validated)
 		}
 
 		if err := scanner.Err(); err != nil {
 			hqgologger.Fatal("failed reading stdin!", hqgologger.WithError(err))
 		}
+	}
+
+	for index := range domains {
+		var validated string
+
+		validated, err := input.ValidateDomain(domains[index])
+		if err != nil {
+			hqgologger.Fatal("invalid domain!", hqgologger.WithError(err))
+		}
+
+		domains[index] = validated
 	}
 
 	writer := output.NewWriter()
@@ -210,14 +217,19 @@ func main() {
 		writer.SetFormatToJSONL()
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	sourcesToUseList := sourcesToUse
+	if len(sourcesToUseList) < 1 {
+		sourcesToUseList = cfg.Sources
+	}
 
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		Client: &xurlfind3r.ClientConfiguration{
 			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.NAME, configuration.Version, configuration.NAME),
 		},
-		SourcesToUse:      sourcesToUse,
+		SourcesToUse:      sourcesToUseList,
 		SourcesToExclude:  sourcesToExclude,
 		Keys:              cfg.Keys,
 		IncludeSubdomains: includeSubdomains,
@@ -282,4 +294,49 @@ func main() {
 
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 	}
+}
+
+// readDomainsFromFile reads and validates the domain list at path.
+//
+// Parameters:
+//   - path (string): the domain list file path.
+//
+// Returns:
+//   - domains ([]string): the validated domains.
+//   - err (error): non-nil when the file cannot be read or a domain
+//     is invalid.
+func readDomainsFromFile(path string) (domains []string, err error) {
+	//nolint:gosec // file path is user-provided via the --list flag; opening it is the intended behavior.
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed opening input file: %w", err)
+	}
+
+	defer func() {
+		// Close errors on a read-only input file are not actionable.
+		_ = file.Close()
+	}()
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		domain := scanner.Text()
+
+		if domain == "" {
+			continue
+		}
+
+		validated, validateErr := input.ValidateDomain(domain)
+		if validateErr != nil {
+			return nil, fmt.Errorf("invalid domain: %w", validateErr)
+		}
+
+		domains = append(domains, validated)
+	}
+
+	if err = scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed reading input file: %w", err)
+	}
+
+	return domains, nil
 }

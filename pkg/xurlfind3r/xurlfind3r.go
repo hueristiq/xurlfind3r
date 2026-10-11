@@ -238,34 +238,74 @@ type Configuration struct {
 	IncludeSubdomains bool
 }
 
-var (
-	Sources = [...]sources.Source{
-		arquivo.New(),
-		bevigil.New(),
-		commoncrawl.New(),
-		ghostarchive.New(),
-		github.New(),
-		gitlab.New(),
-		hudsonrock.New(),
-		intelx.New(),
-		leakradar.New(),
-		otx.New(),
-		urlscan.New(),
-		virustotal.New(),
-		wayback.New(),
-		zoomeye.New(),
-	}
-	NameToSourceMap = make(map[string]sources.Source, len(Sources))
-)
-
-func init() {
-	for i := range Sources {
-		source := Sources[i]
-
-		NameToSourceMap[source.Name()] = source
-	}
+// Sources lists the registered source names in canonical order.
+var Sources = []string{
+	sources.ARQUIVO,
+	sources.BEVIGIL,
+	sources.COMMONCRAWL,
+	sources.GHOSTARCHIVE,
+	sources.GITHUB,
+	sources.GITLAB,
+	sources.HUDSONROCK,
+	sources.INTELLIGENCEX,
+	sources.LEAKRADAR,
+	sources.OPENTHREATEXCHANGE,
+	sources.URLSCAN,
+	sources.VIRUSTOTAL,
+	sources.WAYBACK,
+	sources.ZOOMEYE,
 }
 
+// sourceRegistry maps source names to their constructors. It is written
+// once at package load and only read afterwards, so constructors are
+// safe for concurrent use.
+var sourceRegistry = map[string]func() sources.Source{
+	sources.ARQUIVO:            arquivo.New,
+	sources.BEVIGIL:            bevigil.New,
+	sources.COMMONCRAWL:        commoncrawl.New,
+	sources.GHOSTARCHIVE:       ghostarchive.New,
+	sources.GITHUB:             github.New,
+	sources.GITLAB:             gitlab.New,
+	sources.HUDSONROCK:         hudsonrock.New,
+	sources.INTELLIGENCEX:      intelx.New,
+	sources.LEAKRADAR:          leakradar.New,
+	sources.OPENTHREATEXCHANGE: otx.New,
+	sources.URLSCAN:            urlscan.New,
+	sources.VIRUSTOTAL:         virustotal.New,
+	sources.WAYBACK:            wayback.New,
+	sources.ZOOMEYE:            zoomeye.New,
+}
+
+// NewSource returns a fresh instance of the source registered under
+// name.
+//
+// Parameters:
+//   - name (string): the registered source name.
+//
+// Returns:
+//   - source (sources.Source): the new source instance; nil when name
+//     is unknown.
+//   - ok (bool): whether name is registered.
+func NewSource(name string) (source sources.Source, ok bool) {
+	constructor, exists := sourceRegistry[name]
+	if !exists {
+		return nil, false
+	}
+
+	return constructor(), true
+}
+
+// New returns a finder configured with cfg. Every finder owns fresh
+// source instances, so finders are safe to construct and use
+// concurrently.
+//
+// Parameters:
+//   - cfg (*Configuration): the finder configuration.
+//
+// Returns:
+//   - finder (*Finder): the configured finder.
+//   - err (error): non-nil when the HTTP client cannot be initialized
+//     or a requested source name is unknown.
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
 		sources:           make(map[string]sources.Source, len(Sources)),
@@ -292,25 +332,26 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 		return
 	}
 
-	if len(cfg.SourcesToUse) < 1 {
-		cfg.SourcesToUse = sources.List
+	sourcesToUse := cfg.SourcesToUse
+	if len(sourcesToUse) < 1 {
+		sourcesToUse = sources.List
 	}
 
-	for i := range cfg.SourcesToUse {
-		source := cfg.SourcesToUse[i]
+	for i := range sourcesToUse {
+		name := sourcesToUse[i]
 
-		s, k := NameToSourceMap[source]
-		if !k {
-			continue
+		source, ok := NewSource(name)
+		if !ok {
+			err = fmt.Errorf("unknown source %q; supported sources: %s", name, strings.Join(Sources, ", "))
+
+			return
 		}
 
-		finder.sources[source] = s
+		finder.sources[name] = source
 	}
 
 	for i := range cfg.SourcesToExclude {
-		source := cfg.SourcesToExclude[i]
-
-		delete(finder.sources, source)
+		delete(finder.sources, cfg.SourcesToExclude[i])
 	}
 
 	for i := range finder.sources {

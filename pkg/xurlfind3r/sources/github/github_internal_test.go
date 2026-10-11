@@ -260,8 +260,8 @@ func TestSourceEnumerate(t *testing.T) {
 			keys: sources.Keys{testKey1},
 		}
 
-		source.keysManager = NewKeyManager(source.keys)
-		source.keysManager.SetKeyExceeded(0, 2)
+		keysManager := NewKeyManager(source.keys)
+		keysManager.SetKeyExceeded(0, 2)
 
 		cfg := &sources.Configuration{
 			Client: noopTestClient(t),
@@ -274,7 +274,7 @@ func TestSourceEnumerate(t *testing.T) {
 
 		start := time.Now()
 
-		source.Enumerate(ctx, "https://api.github.com/search/code", cfg, results)
+		source.Enumerate(ctx, "https://api.github.com/search/code", cfg, results, keysManager)
 
 		elapsed := time.Since(start)
 
@@ -302,7 +302,7 @@ func (s *Source) EnumerateForTest(ctx context.Context, cfg *sources.Configuratio
 	go func() {
 		defer close(results)
 
-		s.Enumerate(ctx, "https://api.github.com/search/code?"+parameters.Encode(), cfg, results)
+		s.Enumerate(ctx, "https://api.github.com/search/code?"+parameters.Encode(), cfg, results, NewKeyManager(s.keys))
 	}()
 
 	return results
@@ -329,8 +329,6 @@ func newTestSource() (source *Source) {
 	source = &Source{
 		keys: sources.Keys{testKey1, testKey2},
 	}
-
-	source.keysManager = NewKeyManager(source.keys)
 
 	return source
 }
