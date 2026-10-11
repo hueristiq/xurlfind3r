@@ -1,0 +1,12 @@
+{
+	"data": {
+		"employees_urls": [
+			{"url": "https://example.com/a"},
+			{"url": "https://example.com.evil.com/phantom"}
+		],
+		"clients_urls": [
+			{"url": "https://sub.example.com/b"},
+			{"url": "https://other.com/c"}
+		]
+	}
+}

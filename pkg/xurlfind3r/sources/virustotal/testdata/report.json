@@ -1,0 +1,14 @@
+{
+	"detected_urls": [
+		{"url": "https://example.com/a"},
+		{"url": "https://example.com.evil.com/phantom"}
+	],
+	"subdomains": [
+		"sub.example.com",
+		"evil.com"
+	],
+	"undetected_urls": [
+		["https://example.com/b"],
+		["https://other.com/c"]
+	]
+}
