@@ -4,7 +4,7 @@ RUN <<-EOF
 	apk --no-cache update
 	apk --no-cache upgrade
 
-	apk --no-cache add ca-certificates curl gcc g++ git make
+	apk --no-cache add bash ca-certificates curl gcc g++ git make
 EOF
 
 WORKDIR /usr/src/xurlfind3r
