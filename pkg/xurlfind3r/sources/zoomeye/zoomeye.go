@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	hqgohttpmethod "github.com/hueristiq/hq-lib-http-go/method"
+
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -106,12 +107,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				getURLsRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = getURLsRes.Body.Close()
 
 				return
 			}
 
-			getURLsRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getURLsRes.Body.Close()
 
 			if len(getURLsResData.Data) == 0 {
 				break

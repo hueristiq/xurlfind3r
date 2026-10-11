@@ -14,8 +14,9 @@ import (
 	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
 	hqgohttpheaderutils "github.com/hueristiq/hq-lib-http-go/header/utils"
 	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type codeSearchResponse struct {
@@ -111,12 +112,14 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 		results <- result
 
-		codeSearchRes.Body.Close()
+		// Close errors on a consumed response body are not actionable.
+		_ = codeSearchRes.Body.Close()
 
 		return
 	}
 
-	codeSearchRes.Body.Close()
+	// Close errors on a consumed response body are not actionable.
+	_ = codeSearchRes.Body.Close()
 
 	for _, item := range codeSearchResData.Items {
 		getRawContentReqURL := strings.ReplaceAll(item.HTMLURL, "https://github.com/", "https://raw.githubusercontent.com/")
@@ -140,7 +143,8 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		}
 
 		if getRawContentRes.StatusCode != hqgohttpstatus.OK.Int() {
-			getRawContentRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getRawContentRes.Body.Close()
 
 			continue
 		}
@@ -181,12 +185,14 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 			results <- result
 
-			getRawContentRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getRawContentRes.Body.Close()
 
 			continue
 		}
 
-		getRawContentRes.Body.Close()
+		// Close errors on a consumed response body are not actionable.
+		_ = getRawContentRes.Body.Close()
 
 		for _, textMatch := range item.TextMatches {
 			URLs := cfg.Extractor.FindAllString(textMatch.Fragment, -1)

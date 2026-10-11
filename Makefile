@@ -1,4 +1,8 @@
-SHELL = /bin/sh
+SHELL = /bin/bash
+
+MODULE := github.com/hueristiq/xurlfind3r
+BINARY := xurlfind3r
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.0.0")
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # --- Setup ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -10,7 +14,7 @@ install-lefthook:
 	(command -v lefthook || go install github.com/evilmartians/lefthook@latest) && lefthook install
 
 install-golangci-lint:
-	command -v golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0
+	command -v golangci-lint || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # --- Go (Golang) ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -38,7 +42,7 @@ go-test:
 	go test -v -race ./...
 
 go-build:
-	go build -v -ldflags '-s -w' -o bin/xurlfind3r cmd/xurlfind3r/main.go
+	go build -v -ldflags "-s -w -X $(MODULE)/internal/configuration.Version=$(VERSION)" -o bin/$(BINARY) cmd/$(BINARY)/main.go
 
 go-install:
 	go install -v ./...
@@ -50,7 +54,7 @@ go-install:
 DOCKERFILE := ./Dockerfile
 
 IMAGE_NAME = hueristiq/xurlfind3r
-IMAGE_TAG = $(shell cat internal/configuration/configuration.go | grep "VERSION =" | sed 's/.*VERSION = "\([0-9.]*\)".*/\1/')
+IMAGE_TAG = $(VERSION)
 IMAGE = $(IMAGE_NAME):$(IMAGE_TAG)
 
 .PHONY: docker-build

@@ -19,7 +19,7 @@ linters:
         # - dupword
         - durationcheck
         # - err113
-        # - errcheck
+        - errcheck
         - errchkjson
         - errname
         - errorlint
@@ -43,9 +43,8 @@ linters:
         - godox
         - goheader
         - gomoddirectives
-        - gomodguard
         - goprintffuncname
-        # - gosec
+        - gosec
         - gosmopolitan
         - govet
         - grouper
@@ -58,7 +57,7 @@ linters:
         # - ireturn
         # - lll
         - loggercheck
-        - maintidx
+        # - maintidx
         - makezero
         - mirror
         - misspell
@@ -104,7 +103,6 @@ linters:
         - wastedassign
         - whitespace
         - wrapcheck
-        # - wsl
         - wsl_v5
         - zerologlint
     settings:
@@ -129,6 +127,10 @@ linters:
         whitespace:
             multi-if: true
             multi-func: true
+        wsl_v5:
+            allow-first-in-block: true
+            allow-whole-block: false
+            branch-max-lines: 2
 
 formatters:
     enable:
@@ -136,6 +138,12 @@ formatters:
         - gofmt
         - gofumpt
         - goimports
+    settings:
+        gci:
+            sections:
+                - standard
+                - default
+                - prefix(github.com/hueristiq/xurlfind3r)
 
 issues:
     whole-files: false
@@ -150,4 +158,4 @@ run:
     modules-download-mode: readonly
     allow-parallel-runners: true
     allow-serial-runners: true
-    go: '1.25'
+    go: '1.26'

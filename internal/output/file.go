@@ -51,6 +51,7 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 		}
 	}
 
+	//nolint:gosec // the path is user-provided via the --output/--output-directory flags; the file is created with 0600 permissions.
 	file, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
@@ -73,7 +74,9 @@ func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (
 func (w *Writer) writeTXT(writer io.Writer, result sources.Result) (err error) {
 	bw := bufio.NewWriter(writer)
 
-	fmt.Fprintln(bw, result.Value)
+	if _, err = fmt.Fprintln(bw, result.Value); err != nil {
+		return
+	}
 
 	if err = bw.Flush(); err != nil {
 		return
@@ -100,7 +103,9 @@ func (w *Writer) writeJSON(writer io.Writer, domain string, result sources.Resul
 
 	bw := bufio.NewWriter(writer)
 
-	fmt.Fprintln(bw, dataJSONString)
+	if _, err = fmt.Fprintln(bw, dataJSONString); err != nil {
+		return
+	}
 
 	if err = bw.Flush(); err != nil {
 		return

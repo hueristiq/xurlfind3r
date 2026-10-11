@@ -11,8 +11,9 @@ import (
 	"time"
 
 	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type getIndexesResponse []struct {
@@ -77,12 +78,14 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 			results <- result
 
-			getIndexesRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getIndexesRes.Body.Close()
 
 			return
 		}
 
-		getIndexesRes.Body.Close()
+		// Close errors on a consumed response body are not actionable.
+		_ = getIndexesRes.Body.Close()
 
 		year := time.Now().Year()
 		years := make([]string, 0)
@@ -138,12 +141,14 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 				results <- result
 
-				getPaginationRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = getPaginationRes.Body.Close()
 
 				continue
 			}
 
-			getPaginationRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getPaginationRes.Body.Close()
 
 			if getPaginationData.Pages < 1 {
 				continue
@@ -227,12 +232,14 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 					results <- result
 
-					getURLsRes.Body.Close()
+					// Close errors on a consumed response body are not actionable.
+					_ = getURLsRes.Body.Close()
 
 					continue
 				}
 
-				getURLsRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = getURLsRes.Body.Close()
 			}
 		}
 	}()

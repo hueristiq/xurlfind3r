@@ -7,6 +7,7 @@ import (
 	"time"
 
 	hqgolimiter "github.com/hueristiq/hq-lib-limiter-go"
+
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -89,12 +90,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			results <- result
 
-			getDomainReportRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getDomainReportRes.Body.Close()
 
 			return
 		}
 
-		getDomainReportRes.Body.Close()
+		// Close errors on a consumed response body are not actionable.
+		_ = getDomainReportRes.Body.Close()
 
 		for _, detectedURL := range getDomainReportResData.DetectedURLs {
 			var URL string

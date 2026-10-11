@@ -14,14 +14,15 @@ import (
 	hqgologger "github.com/hueristiq/hq-lib-logger-go"
 	hqgologgerformatter "github.com/hueristiq/hq-lib-logger-go/formatter"
 	hqgologgerlevels "github.com/hueristiq/hq-lib-logger-go/levels"
+	"github.com/logrusorgru/aurora/v4"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/internal/input"
 	"github.com/hueristiq/xurlfind3r/internal/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-	"github.com/logrusorgru/aurora/v4"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -120,11 +121,13 @@ func init() {
 	)
 
 	if silent {
-		hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelSilent)
+		// SetLevel can only fail on an unknown level; the levels used
+		// here are constants, so the error is discarded deliberately.
+		_ = hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelSilent)
 	}
 
 	if verbose {
-		hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelDebug)
+		_ = hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelDebug)
 	}
 
 	au = aurora.New(aurora.WithColors(!monochrome))
@@ -160,6 +163,7 @@ func main() {
 	}
 
 	if domainsFilePath != "" {
+		//nolint:gosec // file path is user-provided via the --list flag; opening it is the intended behavior.
 		file, err := os.Open(domainsFilePath)
 		if err != nil {
 			hqgologger.Fatal("failed opening input file", hqgologger.WithError(err))
@@ -179,7 +183,9 @@ func main() {
 			hqgologger.Fatal("failed reading input file!", hqgologger.WithError(err))
 		}
 
-		file.Close()
+		if err := file.Close(); err != nil {
+			hqgologger.Fatal("failed closing input file!", hqgologger.WithError(err))
+		}
 	}
 
 	if input.HasStdin() {
@@ -209,7 +215,7 @@ func main() {
 
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		Client: &xurlfind3r.ClientConfiguration{
-			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.NAME, configuration.VERSION, configuration.NAME),
+			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.NAME, configuration.Version, configuration.NAME),
 		},
 		SourcesToUse:      sourcesToUse,
 		SourcesToExclude:  sourcesToExclude,
@@ -268,7 +274,11 @@ func main() {
 			}
 		}
 
-		file.Close()
+		if file != nil {
+			if err := file.Close(); err != nil {
+				hqgologger.Fatal("failed closing output file!", hqgologger.WithString("file", file.Name()), hqgologger.WithError(err))
+			}
+		}
 
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 	}

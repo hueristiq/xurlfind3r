@@ -8,8 +8,9 @@ import (
 	"net/url"
 
 	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type searchResponseItem struct {
@@ -86,12 +87,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				searchRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = searchRes.Body.Close()
 
 				return
 			}
 
-			searchRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = searchRes.Body.Close()
 
 			for _, item := range items {
 				URLs := cfg.Extractor.FindAllString(item.Data, -1)
@@ -131,7 +134,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				}
 
 				if getRawContentRes.StatusCode != hqgohttpstatus.OK.Int() {
-					getRawContentRes.Body.Close()
+					// Close errors on a consumed response body are not actionable.
+					_ = getRawContentRes.Body.Close()
 
 					continue
 				}
@@ -173,12 +177,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 					results <- result
 
-					getRawContentRes.Body.Close()
+					// Close errors on a consumed response body are not actionable.
+					_ = getRawContentRes.Body.Close()
 
 					return
 				}
 
-				getRawContentRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = getRawContentRes.Body.Close()
 			}
 
 			page = cast.ToInt(nextPage)

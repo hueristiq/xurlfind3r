@@ -10,6 +10,7 @@ import (
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	hqgourlextractor "github.com/hueristiq/hq-lib-url-go/extractor"
+
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/arquivo"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"

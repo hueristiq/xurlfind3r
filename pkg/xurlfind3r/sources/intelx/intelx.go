@@ -12,6 +12,7 @@ import (
 	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
 	hqgohttpmethod "github.com/hueristiq/hq-lib-http-go/method"
 	hqgohttpmime "github.com/hueristiq/hq-lib-http-go/mime"
+
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -137,12 +138,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			results <- result
 
-			searchRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = searchRes.Body.Close()
 
 			return
 		}
 
-		searchRes.Body.Close()
+		// Close errors on a consumed response body are not actionable.
+		_ = searchRes.Body.Close()
 
 		getResultsReqURL := fmt.Sprintf("https://%s/phonebook/search/result", intelXHost)
 		status := 0
@@ -179,12 +182,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				getResultsRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = getResultsRes.Body.Close()
 
 				return
 			}
 
-			getResultsRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getResultsRes.Body.Close()
 
 			status = getResultsResData.Status
 

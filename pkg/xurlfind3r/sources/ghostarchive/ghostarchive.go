@@ -10,8 +10,9 @@ import (
 
 	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
 	hqgolimiter "github.com/hueristiq/hq-lib-limiter-go"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 var resultPattern = regexp.MustCompile(`<a href="/archive/[^"]*">([^<]+)</a>`)
@@ -80,12 +81,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				getURLsRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = getURLsRes.Body.Close()
 
 				break
 			}
 
-			getURLsRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getURLsRes.Body.Close()
 
 			if status == hqgohttpstatus.TooManyRequests.Int() || status == hqgohttpstatus.ServiceUnavailable.Int() {
 				result := sources.Result{

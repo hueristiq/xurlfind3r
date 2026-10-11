@@ -1,14 +1,16 @@
 package configuration
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"dario.cat/mergo"
 	hqgologger "github.com/hueristiq/hq-lib-logger-go"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v4"
 	"gopkg.in/yaml.v3"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type Configuration struct {
@@ -31,12 +33,17 @@ func (configuration *Configuration) Write(path string) (err error) {
 		}
 	}
 
+	//nolint:gosec // the path is derived from the user's configuration directory; the file is created with 0600 permissions.
 	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return
 	}
 
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("failed closing file: %w", cerr)
+		}
+	}()
 
 	enc := yaml.NewEncoder(file)
 
@@ -47,10 +54,9 @@ func (configuration *Configuration) Write(path string) (err error) {
 	return
 }
 
-const (
-	NAME    = "xurlfind3r"
-	VERSION = "1.3.0"
-)
+const NAME = "xurlfind3r"
+
+var Version = "1.3.0"
 
 var (
 	BANNER = func(au *aurora.Aurora) (banner string) {
@@ -62,7 +68,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
                                           %s`).Bold(),
-			au.BrightRed("v"+VERSION).Bold().Italic(),
+			au.BrightRed("v"+Version).Bold().Italic(),
 		) + "\n\n"
 
 		return
@@ -81,7 +87,7 @@ __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __
 
 	DefaultConfigurationFilePath = filepath.Join(UserDotConfigDirectoryPath, NAME, "config.yaml")
 	DefaultConfiguration         = Configuration{
-		Version: VERSION,
+		Version: Version,
 		Sources: sources.List,
 		Keys: map[string]sources.Keys{
 			sources.BEVIGIL:       {},
@@ -116,12 +122,12 @@ func CreateUpdate(path string) (err error) {
 			return
 		}
 
-		if cfg.Version != VERSION || len(cfg.Sources) != len(sources.List) {
+		if cfg.Version != Version || len(cfg.Sources) != len(sources.List) {
 			if err = mergo.Merge(&cfg, DefaultConfiguration); err != nil {
 				return
 			}
 
-			cfg.Version = VERSION
+			cfg.Version = Version
 			cfg.Sources = sources.List
 
 			if err = cfg.Write(path); err != nil {
@@ -136,12 +142,16 @@ func CreateUpdate(path string) (err error) {
 func Read(path string) (configuration Configuration, err error) {
 	var file *os.File
 
+	//nolint:gosec // the path is user-controlled via the --configuration flag; only the user's own config file is read.
 	file, err = os.Open(path)
 	if err != nil {
 		return
 	}
 
-	defer file.Close()
+	defer func() {
+		// Close failures on a read-only config file are not actionable.
+		_ = file.Close()
+	}()
 
 	if err = yaml.NewDecoder(file).Decode(&configuration); err != nil {
 		return

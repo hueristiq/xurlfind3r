@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type getURLsResponse struct {
@@ -82,12 +83,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				getURLsRes.Body.Close()
+				// Close errors on a consumed response body are not actionable.
+				_ = getURLsRes.Body.Close()
 
 				return
 			}
 
-			getURLsRes.Body.Close()
+			// Close errors on a consumed response body are not actionable.
+			_ = getURLsRes.Body.Close()
 
 			for _, item := range getURLsResData.Items {
 				URL := item.URL
