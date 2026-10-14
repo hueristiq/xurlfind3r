@@ -17,18 +17,6 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-const (
-	// pageSize is the number of records requested per CDX page.
-	pageSize = 10000
-
-	// rateLimitWait is how long to wait before retrying a page after a
-	// 429 response.
-	rateLimitWait = 60 * time.Second
-
-	// rateLimitMaxRetries caps the number of 429 retries per page.
-	rateLimitMaxRetries = 5
-)
-
 type Source struct{}
 
 func (s *Source) Name() (name string) {
@@ -101,22 +89,6 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	return results
 }
 
-// getPage fetches one CDX page for domain, waiting out 429 responses
-// for wait each time, up to rateLimitMaxRetries retries.
-//
-// An empty response body is a clean end-of-results and yields nil data
-// and nil error.
-//
-// Parameters:
-//   - ctx (context.Context): the run context.
-//   - cfg (*sources.Configuration): the shared source configuration.
-//   - domain (string): the target domain.
-//   - page (uint): the zero-based CDX page number.
-//   - wait (time.Duration): the wait between 429 retries.
-//
-// Returns:
-//   - data ([][]string): the decoded CDX records.
-//   - err (error): non-nil on failure.
 func getPage(ctx context.Context, cfg *sources.Configuration, domain string, page uint, wait time.Duration) (data [][]string, err error) {
 	for attempts := 0; attempts <= rateLimitMaxRetries; attempts++ {
 		var getURLsRes *http.Response
@@ -136,7 +108,6 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 		}
 
 		if getURLsRes.StatusCode == hqgohttpstatus.TooManyRequests.Int() {
-			// Close errors on a consumed response body are not actionable.
 			_ = getURLsRes.Body.Close()
 
 			timer := time.NewTimer(wait)
@@ -156,7 +127,6 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 
 		body, err = io.ReadAll(getURLsRes.Body)
 
-		// Close errors on a consumed response body are not actionable.
 		_ = getURLsRes.Body.Close()
 
 		if err != nil {
@@ -177,19 +147,6 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 	return nil, fmt.Errorf("wayback rate limited after %d attempts", rateLimitMaxRetries+1)
 }
 
-// no429RetryPolicy disables the client's own 429 retries so wayback can
-// wait out the rate limit itself; every other outcome follows the
-// client's default retry policy.
-//
-// Parameters:
-//   - ctx (context.Context): the request context.
-//   - resp (*http.Response): the attempt's response, or nil.
-//   - err (error): the attempt's transport error, or nil.
-//
-// Returns:
-//   - retry (bool): whether the client should retry the attempt.
-//   - rerr (error): an error replacing the attempt's outcome; nil to
-//     keep it.
 func no429RetryPolicy(ctx context.Context, resp *http.Response, err error) (retry bool, rerr error) {
 	if ctx.Err() == nil && resp != nil && resp.StatusCode == hqgohttpstatus.TooManyRequests.Int() {
 		return false, nil
@@ -212,6 +169,12 @@ var limiter = hqgolimiter.New(
 )
 
 var _ sources.Source = (*Source)(nil)
+
+const (
+	pageSize            = 10000
+	rateLimitWait       = 60 * time.Second
+	rateLimitMaxRetries = 5
+)
 
 func New() (source sources.Source) {
 	source = &Source{}

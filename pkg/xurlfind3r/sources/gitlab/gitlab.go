@@ -87,13 +87,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				// Close errors on a consumed response body are not actionable.
 				_ = searchRes.Body.Close()
 
 				return
 			}
 
-			// Close errors on a consumed response body are not actionable.
 			_ = searchRes.Body.Close()
 
 			for _, item := range items {
@@ -134,7 +132,6 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				}
 
 				if getRawContentRes.StatusCode != hqgohttpstatus.OK.Int() {
-					// Close errors on a consumed response body are not actionable.
 					_ = getRawContentRes.Body.Close()
 
 					continue
@@ -177,13 +174,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 					results <- result
 
-					// Close errors on a consumed response body are not actionable.
 					_ = getRawContentRes.Body.Close()
 
 					return
 				}
 
-				// Close errors on a consumed response body are not actionable.
 				_ = getRawContentRes.Body.Close()
 			}
 

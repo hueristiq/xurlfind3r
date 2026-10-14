@@ -83,13 +83,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				// Close errors on a consumed response body are not actionable.
 				_ = getURLsRes.Body.Close()
 
 				return
 			}
 
-			// Close errors on a consumed response body are not actionable.
 			_ = getURLsRes.Body.Close()
 
 			for _, item := range getURLsResData.Items {

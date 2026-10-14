@@ -17,19 +17,6 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-const (
-	// defaultPollInterval is the wait between phonebook result polls.
-	defaultPollInterval = 10 * time.Second
-
-	// defaultPollAttemptsMax caps how many times the result endpoint is
-	// polled while the search is processing.
-	defaultPollAttemptsMax = 30
-
-	// defaultSearchTimeout is the search timeout sent to intelx as a
-	// plain integer in the API's expected unit (seconds).
-	defaultSearchTimeout = 20
-)
-
 type searchRequestBody struct {
 	Term       string `json:"term"`
 	MaxResults int    `json:"maxresults"`
@@ -53,12 +40,6 @@ type getResultsResponse struct {
 	Status int `json:"status"`
 }
 
-// Source queries the IntelligenceX phonebook API.
-//
-// Fields:
-//   - keys (sources.Keys): the configured host:key credentials.
-//   - pollInterval (time.Duration): the wait between result polls.
-//   - pollAttemptsMax (int): the result poll attempt cap.
 type Source struct {
 	keys            sources.Keys
 	pollInterval    time.Duration
@@ -188,13 +169,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			results <- result
 
-			// Close errors on a consumed response body are not actionable.
 			_ = searchRes.Body.Close()
 
 			return
 		}
 
-		// Close errors on a consumed response body are not actionable.
 		_ = searchRes.Body.Close()
 
 		getResultsReqURL := "https://" + intelXHost + "/phonebook/search/result"
@@ -256,13 +235,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				// Close errors on a consumed response body are not actionable.
 				_ = getResultsRes.Body.Close()
 
 				return
 			}
 
-			// Close errors on a consumed response body are not actionable.
 			_ = getResultsRes.Body.Close()
 
 			status = getResultsResData.Status
@@ -301,6 +278,12 @@ func (s *Source) UseKeys(keys ...string) {
 }
 
 var _ sources.Source = (*Source)(nil)
+
+const (
+	defaultPollInterval    = 10 * time.Second
+	defaultPollAttemptsMax = 30
+	defaultSearchTimeout   = 20
+)
 
 func New() (source sources.Source) {
 	source = &Source{

@@ -242,13 +242,11 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 					results <- result
 
-					// Close errors on a consumed response body are not actionable.
 					_ = getURLsRes.Body.Close()
 
 					continue
 				}
 
-				// Close errors on a consumed response body are not actionable.
 				_ = getURLsRes.Body.Close()
 			}
 		}

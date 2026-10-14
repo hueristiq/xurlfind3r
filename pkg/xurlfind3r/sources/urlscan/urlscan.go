@@ -99,13 +99,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				results <- result
 
-				// Close errors on a consumed response body are not actionable.
 				_ = searchRes.Body.Close()
 
 				break
 			}
 
-			// Close errors on a consumed response body are not actionable.
 			_ = searchRes.Body.Close()
 
 			if searchResData.Status == hqgohttpstatus.TooManyRequests.Int() {

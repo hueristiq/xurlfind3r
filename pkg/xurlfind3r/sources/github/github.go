@@ -99,7 +99,6 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 	if err != nil && !isForbidden {
 		if codeSearchRes != nil && codeSearchRes.Body != nil {
-			// Close errors on a consumed response body are not actionable.
 			_ = codeSearchRes.Body.Close()
 		}
 
@@ -118,7 +117,6 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 	if isForbidden && ratelimitRemaining == 0 {
 		retryAfterSeconds := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.RetryAfter.String()))
 
-		// Close errors on a consumed response body are not actionable.
 		_ = codeSearchRes.Body.Close()
 
 		keysManager.SetKeyExceeded(index, retryAfterSeconds)
@@ -139,13 +137,11 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 		results <- result
 
-		// Close errors on a consumed response body are not actionable.
 		_ = codeSearchRes.Body.Close()
 
 		return
 	}
 
-	// Close errors on a consumed response body are not actionable.
 	_ = codeSearchRes.Body.Close()
 
 	for _, item := range codeSearchResData.Items {
@@ -170,7 +166,6 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		}
 
 		if getRawContentRes.StatusCode != hqgohttpstatus.OK.Int() {
-			// Close errors on a consumed response body are not actionable.
 			_ = getRawContentRes.Body.Close()
 
 			continue
@@ -212,13 +207,11 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 			results <- result
 
-			// Close errors on a consumed response body are not actionable.
 			_ = getRawContentRes.Body.Close()
 
 			continue
 		}
 
-		// Close errors on a consumed response body are not actionable.
 		_ = getRawContentRes.Body.Close()
 
 		for _, textMatch := range item.TextMatches {
@@ -274,38 +267,18 @@ func (s *Source) UseKeys(keys ...string) {
 	s.keys = append(s.keys, keys...)
 }
 
-// ManagedKey is a GitHub API token tracked by [KeysManager].
-//
-// Fields:
-//   - ExceededTime (time.Time): when the token was last rate-limited.
-//   - RetryAfter (int64): seconds to wait before reusing the token.
-//   - Value (string): the token itself.
 type ManagedKey struct {
 	ExceededTime time.Time
 	RetryAfter   int64
 	Value        string
 }
 
-// KeysManager rotates a pool of GitHub API tokens, tracking which ones
-// are currently rate-limited.
-//
-// Fields:
-//   - mu (sync.Mutex): guards the pool and cursor.
-//   - current (int): the index of the next token to hand out.
-//   - pool ([]ManagedKey): the tokens under management.
 type KeysManager struct {
 	mu      sync.Mutex
 	current int
 	pool    []ManagedKey
 }
 
-// NewKeyManager returns a KeysManager over the given API tokens.
-//
-// Parameters:
-//   - keys ([]string): the GitHub API tokens.
-//
-// Returns:
-//   - manager (*KeysManager): the key manager.
 func NewKeyManager(keys []string) (manager *KeysManager) {
 	pool := make([]ManagedKey, len(keys))
 
@@ -320,13 +293,6 @@ func NewKeyManager(keys []string) (manager *KeysManager) {
 	return
 }
 
-// GetCurrentKey returns the next token and the index it occupies in the
-// pool. Tokens whose rate-limit window has elapsed are reactivated first.
-//
-// Returns:
-//   - key (*ManagedKey): the token to use for the next request.
-//   - index (int): the token's index in the pool; pass it to
-//     [KeysManager.SetKeyExceeded] if the request is rate-limited.
 func (m *KeysManager) GetCurrentKey() (key *ManagedKey, index int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -352,12 +318,6 @@ func (m *KeysManager) GetCurrentKey() (key *ManagedKey, index int) {
 	return
 }
 
-// SetKeyExceeded marks the token at index as rate-limited for the given
-// number of seconds.
-//
-// Parameters:
-//   - index (int): the token's index, as returned by [KeysManager.GetCurrentKey].
-//   - retryAfter (int64): seconds to wait before reusing the token.
 func (m *KeysManager) SetKeyExceeded(index int, retryAfter int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
