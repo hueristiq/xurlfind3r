@@ -32,7 +32,9 @@ type getURLsResponse struct {
 	ActualSize int  `json:"actual_size"`
 }
 
-type Source struct{}
+type Source struct {
+	keys sources.Keys
+}
 
 func (s *Source) Name() (name string) {
 	name = sources.OpenThreatExchange
@@ -46,14 +48,25 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	go func() {
 		defer close(results)
 
+		key := ""
+
+		if picked, err := s.keys.PickRandom(); err == nil {
+			key = picked
+		}
+
 		for page := 1; ; page++ {
 			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list", domain)
 
-			getURLsRes, err := cfg.Client.NewRequest().
+			getURLsReq := cfg.Client.NewRequest().
 				URL(getURLsReqURL).
 				Param("limit", "100").
-				Param("page", cast.ToString(page)).
-				Do(ctx)
+				Param("page", cast.ToString(page))
+
+			if key != "" {
+				getURLsReq = getURLsReq.SetHeader("X-OTX-API-KEY", key)
+			}
+
+			getURLsRes, err := getURLsReq.Do(ctx)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -112,18 +125,21 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 }
 
 func (s *Source) NeedsKeys() (needs bool) {
-	needs = false
+	needs = true
 
 	return
 }
 
 func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
 }
 
 var _ sources.Source = (*Source)(nil)
 
 func New() (source sources.Source) {
-	source = &Source{}
+	source = &Source{
+		keys: make(sources.Keys, 0),
+	}
 
 	return
 }

@@ -104,14 +104,15 @@ var DefaultConfiguration = Configuration{
 	Version: Version,
 	Sources: sources.List,
 	Keys: map[string]sources.Keys{
-		sources.Bevigil:       {},
-		sources.Github:        {},
-		sources.Gitlab:        {},
-		sources.IntelligenceX: {},
-		sources.Leakradar:     {},
-		sources.URLScan:       {},
-		sources.Virustotal:    {},
-		sources.Zoomeye:       {},
+		sources.Bevigil:            {},
+		sources.Github:             {},
+		sources.Gitlab:             {},
+		sources.IntelligenceX:      {},
+		sources.Leakradar:          {},
+		sources.OpenThreatExchange: {},
+		sources.URLScan:            {},
+		sources.Virustotal:         {},
+		sources.Zoomeye:            {},
 	},
 }
 
@@ -135,7 +136,7 @@ func CreateOrUpdate(path string) (err error) {
 			return
 		}
 
-		if cfg.Version != Version || len(cfg.Sources) != len(sources.List) {
+		if cfg.Version != Version || len(cfg.Sources) != len(sources.List) || hasMissingKeySlots(&cfg) {
 			if err = mergo.Merge(&cfg, DefaultConfiguration); err != nil {
 				return
 			}
@@ -146,6 +147,16 @@ func CreateOrUpdate(path string) (err error) {
 			if err = cfg.Write(path); err != nil {
 				return
 			}
+		}
+	}
+
+	return
+}
+
+func hasMissingKeySlots(cfg *Configuration) (missing bool) {
+	for name := range DefaultConfiguration.Keys {
+		if _, exists := cfg.Keys[name]; !exists {
+			return true
 		}
 	}
 
