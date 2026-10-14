@@ -15,15 +15,14 @@ import (
 	hqgologger "github.com/hueristiq/hq-lib-logger-go"
 	hqgologgerformatter "github.com/hueristiq/hq-lib-logger-go/formatter"
 	hqgologgerlevels "github.com/hueristiq/hq-lib-logger-go/levels"
-	"github.com/logrusorgru/aurora/v4"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-
 	"github.com/hueristiq/xurlfind3r/internal/configuration"
 	"github.com/hueristiq/xurlfind3r/internal/input"
 	"github.com/hueristiq/xurlfind3r/internal/output"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	"github.com/logrusorgru/aurora/v4"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -44,8 +43,8 @@ var (
 	au = aurora.New(aurora.WithColors(true))
 )
 
-func bootstrap() {
-	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath, "")
+func init() {
+	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath(), "")
 	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
 	pflag.StringVarP(&domainsFilePath, "list", "l", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
@@ -67,7 +66,11 @@ func bootstrap() {
 
 		h += "\nCONFIGURATION:\n"
 
-		defaultConfigurationFilePath := strings.ReplaceAll(configuration.DefaultConfigurationFilePath, configuration.UserDotConfigDirectoryPath(), "$HOME/.config")
+		defaultConfigurationFilePath := configuration.DefaultConfigurationFilePath()
+
+		if userConfigDirectoryPath, err := configuration.UserConfigDirectoryPath(); err == nil {
+			defaultConfigurationFilePath = strings.ReplaceAll(defaultConfigurationFilePath, userConfigDirectoryPath, "$HOME/.config")
+		}
 
 		h += fmt.Sprintf(" -c, --configuration string           (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
 
@@ -100,7 +103,7 @@ func bootstrap() {
 
 	pflag.Parse()
 
-	if err := configuration.CreateUpdate(configurationFilePath); err != nil {
+	if err := configuration.CreateOrUpdate(configurationFilePath); err != nil {
 		hqgologger.Fatal("failed creating or updating Configuration!", hqgologger.WithError(err))
 	}
 
@@ -122,22 +125,22 @@ func bootstrap() {
 	)
 
 	if silent {
-		// SetLevel can only fail on an unknown level; the levels used
-		// here are constants, so the error is discarded deliberately.
-		_ = hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelSilent)
+		if err := hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelSilent); err != nil {
+			hqgologger.Fatal("failed setting logger level!", hqgologger.WithError(err))
+		}
 	}
 
 	if verbose {
-		_ = hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelDebug)
+		if err := hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelDebug); err != nil {
+			hqgologger.Fatal("failed setting logger level!", hqgologger.WithError(err))
+		}
 	}
 
 	au = aurora.New(aurora.WithColors(!monochrome))
 }
 
 func main() {
-	bootstrap()
-
-	hqgologger.Info(configuration.Banner(au), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+	hqgologger.Info(configuration.Banner(au), hqgologger.WithoutLabel())
 
 	var cfg *configuration.Configuration
 
@@ -171,30 +174,31 @@ func main() {
 	}
 
 	if domainsFilePath != "" {
-		fileDomains, err := readDomainsFromFile(domainsFilePath)
+		file, err := os.Open(domainsFilePath) //nolint:gosec // path is the user-specified domains file location.
 		if err != nil {
-			hqgologger.Fatal("failed reading domains from file!", hqgologger.WithString("file", domainsFilePath), hqgologger.WithError(err))
+			hqgologger.Fatal("failed opening input file", hqgologger.WithError(err))
 		}
 
-		domains = append(domains, fileDomains...)
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			domains = append(domains, scanner.Text())
+		}
+
+		if err := scanner.Err(); err != nil {
+			hqgologger.Fatal("failed reading input file!", hqgologger.WithError(err))
+		}
+
+		if err := file.Close(); err != nil {
+			hqgologger.Fatal("failed closing input file!", hqgologger.WithError(err))
+		}
 	}
 
 	if input.HasStdin() {
 		scanner := bufio.NewScanner(os.Stdin)
 
 		for scanner.Scan() {
-			domain := scanner.Text()
-
-			if domain == "" {
-				continue
-			}
-
-			validated, err := input.ValidateDomain(domain)
-			if err != nil {
-				hqgologger.Fatal("invalid domain!", hqgologger.WithError(err))
-			}
-
-			domains = append(domains, validated)
+			domains = append(domains, scanner.Text())
 		}
 
 		if err := scanner.Err(); err != nil {
@@ -202,15 +206,26 @@ func main() {
 		}
 	}
 
-	for index := range domains {
-		var validated string
+	validatedDomains := make([]string, 0, len(domains))
 
-		validated, err := input.ValidateDomain(domains[index])
-		if err != nil {
-			hqgologger.Fatal("invalid domain!", hqgologger.WithError(err))
+	for _, domain := range domains {
+		domain = strings.TrimSpace(domain)
+
+		if domain == "" {
+			continue
 		}
 
-		domains[index] = validated
+		if err := input.ValidateDomain(domain); err != nil {
+			hqgologger.Fatal("invalid domain!", hqgologger.WithString("domain", domain), hqgologger.WithError(err))
+		}
+
+		validatedDomains = append(validatedDomains, domain)
+	}
+
+	domains = validatedDomains
+
+	if len(domains) == 0 {
+		hqgologger.Fatal("no domains provided! specify at least one with --domain, --list or stdin.")
 	}
 
 	writer := output.NewWriter()
@@ -220,18 +235,18 @@ func main() {
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+
 	defer stop()
 
-	sourcesToUseList := sourcesToUse
-	if len(sourcesToUseList) < 1 {
-		sourcesToUseList = cfg.Sources
+	if len(sourcesToUse) == 0 {
+		sourcesToUse = cfg.Sources
 	}
 
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		Client: &xurlfind3r.ClientConfiguration{
 			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.Name, configuration.Version, configuration.Name),
 		},
-		SourcesToUse:      sourcesToUseList,
+		SourcesToUse:      sourcesToUse,
 		SourcesToExclude:  sourcesToExclude,
 		Keys:              cfg.Keys,
 		IncludeSubdomains: includeSubdomains,
@@ -288,61 +303,18 @@ func main() {
 			}
 		}
 
-		if err := writer.Flush(); err != nil {
-			hqgologger.Error("failed to flush output!", hqgologger.WithError(err))
+		for _, output := range outputs {
+			if err := writer.Flush(output); err != nil {
+				hqgologger.Error("failed flushing output!", hqgologger.WithError(err))
+			}
 		}
 
 		if file != nil {
 			if err := file.Close(); err != nil {
-				hqgologger.Fatal("failed closing output file!", hqgologger.WithString("file", file.Name()), hqgologger.WithError(err))
+				hqgologger.Error("failed closing output file!", hqgologger.WithError(err))
 			}
 		}
 
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 	}
-}
-
-// readDomainsFromFile reads and validates the domain list at path.
-//
-// Parameters:
-//   - path (string): the domain list file path.
-//
-// Returns:
-//   - domains ([]string): the validated domains.
-//   - err (error): non-nil when the file cannot be read or a domain
-//     is invalid.
-func readDomainsFromFile(path string) (domains []string, err error) {
-	//nolint:gosec // file path is user-provided via the --list flag; opening it is the intended behavior.
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed opening input file: %w", err)
-	}
-
-	defer func() {
-		// Close errors on a read-only input file are not actionable.
-		_ = file.Close()
-	}()
-
-	scanner := bufio.NewScanner(file)
-
-	for scanner.Scan() {
-		domain := scanner.Text()
-
-		if domain == "" {
-			continue
-		}
-
-		validated, validateErr := input.ValidateDomain(domain)
-		if validateErr != nil {
-			return nil, fmt.Errorf("invalid domain: %w", validateErr)
-		}
-
-		domains = append(domains, validated)
-	}
-
-	if err = scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed reading input file: %w", err)
-	}
-
-	return domains, nil
 }

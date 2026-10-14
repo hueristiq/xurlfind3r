@@ -4,53 +4,40 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 )
 
-// HasStdin reports whether stdin carries piped input.
-func HasStdin() bool {
-	stat, err := os.Stdin.Stat()
-	if err != nil {
-		return false
+var domainPattern = regexp.MustCompile(`^(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$`)
+
+func ValidateDomain(domain string) (err error) {
+	domain = strings.TrimSpace(domain)
+
+	if domain == "" {
+		err = errors.New("empty domain")
+
+		return
 	}
 
-	isPipedFromChrDev := (stat.Mode() & os.ModeCharDevice) == 0
-	isPipedFromFIFO := (stat.Mode() & os.ModeNamedPipe) != 0
+	if !domainPattern.MatchString(domain) {
+		err = fmt.Errorf("invalid domain %q", domain)
 
-	return isPipedFromChrDev || isPipedFromFIFO
+		return
+	}
+
+	return
 }
 
-// ValidateDomain trims domain and checks that it only contains hostname
-// characters, so it can safely be interpolated into request URLs and
-// joined into output file paths.
-//
-// Parameters:
-//   - domain (string): the candidate domain.
-//
-// Returns:
-//   - validated (string): the trimmed domain.
-//   - err (error): non-nil when domain is empty or contains characters
-//     outside letters, digits, dots, hyphens and underscores.
-func ValidateDomain(domain string) (validated string, err error) {
-	validated = strings.TrimSpace(domain)
-
-	if validated == "" {
-		return "", errors.New("domain is empty")
+func HasStdin() (has bool) {
+	stat, err := os.Stdin.Stat()
+	if err != nil {
+		return
 	}
 
-	for index := range len(validated) {
-		character := validated[index]
+	isPipe := (stat.Mode() & os.ModeCharDevice) == 0
+	isFIFO := (stat.Mode() & os.ModeNamedPipe) != 0
 
-		switch {
-		case character >= 'a' && character <= 'z',
-			character >= 'A' && character <= 'Z',
-			character >= '0' && character <= '9',
-			character == '.', character == '-', character == '_':
-			continue
-		default:
-			return "", fmt.Errorf("domain %q contains invalid character %q", validated, character)
-		}
-	}
+	has = isPipe || isFIFO
 
-	return validated, nil
+	return
 }

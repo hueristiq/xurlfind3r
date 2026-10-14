@@ -11,7 +11,6 @@ import (
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	hqgourlextractor "github.com/hueristiq/hq-lib-url-go/extractor"
-
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/arquivo"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/bevigil"
@@ -29,30 +28,12 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/zoomeye"
 )
 
-// Finder discovers URLs for a domain across the configured sources.
-//
-// Construct one with [New]; a Finder is safe for concurrent use.
-//
-// Fields:
-//   - sources (map[string]sources.Source): the sources to query, by name.
-//   - includeSubdomains (bool): whether subdomains are in scope.
-//   - client (*hqgohttp.Client): the shared HTTP client.
 type Finder struct {
+	client            *hqgohttp.Client
 	sources           map[string]sources.Source
 	includeSubdomains bool
-	client            *hqgohttp.Client
 }
 
-// Find queries every configured source for URLs belonging to domain
-// and streams the deduplicated results.
-//
-// Parameters:
-//   - ctx (context.Context): the run context.
-//   - domain (string): the target domain.
-//
-// Returns:
-//   - results (chan sources.Result): the result stream, closed when
-//     all sources finish.
 func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
@@ -115,31 +96,12 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 	return
 }
 
-// hostPattern returns the extractor host pattern scoped to domain.
-//
-// The pattern is case-insensitive so that uppercase hosts (e.g.
-// EXAMPLE.COM) are extracted; the trailing host-boundary enforcement
-// happens in [sources.ExtractURLs], where the match context is known.
-//
-// Parameters:
-//   - domain (string): the target domain.
-//
-// Returns:
-//   - pattern (string): the host pattern for the extractor.
 func hostPattern(domain string) (pattern string) {
 	pattern = `(?i)(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
 
 	return
 }
 
-// compileExtractor compiles the URL extractor scoped to domain.
-//
-// Parameters:
-//   - domain (string): the target domain.
-//
-// Returns:
-//   - extractor (*regexp.Regexp): the compiled extractor regular expression.
-//   - err (error): non-nil if the extractor pattern fails to compile.
 func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
 	extractor, err = hqgourlextractor.New(
 		hqgourlextractor.WithHostPattern(hostPattern(domain)),
@@ -151,14 +113,6 @@ func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
 	return
 }
 
-// hasScheme reports whether the target starts with a URI scheme
-// (e.g. "mailto:", "https:").
-//
-// Parameters:
-//   - target (string): the candidate URL.
-//
-// Returns:
-//   - ok (bool): true if target starts with a scheme.
 func hasScheme(target string) (ok bool) {
 	if target == "" {
 		return false
@@ -184,23 +138,10 @@ func hasScheme(target string) (ok bool) {
 	return false
 }
 
-// isASCIIAlpha reports whether the character is an ASCII letter.
 func isASCIIAlpha(character byte) (ok bool) {
 	return character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
 }
 
-// validateURL normalizes the candidate target URL and checks that its
-// host belongs to domain's scope.
-//
-// Parameters:
-//   - target (string): the candidate URL, as extracted from a source.
-//   - domain (string): the target domain defining the scope.
-//   - includeSubdomains (bool): whether subdomains of domain are in scope.
-//
-// Returns:
-//   - URL (string): the normalized URL.
-//   - valid (bool): true if the URL is http(s), its host is domain,
-//     www.domain or, when includeSubdomains is set, a subdomain of domain.
 func validateURL(target, domain string, includeSubdomains bool) (URL string, valid bool) {
 	scheme := "https"
 
@@ -244,23 +185,10 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 	return URL, valid
 }
 
-// ClientConfiguration configures the finder's HTTP client.
-//
-// Fields:
-//   - UserAgent (string): the User-Agent header; empty selects the
-//     client default.
 type ClientConfiguration struct {
 	UserAgent string
 }
 
-// Configuration configures a [Finder].
-//
-// Fields:
-//   - Client (*ClientConfiguration): HTTP client settings.
-//   - SourcesToUse ([]string): source names to use; empty selects all.
-//   - SourcesToExclude ([]string): source names to skip.
-//   - Keys (map[string]sources.Keys): per-source API keys.
-//   - IncludeSubdomains (bool): whether subdomains are in scope.
 type Configuration struct {
 	Client            *ClientConfiguration
 	SourcesToUse      []string
@@ -269,7 +197,6 @@ type Configuration struct {
 	IncludeSubdomains bool
 }
 
-// Sources lists the registered source names in canonical order.
 var Sources = []string{
 	sources.Arquivo,
 	sources.Bevigil,
