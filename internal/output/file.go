@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,7 +12,8 @@ import (
 )
 
 type Writer struct {
-	format format
+	format  format
+	writers map[io.Writer]*bufio.Writer
 }
 
 func (w *Writer) SetFormatToJSONL() {
@@ -44,14 +44,13 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 
 	if directory != "" {
 		if _, err = os.Stat(directory); os.IsNotExist(err) {
-			err = os.MkdirAll(directory, 0o750)
-			if err != nil {
+			if err = os.MkdirAll(directory, 0o750); err != nil {
 				return
 			}
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	file, err = os.OpenFile(path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec // path is the user-specified output file location.
 	if err != nil {
 		return
 	}
@@ -60,20 +59,39 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 }
 
 func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (err error) {
+	bw := w.bufferedWriter(writer)
+
 	switch w.format {
 	case formatTXT:
-		err = w.writeTXT(writer, result)
+		if _, err = bw.WriteString(result.Value + "\n"); err != nil {
+			return
+		}
 	case formatJSONL:
-		err = w.writeJSON(writer, domain, result)
+		data := resultForJSONL{
+			Domain: domain,
+			URL:    result.Value,
+			Source: result.Source,
+		}
+
+		var dataJSONBytes []byte
+
+		if dataJSONBytes, err = json.Marshal(data); err != nil {
+			return
+		}
+
+		if _, err = bw.Write(append(dataJSONBytes, '\n')); err != nil {
+			return
+		}
 	}
 
 	return
 }
 
-func (w *Writer) writeTXT(writer io.Writer, result sources.Result) (err error) {
-	bw := bufio.NewWriter(writer)
-
-	fmt.Fprintln(bw, result.Value)
+func (w *Writer) Flush(writer io.Writer) (err error) {
+	bw, ok := w.writers[writer]
+	if !ok {
+		return
+	}
 
 	if err = bw.Flush(); err != nil {
 		return
@@ -82,28 +100,11 @@ func (w *Writer) writeTXT(writer io.Writer, result sources.Result) (err error) {
 	return
 }
 
-func (w *Writer) writeJSON(writer io.Writer, domain string, result sources.Result) (err error) {
-	data := resultForJSONL{
-		Domain: domain,
-		URL:    result.Value,
-		Source: result.Source,
-	}
-
-	var dataJSONBytes []byte
-
-	dataJSONBytes, err = json.Marshal(data)
-	if err != nil {
-		return
-	}
-
-	dataJSONString := string(dataJSONBytes)
-
-	bw := bufio.NewWriter(writer)
-
-	fmt.Fprintln(bw, dataJSONString)
-
-	if err = bw.Flush(); err != nil {
-		return
+func (w *Writer) bufferedWriter(writer io.Writer) (bw *bufio.Writer) {
+	bw, ok := w.writers[writer]
+	if !ok {
+		bw = bufio.NewWriterSize(writer, 256*1024)
+		w.writers[writer] = bw
 	}
 
 	return
@@ -118,15 +119,16 @@ type resultForJSONL struct {
 }
 
 const (
-	formatJSONL format = "JSON"
+	formatJSONL format = "JSONL"
 	formatTXT   format = "TXT"
 )
 
 var ErrNoFilePathSpecified = errors.New("no file path specified")
 
-func NewWriter() (writter *Writer) {
-	writter = &Writer{
-		format: formatTXT,
+func NewWriter() (writer *Writer) {
+	writer = &Writer{
+		format:  formatTXT,
+		writers: make(map[io.Writer]*bufio.Writer),
 	}
 
 	return

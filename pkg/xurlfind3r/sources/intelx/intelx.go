@@ -2,24 +2,27 @@ package intelx
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
-	hqgohttpmime "github.com/hueristiq/hq-go-http/mime"
+	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
+	hqgohttpmethod "github.com/hueristiq/hq-lib-http-go/method"
+	hqgohttpmime "github.com/hueristiq/hq-lib-http-go/mime"
+
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type searchRequestBody struct {
-	Term       string        `json:"term"`
-	MaxResults int           `json:"maxresults"`
-	Media      int           `json:"media"`
-	Target     int           `json:"target"`
-	Timeout    time.Duration `json:"timeout"`
+	Term       string `json:"term"`
+	MaxResults int    `json:"maxresults"`
+	Media      int    `json:"media"`
+	Target     int    `json:"target"`
+	Timeout    int    `json:"timeout"`
 }
 
 type searchResponse struct {
@@ -38,23 +41,25 @@ type getResultsResponse struct {
 }
 
 type Source struct {
-	keys sources.Keys
+	keys            sources.Keys
+	pollInterval    time.Duration
+	pollAttemptsMax int
 }
 
 func (s *Source) Name() (name string) {
-	name = sources.INTELLIGENCEX
+	name = sources.IntelligenceX
 
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
 		key, err := s.keys.PickRandom()
-		if key == "" || err != nil {
+		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
 				Source: s.Name(),
@@ -66,8 +71,28 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 			return
 		}
 
+		if key == "" {
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  errors.New("failed to select key: selected key is empty"),
+			}
+
+			results <- result
+
+			return
+		}
+
 		parts := strings.Split(key, ":")
 		if len(parts) != 2 {
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  errors.New("failed to parse key: expected host:key format"),
+			}
+
+			results <- result
+
 			return
 		}
 
@@ -75,16 +100,24 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 		intelXKey := parts[1]
 
 		if intelXKey == "" || intelXHost == "" {
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  errors.New("failed to parse key: host or key is empty"),
+			}
+
+			results <- result
+
 			return
 		}
 
-		searchReqURL := fmt.Sprintf("https://%s/phonebook/search?", intelXHost)
+		searchReqURL := "https://" + intelXHost + "/phonebook/search"
 		searchReqBody := searchRequestBody{
 			Term:       "*" + domain,
 			MaxResults: 100000,
 			Media:      0,
 			Target:     3, // 1 = Domains | 2 = Emails | 3 = URLs
-			Timeout:    20,
+			Timeout:    defaultSearchTimeout,
 		}
 
 		var searchReqBodyBytes []byte
@@ -104,23 +137,24 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 		searchReqBodyReader := bytes.NewBuffer(searchReqBodyBytes)
 
-		searchReqCFG := &hqgohttp.RequestConfiguration{
-			Params: map[string]string{
-				"k": intelXKey,
-			},
-			Headers: []hqgohttp.Header{
-				hqgohttp.NewSetHeader(hqgohttpheader.ContentType.String(), hqgohttpmime.JSON.String()),
-			},
-		}
-
 		var searchRes *http.Response
 
-		searchRes, err = hqgohttp.Post(searchReqURL, searchReqBodyReader, searchReqCFG)
+		searchRes, err = cfg.Client.NewRequest().
+			Method(hqgohttpmethod.POST).
+			URL(searchReqURL).
+			Param("k", intelXKey).
+			SetHeader(hqgohttpheader.ContentType.String(), hqgohttpmime.JSON.String()).
+			Body(searchReqBodyReader).
+			Do(ctx)
 		if err != nil {
+			if searchRes != nil {
+				_ = searchRes.Body.Close()
+			}
+
 			result := sources.Result{
 				Type:   sources.ResultError,
 				Source: s.Name(),
-				Error:  fmt.Errorf("request failed: %w", err),
+				Error:  fmt.Errorf("request failed: %w", sources.RedactError(err, intelXKey)),
 			}
 
 			results <- result
@@ -139,32 +173,58 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 			results <- result
 
-			searchRes.Body.Close()
+			_ = searchRes.Body.Close()
 
 			return
 		}
 
-		searchRes.Body.Close()
+		_ = searchRes.Body.Close()
 
-		getResultsReqURL := fmt.Sprintf("https://%s/phonebook/search/result", intelXHost)
-		getResultsReqCFG := &hqgohttp.RequestConfiguration{
-			Params: map[string]string{
-				"k":     intelXKey,
-				"id":    searchResData.ID,
-				"limit": "10000",
-			},
-		}
+		getResultsReqURL := "https://" + intelXHost + "/phonebook/search/result"
 		status := 0
 
-		for status == 0 || status == 3 {
-			var getResultsRes *http.Response
-
-			getResultsRes, err = hqgohttp.Get(getResultsReqURL, getResultsReqCFG)
-			if err != nil {
+		for attempts := 0; status == 0 || status == 3; attempts++ {
+			if attempts >= s.pollAttemptsMax {
 				result := sources.Result{
 					Type:   sources.ResultError,
 					Source: s.Name(),
-					Error:  fmt.Errorf("request failed: %w", err),
+					Error:  fmt.Errorf("giving up after %d result polls", attempts),
+				}
+
+				results <- result
+
+				return
+			}
+
+			if attempts > 0 {
+				timer := time.NewTimer(s.pollInterval)
+
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+
+					return
+				case <-timer.C:
+				}
+			}
+
+			var getResultsRes *http.Response
+
+			getResultsRes, err = cfg.Client.NewRequest().
+				URL(getResultsReqURL).
+				Param("k", intelXKey).
+				Param("id", searchResData.ID).
+				Param("limit", "10000").
+				Do(ctx)
+			if err != nil {
+				if getResultsRes != nil {
+					_ = getResultsRes.Body.Close()
+				}
+
+				result := sources.Result{
+					Type:   sources.ResultError,
+					Source: s.Name(),
+					Error:  fmt.Errorf("request failed: %w", sources.RedactError(err, intelXKey)),
 				}
 
 				results <- result
@@ -183,21 +243,21 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 				results <- result
 
-				getResultsRes.Body.Close()
+				_ = getResultsRes.Body.Close()
 
 				return
 			}
 
-			getResultsRes.Body.Close()
+			_ = getResultsRes.Body.Close()
 
 			status = getResultsResData.Status
 
-			for _, hostname := range getResultsResData.Selectors {
+			for _, selector := range getResultsResData.Selectors {
 				var URL string
 
 				var valid bool
 
-				if URL, valid = cfg.Validator(hostname.Selectvalue); !valid {
+				if URL, valid = cfg.Validator(selector.Selectvalue); !valid {
 					continue
 				}
 
@@ -227,9 +287,17 @@ func (s *Source) UseKeys(keys ...string) {
 
 var _ sources.Source = (*Source)(nil)
 
+const (
+	defaultPollInterval    = 10 * time.Second
+	defaultPollAttemptsMax = 30
+	defaultSearchTimeout   = 20
+)
+
 func New() (source sources.Source) {
 	source = &Source{
-		keys: make(sources.Keys, 0),
+		keys:            make(sources.Keys, 0),
+		pollInterval:    defaultPollInterval,
+		pollAttemptsMax: defaultPollAttemptsMax,
 	}
 
 	return

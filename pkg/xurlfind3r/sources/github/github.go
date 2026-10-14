@@ -2,7 +2,9 @@ package github
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,13 +12,15 @@ import (
 	"sync"
 	"time"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	hqgohttpheader "github.com/hueristiq/hq-go-http/header"
-	hqgohttpheaderutils "github.com/hueristiq/hq-go-http/header/utils"
-	hqgohttpstatus "github.com/hueristiq/hq-go-http/status"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
+	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
+	hqgohttpheaderutils "github.com/hueristiq/hq-lib-http-go/header/utils"
+	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
 	"github.com/spf13/cast"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
+
+const searchAPIURL = "https://api.github.com/search/code"
 
 type codeSearchResponse struct {
 	TotalCount int `json:"total_count"`
@@ -30,17 +34,16 @@ type codeSearchResponse struct {
 }
 
 type Source struct {
-	keys        sources.Keys
-	keysManager *KeysManager
+	keys sources.Keys
 }
 
 func (s *Source) Name() (name string) {
-	name = sources.GITHUB
+	name = sources.Github
 
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -50,39 +53,54 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 			return
 		}
 
-		s.keysManager = NewKeyManager(s.keys)
+		keysManager := NewKeyManager(s.keys)
 
-		searchReqURL := fmt.Sprintf("https://api.github.com/search/code?per_page=100&q=%q&sort=created&order=asc", domain)
+		parameters := url.Values{}
+		parameters.Set("per_page", "100")
+		parameters.Set("q", fmt.Sprintf("%q", domain))
+		parameters.Set("sort", "created")
+		parameters.Set("order", "asc")
 
-		s.Enumerate(searchReqURL, cfg, results)
+		searchReqURL := searchAPIURL + "?" + parameters.Encode()
+
+		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
 	}()
 
 	return results
 }
 
-func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, results chan sources.Result) {
-	token := s.keysManager.GetCurrentKey()
+func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *sources.Configuration, results chan sources.Result, keysManager *KeysManager) {
+	token, index := keysManager.GetCurrentKey()
+
+	if token.RetryAfter > 0 && len(keysManager.pool) == 1 {
+		retryAfter := time.Duration(token.RetryAfter)*time.Second - time.Since(token.ExceededTime)
+
+		if retryAfter > 0 && !waitSleep(ctx, retryAfter) {
+			return
+		}
+
+		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
+
+		return
+	}
 
 	if token.RetryAfter > 0 {
-		if len(s.keysManager.pool) == 1 {
-			time.Sleep(time.Duration(token.RetryAfter) * time.Second)
-		} else {
-			token = s.keysManager.GetCurrentKey()
-		}
+		token, index = keysManager.GetCurrentKey()
 	}
 
-	codeSearchResCFG := &hqgohttp.RequestConfiguration{
-		Headers: []hqgohttp.Header{
-			hqgohttp.NewSetHeader(hqgohttpheader.Accept.String(), "application/vnd.github.v3.text-match+json"),
-			hqgohttp.NewSetHeader(hqgohttpheader.Authorization.String(), "token "+token.Value),
-		},
-	}
-
-	codeSearchRes, err := hqgohttp.Get(searchReqURL, codeSearchResCFG)
+	codeSearchRes, err := cfg.Client.NewRequest().
+		URL(searchReqURL).
+		SetHeader(hqgohttpheader.Accept.String(), "application/vnd.github.v3.text-match+json").
+		SetHeader(hqgohttpheader.Authorization.String(), "token "+token.Value).
+		Do(ctx)
 
 	isForbidden := codeSearchRes != nil && codeSearchRes.StatusCode == hqgohttpstatus.Forbidden.Int()
 
 	if err != nil && !isForbidden {
+		if codeSearchRes != nil {
+			_ = codeSearchRes.Body.Close()
+		}
+
 		result := sources.Result{
 			Type:   sources.ResultError,
 			Source: s.Name(),
@@ -94,13 +112,36 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 		return
 	}
 
-	ratelimitRemaining := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.XRatelimitRemaining.String()))
+	ratelimitRemaining := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.XRateLimitRemaining.String()))
+
 	if isForbidden && ratelimitRemaining == 0 {
 		retryAfterSeconds := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.RetryAfter.String()))
 
-		s.keysManager.SetCurrentKeyExceeded(retryAfterSeconds)
+		if retryAfterSeconds <= 0 {
+			retryAfterSeconds = rateLimitResetRemaining(codeSearchRes.Header.Get("X-Ratelimit-Reset"))
+		}
 
-		s.Enumerate(searchReqURL, cfg, results)
+		if retryAfterSeconds <= 0 {
+			_ = codeSearchRes.Body.Close()
+
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  errors.New("rate limit reached with no recovery hint; try again later"),
+			}
+
+			results <- result
+
+			return
+		}
+
+		keysManager.SetKeyExceeded(index, retryAfterSeconds)
+
+		_ = codeSearchRes.Body.Close()
+
+		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
+
+		return
 	}
 
 	var codeSearchResData codeSearchResponse
@@ -114,12 +155,12 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 
 		results <- result
 
-		codeSearchRes.Body.Close()
+		_ = codeSearchRes.Body.Close()
 
 		return
 	}
 
-	codeSearchRes.Body.Close()
+	_ = codeSearchRes.Body.Close()
 
 	for _, item := range codeSearchResData.Items {
 		getRawContentReqURL := strings.ReplaceAll(item.HTMLURL, "https://github.com/", "https://raw.githubusercontent.com/")
@@ -127,7 +168,9 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 
 		var getRawContentRes *http.Response
 
-		getRawContentRes, err = hqgohttp.Get(getRawContentReqURL)
+		getRawContentRes, err = cfg.Client.NewRequest().
+			URL(getRawContentReqURL).
+			Do(ctx)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -141,7 +184,7 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 		}
 
 		if getRawContentRes.StatusCode != hqgohttpstatus.OK.Int() {
-			getRawContentRes.Body.Close()
+			_ = getRawContentRes.Body.Close()
 
 			continue
 		}
@@ -150,11 +193,12 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 
 		for scanner.Scan() {
 			line := scanner.Text()
+
 			if line == "" {
 				continue
 			}
 
-			URLs := cfg.Extractor.FindAllString(line, -1)
+			URLs := sources.ExtractURLs(cfg.Extractor, line)
 
 			for _, URL := range URLs {
 				var valid bool
@@ -182,15 +226,15 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 
 			results <- result
 
-			getRawContentRes.Body.Close()
+			_ = getRawContentRes.Body.Close()
 
 			continue
 		}
 
-		getRawContentRes.Body.Close()
+		_ = getRawContentRes.Body.Close()
 
 		for _, textMatch := range item.TextMatches {
-			URLs := cfg.Extractor.FindAllString(textMatch.Fragment, -1)
+			URLs := sources.ExtractURLs(cfg.Extractor, textMatch.Fragment)
 
 			for _, URL := range URLs {
 				var valid bool
@@ -210,25 +254,27 @@ func (s *Source) Enumerate(searchReqURL string, cfg *sources.Configuration, resu
 		}
 	}
 
-	links := hqgohttpheaderutils.ParseLinkHeaderValue(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
+	links := hqgohttpheaderutils.Parse(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
 
 	for _, link := range links {
-		if link.Rel == "next" {
-			nextURL, err := url.QueryUnescape(link.URL)
-			if err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  err,
-				}
+		if link.Rel != "next" {
+			continue
+		}
 
-				results <- result
-
-				return
+		nextURL, err := url.QueryUnescape(link.URL)
+		if err != nil {
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  err,
 			}
 
-			s.Enumerate(nextURL, cfg, results)
+			results <- result
+
+			return
 		}
+
+		s.Enumerate(ctx, nextURL, cfg, results, keysManager)
 	}
 }
 
@@ -268,16 +314,16 @@ func NewKeyManager(keys []string) (manager *KeysManager) {
 	return
 }
 
-func (m *KeysManager) GetCurrentKey() (key *ManagedKey) {
+func (m *KeysManager) GetCurrentKey() (key *ManagedKey, index int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	for i := range m.pool {
-		key := &m.pool[i]
+		poolKey := &m.pool[i]
 
-		if key.RetryAfter > 0 && time.Since(key.ExceededTime) > time.Duration(key.RetryAfter)*time.Second {
-			key.ExceededTime = time.Time{}
-			key.RetryAfter = 0
+		if poolKey.RetryAfter > 0 && time.Since(poolKey.ExceededTime) > time.Duration(poolKey.RetryAfter)*time.Second {
+			poolKey.ExceededTime = time.Time{}
+			poolKey.RetryAfter = 0
 		}
 	}
 
@@ -285,26 +331,49 @@ func (m *KeysManager) GetCurrentKey() (key *ManagedKey) {
 		m.current %= len(m.pool)
 	}
 
-	key = &m.pool[m.current]
+	index = m.current
+	key = &m.pool[index]
 
 	m.current++
 
 	return
 }
 
-func (m *KeysManager) SetCurrentKeyExceeded(retryAfter int64) {
+func (m *KeysManager) SetKeyExceeded(index int, retryAfter int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.current >= len(m.pool) {
-		m.current %= len(m.pool)
+	if index >= len(m.pool) {
+		return
 	}
 
-	key := &m.pool[m.current]
+	key := &m.pool[index]
 
 	if key.RetryAfter == 0 {
 		key.ExceededTime = time.Now()
 		key.RetryAfter = retryAfter
+	}
+}
+
+func rateLimitResetRemaining(raw string) (remaining int64) {
+	reset := cast.ToInt64(raw)
+
+	if reset > 0 {
+		remaining = reset - time.Now().Unix()
+	}
+
+	return
+}
+
+func waitSleep(ctx context.Context, d time.Duration) (completed bool) {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
 }
 

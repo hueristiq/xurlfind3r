@@ -1,10 +1,10 @@
 package hudsonrock
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -22,25 +22,23 @@ type getURLsResponse struct {
 type Source struct{}
 
 func (s *Source) Name() (name string) {
-	name = sources.HUDSONROCK
+	name = sources.Hudsonrock
 
 	return
 }
 
-func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
 		getURLsReqURL := "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/urls-by-domain"
-		getURLsReqCFG := &hqgohttp.RequestConfiguration{
-			Params: map[string]string{
-				"domain": domain,
-			},
-		}
 
-		getURLsRes, err := hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
+		getURLsRes, err := cfg.Client.NewRequest().
+			URL(getURLsReqURL).
+			Param("domain", domain).
+			Do(ctx)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -64,12 +62,12 @@ func (source *Source) Run(cfg *sources.Configuration, domain string) <-chan sour
 
 			results <- result
 
-			getURLsRes.Body.Close()
+			_ = getURLsRes.Body.Close()
 
 			return
 		}
 
-		getURLsRes.Body.Close()
+		_ = getURLsRes.Body.Close()
 
 		for _, record := range append(getURLsResData.Data.EmployeesUrls, getURLsResData.Data.ClientsUrls...) {
 			URL := record.URL

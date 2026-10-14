@@ -1,21 +1,40 @@
 package sources
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"regexp"
+	"strings"
+
+	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 )
+
+type redactedError struct {
+	err     error
+	message string
+}
+
+func (e *redactedError) Error() (message string) {
+	return e.message
+}
+
+func (e *redactedError) Unwrap() (err error) {
+	return e.err
+}
 
 type Source interface {
 	Name() (name string)
-	Run(cfg *Configuration, domain string) <-chan Result
+	Run(ctx context.Context, cfg *Configuration, domain string) <-chan Result
 	NeedsKeys() (needs bool)
 	UseKeys(keys ...string)
 }
 
 type Configuration struct {
+	Client    *hqgohttp.Client
 	Extractor *regexp.Regexp
 	Validator func(target string) (URL string, valid bool)
 }
@@ -59,32 +78,96 @@ func (k Keys) PickRandom() (key string, err error) {
 }
 
 const (
-	ResultURL ResultType = iota
+	ResultURL ResultType = iota + 1
 	ResultError
 )
 
 const (
-	BEVIGIL            = "bevigil"
-	COMMONCRAWL        = "commoncrawl"
-	GITHUB             = "github"
-	HUDSONROCK         = "hudsonrock"
-	INTELLIGENCEX      = "intelx"
-	LEAKRADAR          = "leakradar"
-	OPENTHREATEXCHANGE = "otx"
-	URLSCAN            = "urlscan"
-	VIRUSTOTAL         = "virustotal"
-	WAYBACK            = "wayback"
+	Arquivo            = "arquivo"
+	Bevigil            = "bevigil"
+	Commoncrawl        = "commoncrawl"
+	Ghostarchive       = "ghostarchive"
+	Github             = "github"
+	Gitlab             = "gitlab"
+	Hudsonrock         = "hudsonrock"
+	IntelligenceX      = "intelx"
+	Leakradar          = "leakradar"
+	OpenThreatExchange = "otx"
+	URLScan            = "urlscan"
+	Virustotal         = "virustotal"
+	Wayback            = "wayback"
+	Zoomeye            = "zoomeye"
 )
 
 var List = []string{
-	BEVIGIL,
-	COMMONCRAWL,
-	GITHUB,
-	HUDSONROCK,
-	INTELLIGENCEX,
-	LEAKRADAR,
-	OPENTHREATEXCHANGE,
-	URLSCAN,
-	VIRUSTOTAL,
-	WAYBACK,
+	Arquivo,
+	Bevigil,
+	Commoncrawl,
+	Ghostarchive,
+	Github,
+	Gitlab,
+	Hudsonrock,
+	IntelligenceX,
+	Leakradar,
+	OpenThreatExchange,
+	URLScan,
+	Virustotal,
+	Wayback,
+	Zoomeye,
+}
+
+var _ error = (*redactedError)(nil)
+
+func RedactError(err error, secrets ...string) (redacted error) {
+	if err == nil || len(secrets) == 0 {
+		return err
+	}
+
+	message := err.Error()
+
+	for _, secret := range secrets {
+		if secret == "" {
+			continue
+		}
+
+		message = strings.ReplaceAll(message, secret, "[REDACTED]")
+		message = strings.ReplaceAll(message, url.QueryEscape(secret), "[REDACTED]")
+	}
+
+	if message == err.Error() {
+		return err
+	}
+
+	return &redactedError{
+		err:     err,
+		message: message,
+	}
+}
+
+func ExtractURLs(extractor *regexp.Regexp, text string) (URLs []string) {
+	URLs = make([]string, 0)
+
+	for _, indexes := range extractor.FindAllStringIndex(text, -1) {
+		end := indexes[1]
+
+		if end < len(text) && isHostLabelCharacter(text[end]) {
+			continue
+		}
+
+		URLs = append(URLs, text[indexes[0]:end])
+	}
+
+	return
+}
+
+func isHostLabelCharacter(character byte) (ok bool) {
+	switch {
+	case character >= 'a' && character <= 'z',
+		character >= 'A' && character <= 'Z',
+		character >= '0' && character <= '9',
+		character == '.', character == '-', character == '_':
+		ok = true
+	}
+
+	return
 }

@@ -33,6 +33,11 @@ builds:
 
         flags:
             - -trimpath
+        ldflags:
+            - -s -w -X github.com/hueristiq/xurlfind3r/internal/configuration.Version={{.Version}}
+
+snapshot:
+    version_template: "{{ .Tag }}-next"
 
 archives:
     -

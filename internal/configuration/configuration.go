@@ -1,14 +1,16 @@
 package configuration
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"dario.cat/mergo"
-	hqgologger "github.com/hueristiq/hq-go-logger"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/logrusorgru/aurora/v4"
 	"gopkg.in/yaml.v3"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type Configuration struct {
@@ -17,13 +19,11 @@ type Configuration struct {
 	Keys    map[string]sources.Keys `yaml:"keys"`
 }
 
-func (configuration *Configuration) Write(path string) (err error) {
-	var file *os.File
-
+func (cfg *Configuration) Write(path string) (err error) {
 	directory := filepath.Dir(path)
-	identation := 4
+	indentation := 4
 
-	if _, err = os.Stat(directory); os.IsNotExist(err) {
+	if _, err = os.Stat(directory); errors.Is(err, os.ErrNotExist) {
 		if directory != "" {
 			if err = os.MkdirAll(directory, 0o750); err != nil {
 				return
@@ -31,76 +31,98 @@ func (configuration *Configuration) Write(path string) (err error) {
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	var file *os.File
+
+	file, err = os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec // path is the user-specified configuration file location.
 	if err != nil {
 		return
 	}
 
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	enc := yaml.NewEncoder(file)
 
-	enc.SetIndent(identation)
+	enc.SetIndent(indentation)
 
-	err = enc.Encode(&configuration)
+	if err = enc.Encode(cfg); err != nil {
+		return
+	}
+
+	if err = enc.Close(); err != nil {
+		return
+	}
 
 	return
 }
 
-const (
-	NAME    = "xurlfind3r"
-	VERSION = "1.3.0"
-)
+const Name = "xurlfind3r"
 
-var (
-	BANNER = func(au *aurora.Aurora) (banner string) {
-		banner = au.Sprintf(
-			au.BrightBlue(`
+var Version = "1.3.0"
+
+func Banner(au *aurora.Aurora) (banner string) {
+	banner = au.Sprintf(
+		au.BrightBlue(`
                  _  __ _           _ _____      
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
 \ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
  >  <| |_| | |  | |  _| | | | | (_| |___) | |
 /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
                                           %s`).Bold(),
-			au.BrightRed("v"+VERSION).Bold().Italic(),
-		) + "\n\n"
+		au.BrightRed("v"+Version).Bold().Italic(),
+	) + "\n\n"
+
+	return
+}
+
+func UserConfigDirectoryPath() (userConfigDirectoryPath string, err error) {
+	userConfigDirectoryPath, err = os.UserConfigDir()
+	if err != nil {
+		err = fmt.Errorf("failed to resolve user configuration directory: %w", err)
 
 		return
 	}
 
-	UserDotConfigDirectoryPath = func() (userDotConfig string) {
-		var err error
+	return
+}
 
-		userDotConfig, err = os.UserConfigDir()
-		if err != nil {
-			hqgologger.Fatal("failed to get `$HOME/.config/`", hqgologger.WithError(err))
-		}
-
-		return
-	}()
-
-	DefaultConfigurationFilePath = filepath.Join(UserDotConfigDirectoryPath, NAME, "config.yaml")
-	DefaultConfiguration         = Configuration{
-		Version: VERSION,
-		Sources: sources.List,
-		Keys: map[string]sources.Keys{
-			sources.BEVIGIL:       {},
-			sources.GITHUB:        {},
-			sources.INTELLIGENCEX: {},
-			sources.LEAKRADAR:     {},
-			sources.URLSCAN:       {},
-			sources.VIRUSTOTAL:    {},
-		},
+func DefaultConfigurationFilePath() (path string) {
+	userConfigDirectoryPath, err := UserConfigDirectoryPath()
+	if err != nil {
+		userConfigDirectoryPath = "."
 	}
-)
 
-func CreateUpdate(path string) (err error) {
+	path = filepath.Join(userConfigDirectoryPath, Name, "config.yaml")
+
+	return
+}
+
+var DefaultConfiguration = Configuration{
+	Version: Version,
+	Sources: sources.List,
+	Keys: map[string]sources.Keys{
+		sources.Bevigil:            {},
+		sources.Github:             {},
+		sources.Gitlab:             {},
+		sources.IntelligenceX:      {},
+		sources.Leakradar:          {},
+		sources.OpenThreatExchange: {},
+		sources.URLScan:            {},
+		sources.Virustotal:         {},
+		sources.Zoomeye:            {},
+	},
+}
+
+func CreateOrUpdate(path string) (err error) {
 	var cfg Configuration
 
 	_, err = os.Stat(path)
 
 	switch {
-	case err != nil && os.IsNotExist(err):
+	case errors.Is(err, os.ErrNotExist):
 		cfg = DefaultConfiguration
 
 		if err = cfg.Write(path); err != nil {
@@ -114,12 +136,12 @@ func CreateUpdate(path string) (err error) {
 			return
 		}
 
-		if cfg.Version != VERSION || len(cfg.Sources) != len(sources.List) {
+		if cfg.Version != Version || len(cfg.Sources) != len(sources.List) || hasMissingKeySlots(&cfg) {
 			if err = mergo.Merge(&cfg, DefaultConfiguration); err != nil {
 				return
 			}
 
-			cfg.Version = VERSION
+			cfg.Version = Version
 			cfg.Sources = sources.List
 
 			if err = cfg.Write(path); err != nil {
@@ -131,17 +153,29 @@ func CreateUpdate(path string) (err error) {
 	return
 }
 
-func Read(path string) (configuration Configuration, err error) {
-	var file *os.File
+func hasMissingKeySlots(cfg *Configuration) (missing bool) {
+	for name := range DefaultConfiguration.Keys {
+		if _, exists := cfg.Keys[name]; !exists {
+			return true
+		}
+	}
 
-	file, err = os.Open(path)
+	return
+}
+
+func Read(path string) (cfg Configuration, err error) {
+	file, err := os.Open(path) //nolint:gosec // path is the user-specified configuration file location.
 	if err != nil {
 		return
 	}
 
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
 
-	if err = yaml.NewDecoder(file).Decode(&configuration); err != nil {
+	if err = yaml.NewDecoder(file).Decode(&cfg); err != nil {
 		return
 	}
 

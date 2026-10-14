@@ -2,7 +2,7 @@
 
 ![made with go](https://img.shields.io/badge/made%20with-Go-1E90FF.svg) [![go report card](https://goreportcard.com/badge/github.com/hueristiq/xurlfind3r)](https://goreportcard.com/report/github.com/hueristiq/xurlfind3r) [![release](https://img.shields.io/github/release/hueristiq/xurlfind3r?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/releases) [![open issues](https://img.shields.io/github/issues-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:open) [![closed issues](https://img.shields.io/github/issues-closed-raw/hueristiq/xurlfind3r.svg?style=flat&color=1E90FF)](https://github.com/hueristiq/xurlfind3r/issues?q=is:issue+is:closed) [![license](https://img.shields.io/badge/license-MIT-gray.svg?color=1E90FF)](https://github.com/hueristiq/xurlfind3r/blob/master/LICENSE) ![maintenance](https://img.shields.io/badge/maintained%3F-yes-1E90FF.svg) [![contribution](https://img.shields.io/badge/contributions-welcome-1E90FF.svg)](https://github.com/hueristiq/xurlfind3r/blob/master/CONTRIBUTING.md)
 
-`xurlfind3r` is a command-line utility designed to discover URLs for a given domain in a simple, efficient way. It works by gathering information from a variety of passive sources, meaning it doesn't interact directly with the target but instead gathers data that is already publicly available. This makes `xurlfind3r` a powerful tool for security researchers, IT professionals, and anyone looking to gain insights into the URLs associated with a domain.
+`xurlfind3r` is a command-line tool for discovering URLs for a given domain in a simple, efficient way. It works by gathering information from a variety of passive sources, meaning it doesn't interact directly with the target but instead gathers data that is already publicly available. This makes `xurlfind3r` a powerful tool for security researchers, IT professionals, and anyone looking to gain insights into the URLs associated with a domain.
 
 ## Resource
 
@@ -130,7 +130,7 @@ Example of environment variables for API keys:
 
 ```bash
 XURLFIND3R_KEYS_BEVIGIL=your_bevigil_key
-XURLFIND3R_KEYS_ONTELX=your_intelx_key
+XURLFIND3R_KEYS_INTELX=your_intelx_key
 ```
 
 ## Usage

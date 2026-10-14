@@ -1,12 +1,13 @@
 package otx
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
-	hqgohttp "github.com/hueristiq/hq-go-http"
-	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/spf13/cast"
+
+	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type getURLsResponse struct {
@@ -31,30 +32,41 @@ type getURLsResponse struct {
 	ActualSize int  `json:"actual_size"`
 }
 
-type Source struct{}
+type Source struct {
+	keys sources.Keys
+}
 
 func (s *Source) Name() (name string) {
-	name = sources.OPENTHREATEXCHANGE
+	name = sources.OpenThreatExchange
 
 	return
 }
 
-func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
 		defer close(results)
 
+		key := ""
+
+		if picked, err := s.keys.PickRandom(); err == nil {
+			key = picked
+		}
+
 		for page := 1; ; page++ {
 			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list", domain)
-			getURLsReqCFG := &hqgohttp.RequestConfiguration{
-				Params: map[string]string{
-					"limit": "100",
-					"page":  cast.ToString(page),
-				},
+
+			getURLsReq := cfg.Client.NewRequest().
+				URL(getURLsReqURL).
+				Param("limit", "100").
+				Param("page", cast.ToString(page))
+
+			if key != "" {
+				getURLsReq = getURLsReq.SetHeader("X-OTX-API-KEY", key)
 			}
 
-			getURLsRes, err := hqgohttp.Get(getURLsReqURL, getURLsReqCFG)
+			getURLsRes, err := getURLsReq.Do(ctx)
 			if err != nil {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -78,12 +90,12 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 
 				results <- result
 
-				getURLsRes.Body.Close()
+				_ = getURLsRes.Body.Close()
 
 				return
 			}
 
-			getURLsRes.Body.Close()
+			_ = getURLsRes.Body.Close()
 
 			for _, item := range getURLsResData.URLList {
 				var URL string
@@ -113,18 +125,21 @@ func (s *Source) Run(cfg *sources.Configuration, domain string) <-chan sources.R
 }
 
 func (s *Source) NeedsKeys() (needs bool) {
-	needs = false
+	needs = true
 
 	return
 }
 
 func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
 }
 
 var _ sources.Source = (*Source)(nil)
 
 func New() (source sources.Source) {
-	source = &Source{}
+	source = &Source{
+		keys: make(sources.Keys, 0),
+	}
 
 	return
 }
