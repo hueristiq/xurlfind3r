@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
+
+const searchAPIURL = "https://api.github.com/search/code"
 
 type codeSearchResponse struct {
 	TotalCount int `json:"total_count"`
@@ -54,11 +57,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		parameters := url.Values{}
 		parameters.Set("per_page", "100")
-		parameters.Set("q", domain)
+		parameters.Set("q", fmt.Sprintf("%q", domain))
 		parameters.Set("sort", "created")
 		parameters.Set("order", "asc")
 
-		searchReqURL := "https://api.github.com/search/code?" + parameters.Encode()
+		searchReqURL := searchAPIURL + "?" + parameters.Encode()
 
 		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
 	}()
@@ -69,24 +72,20 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *sources.Configuration, results chan sources.Result, keysManager *KeysManager) {
 	token, index := keysManager.GetCurrentKey()
 
-	if token.RetryAfter > 0 {
-		if len(keysManager.pool) == 1 {
-			retryAfter := time.Duration(token.RetryAfter)*time.Second - time.Since(token.ExceededTime)
+	if token.RetryAfter > 0 && len(keysManager.pool) == 1 {
+		retryAfter := time.Duration(token.RetryAfter)*time.Second - time.Since(token.ExceededTime)
 
-			if retryAfter > 0 {
-				timer := time.NewTimer(retryAfter)
-
-				select {
-				case <-ctx.Done():
-					timer.Stop()
-
-					return
-				case <-timer.C:
-				}
-			}
-		} else {
-			token, index = keysManager.GetCurrentKey()
+		if retryAfter > 0 && !waitSleep(ctx, retryAfter) {
+			return
 		}
+
+		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
+
+		return
+	}
+
+	if token.RetryAfter > 0 {
+		token, index = keysManager.GetCurrentKey()
 	}
 
 	codeSearchRes, err := cfg.Client.NewRequest().
@@ -98,7 +97,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 	isForbidden := codeSearchRes != nil && codeSearchRes.StatusCode == hqgohttpstatus.Forbidden.Int()
 
 	if err != nil && !isForbidden {
-		if codeSearchRes != nil && codeSearchRes.Body != nil {
+		if codeSearchRes != nil {
 			_ = codeSearchRes.Body.Close()
 		}
 
@@ -114,12 +113,31 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 	}
 
 	ratelimitRemaining := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.XRateLimitRemaining.String()))
+
 	if isForbidden && ratelimitRemaining == 0 {
 		retryAfterSeconds := cast.ToInt64(codeSearchRes.Header.Get(hqgohttpheader.RetryAfter.String()))
 
-		_ = codeSearchRes.Body.Close()
+		if retryAfterSeconds <= 0 {
+			retryAfterSeconds = rateLimitResetRemaining(codeSearchRes.Header.Get("X-Ratelimit-Reset"))
+		}
+
+		if retryAfterSeconds <= 0 {
+			_ = codeSearchRes.Body.Close()
+
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  errors.New("rate limit reached with no recovery hint; try again later"),
+			}
+
+			results <- result
+
+			return
+		}
 
 		keysManager.SetKeyExceeded(index, retryAfterSeconds)
+
+		_ = codeSearchRes.Body.Close()
 
 		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
 
@@ -175,6 +193,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 		for scanner.Scan() {
 			line := scanner.Text()
+
 			if line == "" {
 				continue
 			}
@@ -238,22 +257,24 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 	links := hqgohttpheaderutils.Parse(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
 
 	for _, link := range links {
-		if link.Rel == "next" {
-			nextURL, err := url.QueryUnescape(link.URL)
-			if err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  err,
-				}
+		if link.Rel != "next" {
+			continue
+		}
 
-				results <- result
-
-				return
+		nextURL, err := url.QueryUnescape(link.URL)
+		if err != nil {
+			result := sources.Result{
+				Type:   sources.ResultError,
+				Source: s.Name(),
+				Error:  err,
 			}
 
-			s.Enumerate(ctx, nextURL, cfg, results, keysManager)
+			results <- result
+
+			return
 		}
+
+		s.Enumerate(ctx, nextURL, cfg, results, keysManager)
 	}
 }
 
@@ -331,6 +352,28 @@ func (m *KeysManager) SetKeyExceeded(index int, retryAfter int64) {
 	if key.RetryAfter == 0 {
 		key.ExceededTime = time.Now()
 		key.RetryAfter = retryAfter
+	}
+}
+
+func rateLimitResetRemaining(raw string) (remaining int64) {
+	reset := cast.ToInt64(raw)
+
+	if reset > 0 {
+		remaining = reset - time.Now().Unix()
+	}
+
+	return
+}
+
+func waitSleep(ctx context.Context, d time.Duration) (completed bool) {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
 }
 

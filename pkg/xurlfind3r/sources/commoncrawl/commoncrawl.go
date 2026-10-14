@@ -78,13 +78,11 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 			results <- result
 
-			// Close errors on a consumed response body are not actionable.
 			_ = getIndexesRes.Body.Close()
 
 			return
 		}
 
-		// Close errors on a consumed response body are not actionable.
 		_ = getIndexesRes.Body.Close()
 
 		year := time.Now().Year()
@@ -115,9 +113,14 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 				Param("url", "*."+domain).
 				Param("output", "json").
 				Param("fl", "url").
+				Param("collapse", "urlkey").
 				Param("showNumPages", "true").
 				Do(ctx)
 			if err != nil {
+				if getPaginationRes != nil {
+					_ = getPaginationRes.Body.Close()
+				}
+
 				result := sources.Result{
 					Type:   sources.ResultError,
 					Source: source.Name(),
@@ -140,13 +143,11 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 				results <- result
 
-				// Close errors on a consumed response body are not actionable.
 				_ = getPaginationRes.Body.Close()
 
 				continue
 			}
 
-			// Close errors on a consumed response body are not actionable.
 			_ = getPaginationRes.Body.Close()
 
 			if getPaginationData.Pages < 1 {
@@ -173,9 +174,14 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 					Param("url", "*."+domain).
 					Param("output", "json").
 					Param("fl", "url").
+					Param("collapse", "urlkey").
 					Param("page", cast.ToString(page)).
 					Do(ctx)
 				if err != nil {
+					if getURLsRes != nil {
+						_ = getURLsRes.Body.Close()
+					}
+
 					result := sources.Result{
 						Type:   sources.ResultError,
 						Source: source.Name(),

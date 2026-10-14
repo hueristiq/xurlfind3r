@@ -50,7 +50,7 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec // path is the user-specified output file location.
+	file, err = os.OpenFile(path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec // path is the user-specified output file location.
 	if err != nil {
 		return
 	}
@@ -68,9 +68,9 @@ func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (
 		}
 	case formatJSONL:
 		data := resultForJSONL{
-			Domain:    domain,
-			Subdomain: result.Value,
-			Source:    result.Source,
+			Domain: domain,
+			URL:    result.Value,
+			Source: result.Source,
 		}
 
 		var dataJSONBytes []byte
@@ -113,9 +113,9 @@ func (w *Writer) bufferedWriter(writer io.Writer) (bw *bufio.Writer) {
 type format string
 
 type resultForJSONL struct {
-	Domain    string `json:"domain"`
-	Subdomain string `json:"subdomain"`
-	Source    string `json:"source"`
+	Domain string `json:"domain"`
+	URL    string `json:"url"`
+	Source string `json:"source"`
 }
 
 const (

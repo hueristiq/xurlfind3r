@@ -48,7 +48,7 @@ func (cfg *Configuration) Write(path string) (err error) {
 
 	enc.SetIndent(indentation)
 
-	if err = enc.Encode(&cfg); err != nil {
+	if err = enc.Encode(cfg); err != nil {
 		return
 	}
 

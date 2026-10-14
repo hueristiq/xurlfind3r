@@ -3,6 +3,7 @@ package xurlfind3r
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"net/url"
 	"regexp"
 	"strings"
@@ -66,7 +67,7 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 	go func() {
 		defer close(results)
 
-		seenURLs := &sync.Map{}
+		deduper := newDeduper()
 
 		wg := &sync.WaitGroup{}
 
@@ -80,8 +81,7 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 
 				for sResult := range sResults {
 					if sResult.Type == sources.ResultURL {
-						_, loaded := seenURLs.LoadOrStore(sResult.Value, struct{}{})
-						if loaded {
+						if deduper.seen(sResult.Value) {
 							continue
 						}
 					}
@@ -198,23 +198,6 @@ type Configuration struct {
 	IncludeSubdomains bool
 }
 
-var Sources = []string{
-	sources.Arquivo,
-	sources.Bevigil,
-	sources.Commoncrawl,
-	sources.Ghostarchive,
-	sources.Github,
-	sources.Gitlab,
-	sources.Hudsonrock,
-	sources.IntelligenceX,
-	sources.Leakradar,
-	sources.OpenThreatExchange,
-	sources.URLScan,
-	sources.Virustotal,
-	sources.Wayback,
-	sources.Zoomeye,
-}
-
 // sourceRegistry maps source names to their constructors. It is written
 // once at package load and only read afterwards, so constructors are
 // safe for concurrent use.
@@ -267,7 +250,7 @@ func NewSource(name string) (source sources.Source, ok bool) {
 //     or a requested source name is unknown.
 func New(cfg *Configuration) (finder *Finder, err error) {
 	finder = &Finder{
-		sources:           make(map[string]sources.Source, len(Sources)),
+		sources:           make(map[string]sources.Source, len(sources.List)),
 		includeSubdomains: cfg.IncludeSubdomains,
 	}
 
@@ -301,7 +284,7 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 
 		source, ok := NewSource(name)
 		if !ok {
-			err = fmt.Errorf("unknown source %q; supported sources: %s", name, strings.Join(Sources, ", "))
+			err = fmt.Errorf("unknown source %q; supported sources: %s", name, strings.Join(sources.List, ", "))
 
 			return
 		}
@@ -320,6 +303,57 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 			source.UseKeys(keys...)
 		}
 	}
+
+	return
+}
+
+// dedupShardCount is the number of hash shards in a deduper.
+const dedupShardCount = 32
+
+type deduper struct {
+	shards [dedupShardCount]dedupShard
+}
+
+type dedupShard struct {
+	mu      sync.Mutex
+	entries map[uint64]struct{}
+}
+
+func newDeduper() (d *deduper) {
+	d = &deduper{}
+
+	for i := range d.shards {
+		d.shards[i].entries = make(map[uint64]struct{})
+	}
+
+	return
+}
+
+// seen reports whether value was already recorded, recording it on first
+// sight.
+func (d *deduper) seen(value string) (duplicate bool) {
+	hash := dedupHash(value)
+
+	shard := &d.shards[hash%dedupShardCount]
+
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+
+	if _, exists := shard.entries[hash]; exists {
+		return true
+	}
+
+	shard.entries[hash] = struct{}{}
+
+	return false
+}
+
+func dedupHash(value string) (hash uint64) {
+	hasher := fnv.New64a()
+
+	_, _ = hasher.Write([]byte(value))
+
+	hash = hasher.Sum64()
 
 	return
 }

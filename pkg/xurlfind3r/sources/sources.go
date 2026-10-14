@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -130,6 +131,7 @@ func RedactError(err error, secrets ...string) (redacted error) {
 		}
 
 		message = strings.ReplaceAll(message, secret, "[REDACTED]")
+		message = strings.ReplaceAll(message, url.QueryEscape(secret), "[REDACTED]")
 	}
 
 	if message == err.Error() {

@@ -104,6 +104,10 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 			WithOptions(hqgohttp.WithRequestRetryPolicy(no429RetryPolicy)).
 			Do(ctx)
 		if err != nil {
+			if getURLsRes != nil {
+				_ = getURLsRes.Body.Close()
+			}
+
 			return nil, fmt.Errorf("request failed: %w", err)
 		}
 

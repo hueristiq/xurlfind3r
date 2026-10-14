@@ -147,6 +147,10 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			Body(searchReqBodyReader).
 			Do(ctx)
 		if err != nil {
+			if searchRes != nil {
+				_ = searchRes.Body.Close()
+			}
+
 			result := sources.Result{
 				Type:   sources.ResultError,
 				Source: s.Name(),
@@ -213,6 +217,10 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				Param("limit", "10000").
 				Do(ctx)
 			if err != nil {
+				if getResultsRes != nil {
+					_ = getResultsRes.Body.Close()
+				}
+
 				result := sources.Result{
 					Type:   sources.ResultError,
 					Source: s.Name(),
