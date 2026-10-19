@@ -17,7 +17,7 @@ COPY . .
 
 RUN make go-build
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 RUN <<-EOF
 	apk --no-cache update
