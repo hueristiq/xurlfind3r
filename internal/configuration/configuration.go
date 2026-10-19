@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"dario.cat/mergo"
-	"github.com/logrusorgru/aurora/v4"
 	"gopkg.in/yaml.v3"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
@@ -61,22 +60,18 @@ func (cfg *Configuration) Write(path string) (err error) {
 
 const Name = "xurlfind3r"
 
-var Version = "1.3.0"
+var Version = "0.0.0"
 
-func Banner(au *aurora.Aurora) (banner string) {
-	banner = au.Sprintf(
-		au.BrightBlue(`
-                 _  __ _           _ _____      
-__  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
-\ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
- >  <| |_| | |  | |  _| | | | | (_| |___) | |
-/_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_|
-                                          %s`).Bold(),
-		au.BrightRed("v"+Version).Bold().Italic(),
-	) + "\n\n"
+var Banner = fmt.Sprintf(`
+                         _  __ _           _ _____      
+        __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
+        \ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
+         >  <| |_| | |  | |  _| | | | | (_| |___) | |
+        /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v%s-dev-f711bbd
 
-	return
-}
+                 Hueristiq Limited <hueristiq.com>
+
+`, Version)
 
 func UserConfigDirectoryPath() (userConfigDirectoryPath string, err error) {
 	userConfigDirectoryPath, err = os.UserConfigDir()

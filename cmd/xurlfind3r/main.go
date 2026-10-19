@@ -15,7 +15,6 @@ import (
 	hqgologger "github.com/hueristiq/hq-lib-logger-go"
 	hqgologgerformatter "github.com/hueristiq/hq-lib-logger-go/formatter"
 	hqgologgerlevels "github.com/hueristiq/hq-lib-logger-go/levels"
-	"github.com/logrusorgru/aurora/v4"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
@@ -40,8 +39,6 @@ var (
 	monochrome            bool
 	silent                bool
 	verbose               bool
-
-	au = aurora.New(aurora.WithColors(true))
 )
 
 func init() {
@@ -60,7 +57,7 @@ func init() {
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "")
 
 	pflag.Usage = func() {
-		hqgologger.Info(configuration.Banner(au), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(configuration.Banner, hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
 		h := "USAGE:\n"
 		h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.Name)
@@ -73,7 +70,7 @@ func init() {
 			defaultConfigurationFilePath = strings.ReplaceAll(defaultConfigurationFilePath, userConfigDirectoryPath, "$HOME/.config")
 		}
 
-		h += fmt.Sprintf(" -c, --configuration string           (default: %v)\n", au.Underline(defaultConfigurationFilePath).Bold())
+		h += fmt.Sprintf(" -c, --configuration string           (default: %v)\n", defaultConfigurationFilePath)
 
 		h += "\nINPUT:\n"
 		h += " -d, --domain string[]                target domain\n"
@@ -136,12 +133,10 @@ func init() {
 			hqgologger.Fatal("failed setting logger level!", hqgologger.WithError(err))
 		}
 	}
-
-	au = aurora.New(aurora.WithColors(!monochrome))
 }
 
 func main() {
-	hqgologger.Info(configuration.Banner(au), hqgologger.WithoutLabel())
+	hqgologger.Info(configuration.Banner, hqgologger.WithoutLabel())
 
 	var cfg *configuration.Configuration
 
@@ -150,8 +145,8 @@ func main() {
 	}
 
 	if listSupportedSources {
-		hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", au.Underline(strconv.Itoa(len(sources.List))).Bold()), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
-		hqgologger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", au.Underline("*").Bold()), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", strconv.Itoa(len(sources.List))), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", "*"), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
 		for i := range sources.List {
@@ -276,7 +271,7 @@ func main() {
 	for index := range domains {
 		domain := domains[index]
 
-		hqgologger.Info(fmt.Sprintf("Finding URLs for %v...", au.Underline(domain).Bold()), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(fmt.Sprintf("Finding URLs for %v...", domain), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
 		if !silent {
 			hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
