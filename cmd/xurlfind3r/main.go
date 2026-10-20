@@ -118,7 +118,8 @@ func init() {
 
 	hqgologger.DefaultLogger.SetFormatter(
 		hqgologgerformatter.NewConsoleFormatter(&hqgologgerformatter.ConsoleFormatterConfiguration{
-			Colorize: !monochrome,
+			Colorize:     !monochrome,
+			IncludeLabel: true,
 		}),
 	)
 
@@ -145,8 +146,8 @@ func main() {
 	}
 
 	if listSupportedSources {
-		hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", strconv.Itoa(len(sources.List))), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
-		hqgologger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", "*"), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", strconv.Itoa(len(sources.List))), hqgologger.WithoutTimestamp())
+		hqgologger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", "*"), hqgologger.WithoutTimestamp())
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 
 		for i := range sources.List {
