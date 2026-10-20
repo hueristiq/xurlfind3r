@@ -198,7 +198,7 @@ OUTPUT:
 Find URLs for a single domain:
 
 ```bash
-xurlfind3r -d domain
+xurlfind3r -d example.com
 ```
 
 #### Multiple domains
@@ -206,13 +206,13 @@ xurlfind3r -d domain
 Provide multiple domains as a comma(,) separated value with `--domain`:
 
 ```bash
-xurlfind3r -d domain,domain
+xurlfind3r -d example.com,example.org
 ```
 
 ...or, repeat the `--domain` flag:
 
 ```bash
-xurlfind3r -d domain -d domain
+xurlfind3r -d example.com -d example.org
 ```
 
 ...load them from a file with `--list`:
@@ -232,7 +232,7 @@ cat domains.txt | xurlfind3r
 Match subdomains' URLs as well with `--include-subdomains`:
 
 ```bash
-xurlfind3r -d domain --include-subdomains
+xurlfind3r -d example.com --include-subdomains
 ```
 
 #### Using specific sources
@@ -240,7 +240,7 @@ xurlfind3r -d domain --include-subdomains
 Restrict the sources to use with `--sources-to-use`:
 
 ```bash
-xurlfind3r -d domain -u wayback,commoncrawl
+xurlfind3r -d example.com -u wayback,commoncrawl
 ```
 
 #### Excluding sources
@@ -248,7 +248,7 @@ xurlfind3r -d domain -u wayback,commoncrawl
 Exclude sources with `--sources-to-exclude`:
 
 ```bash
-xurlfind3r -d domain -e otx
+xurlfind3r -d example.com -e otx
 ```
 
 #### Writing output to a file
@@ -256,7 +256,7 @@ xurlfind3r -d domain -e otx
 Write the results to a file with `--output`; add `--silent` to keep stdout free of log messages:
 
 ```bash
-xurlfind3r -d domain -s -o urls.txt
+xurlfind3r -d example.com -s -o urls.txt
 ```
 
 #### JSONL output
