@@ -84,6 +84,34 @@ func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (
 	return
 }
 
+// WriteWithSource writes result to writer with its source as a `[source] `
+// prefix on the value line. JSONL output already includes the source field,
+// so it is written verbatim.
+//
+// Parameters:
+//   - writer (io.Writer): the destination to write result to.
+//   - domain (string): the domain result was found for.
+//   - result (sources.Result): the result to write.
+//
+// Returns:
+//   - err (error): non-nil when writing to writer fails.
+func (w *Writer) WriteWithSource(writer io.Writer, domain string, result sources.Result) (err error) {
+	switch w.format {
+	case formatTXT:
+		bw := w.bufferedWriter(writer)
+
+		if _, err = bw.WriteString("[" + result.Source + "] " + result.Value + "\n"); err != nil {
+			return
+		}
+	case formatJSONL:
+		if err = w.Write(writer, domain, result); err != nil {
+			return
+		}
+	}
+
+	return
+}
+
 func (w *Writer) Flush(writer io.Writer) (err error) {
 	bw, ok := w.writers[writer]
 	if !ok {

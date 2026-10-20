@@ -205,7 +205,7 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 
 		source, ok := NewSource(name)
 		if !ok {
-			err = fmt.Errorf("unknown source %q; supported sources: %s", name, strings.Join(sources.List, ", "))
+			err = fmt.Errorf("unknown source %q", name)
 
 			return
 		}

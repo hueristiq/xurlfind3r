@@ -303,7 +303,13 @@ func main() {
 						hqgologger.Error("failed to find results!", hqgologger.WithString("source", result.Source), hqgologger.WithError(result.Error))
 					}
 				case sources.ResultURL:
-					if err := writer.Write(output, domain, result); err != nil {
+					write := writer.Write
+
+					if output == os.Stdout && !silent {
+						write = writer.WriteWithSource
+					}
+
+					if err := write(output, domain, result); err != nil {
 						if output != os.Stdout {
 							_ = writer.Flush(os.Stdout)
 
