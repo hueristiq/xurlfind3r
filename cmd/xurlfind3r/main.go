@@ -91,9 +91,9 @@ func init() {
 		h += "     --jsonl bool                     output in JSONL(ines)\n"
 		h += " -o, --output string                  output write file path\n"
 		h += " -O, --output-directory string        output write directory path\n"
-		h += " -m, --monochrome bool                disable colored console output\n"
-		h += " -s, --silent bool                    disable logging output, only results\n"
-		h += " -v, --verbose bool                   enable detailed debug logging output\n"
+		h += " -m, --monochrome bool                stdout in monochrome\n"
+		h += " -s, --silent bool                    stdout in silent mode\n"
+		h += " -v, --verbose bool                   stdout in verbose mode\n"
 
 		hqgologger.Info(h, hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
 		hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
@@ -272,7 +272,7 @@ func main() {
 	for index := range domains {
 		domain := domains[index]
 
-		hqgologger.Info(fmt.Sprintf("Finding URLs for %v...", domain), hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+		hqgologger.Info(fmt.Sprintf("Finding URLs for %v...", domain), hqgologger.WithoutTimestamp())
 
 		if !silent {
 			hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())

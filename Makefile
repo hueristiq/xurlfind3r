@@ -50,8 +50,8 @@ LEFTHOOK_BIN_DIR = $(BIN_DIR)/lefthook/$(LEFTHOOK_BIN_VER)
 
 LEFTHOOK_BIN = $(LEFTHOOK_BIN_DIR)/lefthook
 
-MODULE := github.com/hueristiq/xurlfind3r
 NAME := xurlfind3r
+MODULE := github.com/hueristiq/xurlfind3r
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.0.0")
 
 .PHONY: install-golangci-lint install-lefthook
@@ -178,7 +178,6 @@ help:
 	@echo "   $(COLOR_GREEN)go-test$(COLOR_RESET) ..................... Run Go tests."
 	@echo "   $(COLOR_GREEN)go-build$(COLOR_RESET) .................... Build Go program."
 	@echo "   $(COLOR_GREEN)go-install$(COLOR_RESET) .................. Install Go program."
-	@echo ""
 	@echo ""
 	@echo " $(COLOR_BOLD)$(COLOR_CYAN)...docker:$(COLOR_RESET)"
 	@echo "   $(COLOR_GREEN)docker-build$(COLOR_RESET) ................. Build Docker image."

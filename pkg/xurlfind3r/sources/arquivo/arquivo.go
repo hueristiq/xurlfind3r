@@ -58,50 +58,59 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			return
 		}
 
-		scanner := bufio.NewScanner(getURLsRes.Body)
+		done := make(chan struct{})
 
-		for scanner.Scan() {
-			line := scanner.Text()
+		go func() {
+			defer close(done)
 
-			if line == "" {
-				continue
+			scanner := bufio.NewScanner(getURLsRes.Body)
+
+			scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
+
+			for scanner.Scan() {
+				line := scanner.Text()
+
+				if line == "" {
+					continue
+				}
+
+				var record cdxRecord
+
+				if err = json.Unmarshal([]byte(line), &record); err != nil {
+					continue
+				}
+
+				URL, valid := cfg.Validator(record.URL)
+				if !valid {
+					continue
+				}
+
+				result := sources.Result{
+					Type:   sources.ResultURL,
+					Source: s.Name(),
+					Value:  URL,
+				}
+
+				results <- result
 			}
 
-			var record cdxRecord
+			if scanErr := scanner.Err(); scanErr != nil && ctx.Err() == nil {
+				result := sources.Result{
+					Type:   sources.ResultError,
+					Source: s.Name(),
+					Error:  fmt.Errorf("failed to read response body: %w", scanErr),
+				}
 
-			if err = json.Unmarshal([]byte(line), &record); err != nil {
-				continue
+				results <- result
 			}
+		}()
 
-			var URL string
-
-			var valid bool
-
-			if URL, valid = cfg.Validator(record.URL); !valid {
-				continue
-			}
-
-			result := sources.Result{
-				Type:   sources.ResultURL,
-				Source: s.Name(),
-				Value:  URL,
-			}
-
-			results <- result
-		}
-
-		if err = scanner.Err(); err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to read response body: %w", err),
-			}
-
-			results <- result
-
+		select {
+		case <-done:
+		case <-ctx.Done():
 			_ = getURLsRes.Body.Close()
 
-			return
+			<-done
 		}
 
 		_ = getURLsRes.Body.Close()
@@ -109,6 +118,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 	return results
 }
+
+const maxScanTokenSize = 1 << 20
 
 var _ sources.Source = (*Source)(nil)
 

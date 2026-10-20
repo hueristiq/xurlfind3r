@@ -68,10 +68,9 @@ sudo mv xurlfind3r /usr/local/bin/
 > [!NOTE]
 > Windows users can follow [How to: Add Tool Locations to the PATH Environment Variable](https://msdn.microsoft.com/en-us/library/office/ee537574(v=office.14).aspx) in order to add `xurlfind3r` to their `PATH`.
 
-
 ### Install source (With Go Installed)
 
-Before you install from source, you need to make sure that Go is installed on your system. You can install Go by following the official instructions for your operating system. For this, we will assume that Go is already installed.
+Before you install from source, you need to make sure that Go is installed on your system. You can install Go by following the [official instructions](https://go.dev/doc/install) for your operating system. For this, we will assume that Go is already installed.
 
 #### `go install ...`
 
@@ -143,7 +142,7 @@ xurlfind3r -h
 
 Here's what the help message looks like:
 
-```
+```text
 
                  _  __ _           _ _____
 __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __

@@ -76,11 +76,12 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			// Slicing as [1:] to skip the header row.
 			for _, record := range data[1:] {
-				var URL string
+				if len(record) < 2 {
+					continue
+				}
 
-				var valid bool
-
-				if URL, valid = cfg.Validator(record[1]); !valid {
+				URL, valid := cfg.Validator(record[1])
+				if !valid {
 					continue
 				}
 

@@ -36,7 +36,7 @@ func (s *Source) NeedsKeys() (needs bool) {
 func (s *Source) UseKeys(keys ...string) {
 }
 
-func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
+func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
 	go func() {
@@ -51,7 +51,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
+				Source: s.Name(),
 				Error:  fmt.Errorf("request failed: %w", err),
 			}
 
@@ -65,7 +65,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 		if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
-				Source: source.Name(),
+				Source: s.Name(),
 				Error:  fmt.Errorf("failed to parse JSON response: %w", err),
 			}
 
@@ -79,17 +79,14 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 		_ = getURLsRes.Body.Close()
 
 		for _, record := range append(getURLsResData.Data.EmployeesUrls, getURLsResData.Data.ClientsUrls...) {
-			URL := record.URL
-
-			var valid bool
-
-			if URL, valid = cfg.Validator(URL); !valid {
+			URL, valid := cfg.Validator(record.URL)
+			if !valid {
 				continue
 			}
 
 			result := sources.Result{
 				Type:   sources.ResultURL,
-				Source: source.Name(),
+				Source: s.Name(),
 				Value:  URL,
 			}
 

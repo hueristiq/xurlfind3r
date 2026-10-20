@@ -15,8 +15,6 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-var resultPattern = regexp.MustCompile(`<a href="/archive/[^"]*">([^<]+)</a>`)
-
 type Source struct{}
 
 func (s *Source) Name() (name string) {
@@ -45,6 +43,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		if strings.Count(domain, ".") == 1 {
 			term = "." + domain
 		}
+
+		var previousSrc string
 
 		for page := uint(0); ; page++ {
 			if err := limiter.Wait(ctx); err != nil {
@@ -111,6 +111,15 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			src := string(body)
 
+			// The search API repeats the last available page for any
+			// out-of-range page number, so an unchanged page means the
+			// results are exhausted.
+			if src == previousSrc {
+				break
+			}
+
+			previousSrc = src
+
 			if strings.Contains(src, "The site is under maintenance") || strings.Contains(src, "No archives for that site") {
 				result := sources.Result{
 					Type:   sources.ResultError,
@@ -155,6 +164,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 	return results
 }
+
+var resultPattern = regexp.MustCompile(`<a href="/archive/[^"]*">([^<]+)</a>`)
 
 var limiter = hqgolimiter.New(
 	hqgolimiter.WithRequestsPerMinute(30),

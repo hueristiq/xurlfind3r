@@ -89,9 +89,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		_ = getURLsRes.Body.Close()
 
 		for _, URL := range getURLsResData.URLs {
-			var valid bool
-
-			if URL, valid = cfg.Validator(URL); !valid {
+			URL, valid := cfg.Validator(URL)
+			if !valid {
 				continue
 			}
 

@@ -117,15 +117,20 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			_ = searchRes.Body.Close()
 
 			if searchResData.Status == hqgohttpstatus.TooManyRequests.Int() {
+				result := sources.Result{
+					Type:   sources.ResultError,
+					Source: s.Name(),
+					Error:  fmt.Errorf("request failed with status: %v", searchResData.Status),
+				}
+
+				results <- result
+
 				break
 			}
 
 			for _, item := range searchResData.Results {
-				var URL string
-
-				var valid bool
-
-				if URL, valid = cfg.Validator(item.Page.URL); !valid {
+				URL, valid := cfg.Validator(item.Page.URL)
+				if !valid {
 					continue
 				}
 

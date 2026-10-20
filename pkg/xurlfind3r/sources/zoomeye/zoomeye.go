@@ -129,11 +129,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			}
 
 			for _, record := range getURLsResData.Data {
-				var URL string
-
-				var valid bool
-
-				if URL, valid = cfg.Validator(record.URL); !valid {
+				URL, valid := cfg.Validator(record.URL)
+				if !valid {
 					continue
 				}
 

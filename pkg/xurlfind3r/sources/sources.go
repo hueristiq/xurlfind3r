@@ -61,9 +61,7 @@ func (k Keys) PickRandom() (key string, err error) {
 
 	maximum := big.NewInt(int64(length))
 
-	var indexBig *big.Int
-
-	indexBig, err = rand.Int(rand.Reader, maximum)
+	indexBig, err := rand.Int(rand.Reader, maximum)
 	if err != nil {
 		err = fmt.Errorf("failed to generate random index for key selection: %w", err)
 
@@ -73,6 +71,12 @@ func (k Keys) PickRandom() (key string, err error) {
 	index := indexBig.Int64()
 
 	key = k[index]
+
+	if key == "" {
+		err = errors.New("selected key is empty")
+
+		return
+	}
 
 	return
 }
@@ -136,10 +140,7 @@ func ExtractURLs(extractor *regexp.Regexp, text string) (URLs []string) {
 
 func isHostLabelCharacter(character byte) (ok bool) {
 	switch {
-	case character >= 'a' && character <= 'z',
-		character >= 'A' && character <= 'Z',
-		character >= '0' && character <= '9',
-		character == '.', character == '-', character == '_':
+	case character >= 'a' && character <= 'z', character >= 'A' && character <= 'Z', character >= '0' && character <= '9', character == '.', character == '-', character == '_':
 		ok = true
 	}
 

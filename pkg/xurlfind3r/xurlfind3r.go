@@ -73,7 +73,7 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 
 		wg := &sync.WaitGroup{}
 
-		for name := range finder.sources {
+		for _, source := range finder.sources {
 			wg.Add(1)
 
 			go func(source sources.Source) {
@@ -90,7 +90,7 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 
 					results <- sResult
 				}
-			}(finder.sources[name])
+			}(source)
 		}
 
 		wg.Wait()
@@ -111,18 +111,18 @@ func (d *deduper) seen(value string) (duplicate bool) {
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
-	if _, exists := shard.entries[hash]; exists {
+	if _, exists := shard.entries[value]; exists {
 		return true
 	}
 
-	shard.entries[hash] = struct{}{}
+	shard.entries[value] = struct{}{}
 
 	return false
 }
 
 type dedupShard struct {
 	mu      sync.Mutex
-	entries map[uint64]struct{}
+	entries map[string]struct{}
 }
 
 type ClientConfiguration struct {
@@ -194,6 +194,7 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	}
 
 	sourcesToUse := cfg.SourcesToUse
+
 	if len(sourcesToUse) < 1 {
 		sourcesToUse = sources.List
 	}
@@ -211,13 +212,11 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 		finder.sources[name] = source
 	}
 
-	for i := range cfg.SourcesToExclude {
-		delete(finder.sources, cfg.SourcesToExclude[i])
+	for _, name := range cfg.SourcesToExclude {
+		delete(finder.sources, name)
 	}
 
-	for i := range finder.sources {
-		source := finder.sources[i]
-
+	for _, source := range finder.sources {
 		if keys, ok := cfg.Keys[source.Name()]; ok {
 			source.UseKeys(keys...)
 		}
@@ -338,7 +337,7 @@ func newDeduper() (d *deduper) {
 	d = &deduper{}
 
 	for i := range d.shards {
-		d.shards[i].entries = make(map[uint64]struct{})
+		d.shards[i].entries = make(map[string]struct{})
 	}
 
 	return

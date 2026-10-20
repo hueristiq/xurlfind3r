@@ -20,7 +20,11 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
-const searchAPIURL = "https://api.github.com/search/code"
+const (
+	searchAPIURL = "https://api.github.com/search/code"
+
+	maxScanTokenSize = 16 << 20
+)
 
 type codeSearchResponse struct {
 	TotalCount int `json:"total_count"`
@@ -82,19 +86,18 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *sources.Configuration, results chan sources.Result, keysManager *KeysManager) {
 	token, index := keysManager.GetCurrentKey()
 
-	if token.RetryAfter > 0 && len(keysManager.pool) == 1 {
-		retryAfter := time.Duration(token.RetryAfter)*time.Second - time.Since(token.ExceededTime)
+	for token.RetryAfter > 0 {
+		wait, allExceeded := keysManager.WaitForRecovery()
+		if !allExceeded {
+			token, index = keysManager.GetCurrentKey()
 
-		if retryAfter > 0 && !waitSleep(ctx, retryAfter) {
+			continue
+		}
+
+		if !waitSleep(ctx, wait) {
 			return
 		}
 
-		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
-
-		return
-	}
-
-	if token.RetryAfter > 0 {
 		token, index = keysManager.GetCurrentKey()
 	}
 
@@ -182,6 +185,10 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 			URL(getRawContentReqURL).
 			Do(ctx)
 		if err != nil {
+			if getRawContentRes != nil {
+				_ = getRawContentRes.Body.Close()
+			}
+
 			result := sources.Result{
 				Type:   sources.ResultError,
 				Source: s.Name(),
@@ -201,6 +208,8 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 		scanner := bufio.NewScanner(getRawContentRes.Body)
 
+		scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
+
 		for scanner.Scan() {
 			line := scanner.Text()
 
@@ -211,9 +220,8 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 			URLs := sources.ExtractURLs(cfg.Extractor, line)
 
 			for _, URL := range URLs {
-				var valid bool
-
-				if URL, valid = cfg.Validator(URL); !valid {
+				URL, valid := cfg.Validator(URL)
+				if !valid {
 					continue
 				}
 
@@ -247,9 +255,8 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 			URLs := sources.ExtractURLs(cfg.Extractor, textMatch.Fragment)
 
 			for _, URL := range URLs {
-				var valid bool
-
-				if URL, valid = cfg.Validator(URL); !valid {
+				URL, valid := cfg.Validator(URL)
+				if !valid {
 					continue
 				}
 
@@ -271,7 +278,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 			continue
 		}
 
-		nextURL, err := url.QueryUnescape(link.URL)
+		nextURL, err := url.Parse(link.URL)
 		if err != nil {
 			result := sources.Result{
 				Type:   sources.ResultError,
@@ -284,7 +291,9 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 			return
 		}
 
-		s.Enumerate(ctx, nextURL, cfg, results, keysManager)
+		nextURL.RawQuery = nextURL.Query().Encode()
+
+		s.Enumerate(ctx, nextURL.String(), cfg, results, keysManager)
 	}
 }
 
@@ -337,6 +346,34 @@ func (m *KeysManager) GetCurrentKey() (key *ManagedKey, index int) {
 	m.current++
 
 	return
+}
+
+// WaitForRecovery returns how long to wait before the earliest
+// rate-limited key becomes usable again. ok is false when at least one
+// key is usable now.
+func (m *KeysManager) WaitForRecovery() (wait time.Duration, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for i := range m.pool {
+		key := &m.pool[i]
+
+		if key.RetryAfter <= 0 {
+			return 0, false
+		}
+
+		remaining := time.Until(key.ExceededTime.Add(time.Duration(key.RetryAfter) * time.Second))
+
+		if remaining <= 0 {
+			return 0, false
+		}
+
+		if wait == 0 || remaining < wait {
+			wait = remaining
+		}
+	}
+
+	return wait, true
 }
 
 func (m *KeysManager) SetKeyExceeded(index int, retryAfter int64) {

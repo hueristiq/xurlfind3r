@@ -73,6 +73,10 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				SetHeader("PRIVATE-TOKEN", key).
 				Do(ctx)
 			if err != nil {
+				if searchRes != nil {
+					_ = searchRes.Body.Close()
+				}
+
 				result := sources.Result{
 					Type:   sources.ResultError,
 					Source: s.Name(),
@@ -108,9 +112,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				URLs := sources.ExtractURLs(cfg.Extractor, item.Data)
 
 				for _, URL := range URLs {
-					var valid bool
-
-					if URL, valid = cfg.Validator(URL); !valid {
+					URL, valid := cfg.Validator(URL)
+					if !valid {
 						continue
 					}
 
@@ -123,13 +126,22 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					results <- result
 				}
 
-				getRawContentReqURL := fmt.Sprintf("https://gitlab.com/api/v4/projects/%d/repository/files/%s/raw?ref=%s", item.ProjectID, url.PathEscape(item.Path), url.QueryEscape(item.Ref))
+				getRawContentReqURL := fmt.Sprintf(
+					"https://gitlab.com/api/v4/projects/%d/repository/files/%s/raw?%s",
+					item.ProjectID,
+					url.PathEscape(item.Path),
+					url.Values{"ref": {item.Ref}}.Encode(),
+				)
 
 				getRawContentRes, err := cfg.Client.NewRequest().
 					URL(getRawContentReqURL).
 					SetHeader("PRIVATE-TOKEN", key).
 					Do(ctx)
 				if err != nil {
+					if getRawContentRes != nil {
+						_ = getRawContentRes.Body.Close()
+					}
+
 					result := sources.Result{
 						Type:   sources.ResultError,
 						Source: s.Name(),
@@ -149,6 +161,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 				scanner := bufio.NewScanner(getRawContentRes.Body)
 
+				scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
+
 				for scanner.Scan() {
 					line := scanner.Text()
 
@@ -159,9 +173,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					URLs := sources.ExtractURLs(cfg.Extractor, line)
 
 					for _, URL := range URLs {
-						var valid bool
-
-						if URL, valid = cfg.Validator(URL); !valid {
+						URL, valid := cfg.Validator(URL)
+						if !valid {
 							continue
 						}
 
@@ -198,6 +211,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 	return results
 }
+
+const maxScanTokenSize = 16 << 20
 
 var _ sources.Source = (*Source)(nil)
 

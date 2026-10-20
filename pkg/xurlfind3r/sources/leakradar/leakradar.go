@@ -66,9 +66,9 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			getURLsRes, err := cfg.Client.NewRequest().
 				URL(getURLsReqURL).
-				SetHeader("Authorization", "Bearer "+key).
 				Param("page", cast.ToString(page)).
 				Param("page_size", "100").
+				SetHeader("Authorization", "Bearer "+key).
 				Do(ctx)
 			if err != nil {
 				result := sources.Result{
@@ -101,11 +101,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			_ = getURLsRes.Body.Close()
 
 			for _, item := range getURLsResData.Items {
-				URL := item.URL
-
-				var valid bool
-
-				if URL, valid = cfg.Validator(URL); !valid {
+				URL, valid := cfg.Validator(item.URL)
+				if !valid {
 					continue
 				}
 
@@ -118,7 +115,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				results <- result
 			}
 
-			if getURLsResData.PageSize*getURLsResData.Page >= getURLsResData.Total {
+			if len(getURLsResData.Items) < 1 || getURLsResData.PageSize*getURLsResData.Page >= getURLsResData.Total {
 				break
 			}
 		}

@@ -107,11 +107,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		_ = getDomainReportRes.Body.Close()
 
 		for _, detectedURL := range getDomainReportResData.DetectedURLs {
-			var URL string
-
-			var valid bool
-
-			if URL, valid = cfg.Validator(detectedURL.URL); !valid {
+			URL, valid := cfg.Validator(detectedURL.URL)
+			if !valid {
 				continue
 			}
 
@@ -125,11 +122,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		}
 
 		for _, subdomain := range getDomainReportResData.Subdomains {
-			var URL string
-
-			var valid bool
-
-			if URL, valid = cfg.Validator(subdomain); !valid {
+			URL, valid := cfg.Validator(subdomain)
+			if !valid {
 				continue
 			}
 
@@ -145,9 +139,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		for _, undetectedURL := range getDomainReportResData.UndetectedURLs {
 			if len(undetectedURL) > 0 {
 				if URL, ok := undetectedURL[0].(string); ok {
-					var valid bool
-
-					if URL, valid = cfg.Validator(URL); !valid {
+					URL, valid := cfg.Validator(URL)
+					if !valid {
 						continue
 					}
 
