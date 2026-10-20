@@ -15,6 +15,14 @@
 	- [Install on Docker (With Docker Installed)](#install-on-docker-with-docker-installed)
 - [Post Installation](#post-installation)
 - [Usage](#usage)
+	- [Examples](#examples)
+		- [Basic](#basic)
+		- [Multiple domains](#multiple-domains)
+		- [Including subdomain URLs](#including-subdomain-urls)
+		- [Using specific sources](#using-specific-sources)
+		- [Excluding sources](#excluding-sources)
+		- [Writing output to a file](#writing-output-to-a-file)
+		- [JSONL output](#jsonl-output)
 - [Contributing](#contributing)
 - [Licensing](#licensing)
 
@@ -181,6 +189,82 @@ OUTPUT:
  -s, --silent bool                    stdout in silent mode
  -v, --verbose bool                   stdout in verbose mode
 
+```
+
+### Examples
+
+#### Basic
+
+Find URLs for a single domain:
+
+```bash
+xurlfind3r -d domain
+```
+
+#### Multiple domains
+
+Provide multiple domains as a comma(,) separated value with `--domain`:
+
+```bash
+xurlfind3r -d domain,domain
+```
+
+...or, repeat the `--domain` flag:
+
+```bash
+xurlfind3r -d domain -d domain
+```
+
+...load them from a file with `--list`:
+
+```bash
+xurlfind3r -l domains.txt
+```
+
+...or, pipe them in through stdin:
+
+```bash
+cat domains.txt | xurlfind3r
+```
+
+#### Including subdomain URLs
+
+Match subdomains' URLs as well with `--include-subdomains`:
+
+```bash
+xurlfind3r -d domain --include-subdomains
+```
+
+#### Using specific sources
+
+Restrict the sources to use with `--sources-to-use`:
+
+```bash
+xurlfind3r -d domain -u wayback,commoncrawl
+```
+
+#### Excluding sources
+
+Exclude sources with `--sources-to-exclude`:
+
+```bash
+xurlfind3r -d domain -e otx
+```
+
+#### Writing output to a file
+
+Write the results to a file with `--output`; add `--silent` to keep stdout free of log messages:
+
+```bash
+xurlfind3r -d domain -s -o urls.txt
+```
+
+#### JSONL output
+
+Output the results as JSONL(ines) with `--jsonl`:
+
+```bash
+xurlfind3r -d domain --jsonl
 ```
 
 ## Contributing
