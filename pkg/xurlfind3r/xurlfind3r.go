@@ -39,6 +39,8 @@ type Finder struct {
 func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
 	results = make(chan sources.Result)
 
+	domain = strings.ToLower(domain)
+
 	extractor, err := compileExtractor(domain)
 	if err != nil {
 		result := sources.Result{
