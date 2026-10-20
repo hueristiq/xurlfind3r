@@ -25,6 +25,15 @@ func (s *Source) Name() (name string) {
 	return
 }
 
+func (s *Source) NeedsKeys() (needs bool) {
+	needs = false
+
+	return
+}
+
+func (s *Source) UseKeys(keys ...string) {
+}
+
 func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
@@ -157,15 +166,6 @@ func no429RetryPolicy(ctx context.Context, resp *http.Response, err error) (retr
 	}
 
 	return hqgohttp.DefaultRetryPolicy(ctx, resp, err) //nolint:wrapcheck // the policy result is passed through verbatim by design.
-}
-
-func (s *Source) NeedsKeys() (needs bool) {
-	needs = false
-
-	return
-}
-
-func (s *Source) UseKeys(keys ...string) {
 }
 
 var limiter = hqgolimiter.New(

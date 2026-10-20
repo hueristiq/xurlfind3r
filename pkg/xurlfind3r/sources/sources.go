@@ -13,6 +13,28 @@ import (
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 )
 
+type Configuration struct {
+	Client    *hqgohttp.Client
+	Extractor *regexp.Regexp
+	Validator func(target string) (URL string, valid bool)
+}
+
+type ResultType int
+
+type Result struct {
+	Type   ResultType
+	Source string
+	Value  string
+	Error  error
+}
+
+type Source interface {
+	Name() (name string)
+	NeedsKeys() (needs bool)
+	UseKeys(keys ...string)
+	Run(ctx context.Context, cfg *Configuration, domain string) <-chan Result
+}
+
 type redactedError struct {
 	err     error
 	message string
@@ -25,28 +47,6 @@ func (e *redactedError) Error() (message string) {
 func (e *redactedError) Unwrap() (err error) {
 	return e.err
 }
-
-type Source interface {
-	Name() (name string)
-	Run(ctx context.Context, cfg *Configuration, domain string) <-chan Result
-	NeedsKeys() (needs bool)
-	UseKeys(keys ...string)
-}
-
-type Configuration struct {
-	Client    *hqgohttp.Client
-	Extractor *regexp.Regexp
-	Validator func(target string) (URL string, valid bool)
-}
-
-type Result struct {
-	Type   ResultType
-	Source string
-	Value  string
-	Error  error
-}
-
-type ResultType int
 
 type Keys []string
 

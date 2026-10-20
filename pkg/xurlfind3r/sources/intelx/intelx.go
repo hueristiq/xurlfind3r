@@ -52,6 +52,16 @@ func (s *Source) Name() (name string) {
 	return
 }
 
+func (s *Source) NeedsKeys() (needs bool) {
+	needs = true
+
+	return
+}
+
+func (s *Source) UseKeys(keys ...string) {
+	s.keys = append(s.keys, keys...)
+}
+
 func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
 
@@ -273,16 +283,6 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	}()
 
 	return results
-}
-
-func (s *Source) NeedsKeys() (needs bool) {
-	needs = true
-
-	return
-}
-
-func (s *Source) UseKeys(keys ...string) {
-	s.keys = append(s.keys, keys...)
 }
 
 var _ sources.Source = (*Source)(nil)
