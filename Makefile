@@ -51,8 +51,11 @@ LEFTHOOK_BIN_DIR = $(BIN_DIR)/lefthook/$(LEFTHOOK_BIN_VER)
 LEFTHOOK_BIN = $(LEFTHOOK_BIN_DIR)/lefthook
 
 NAME := xurlfind3r
-MODULE := github.com/hueristiq/xurlfind3r
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.0.0")
+
+SEMVER ?= $(shell { git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0"; } | sed 's/^v//')
+BRANCH ?= $(shell { git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "branch"; } | sed 's/^HEAD$$/main/')
+SHA ?= $(shell git rev-parse --short=8 HEAD 2>/dev/null || echo "00000000")
+VERSION ?= v$(SEMVER)-$(BRANCH)-$(SHA)
 
 .PHONY: install-golangci-lint install-lefthook
 
@@ -133,7 +136,7 @@ go-test:
 
 go-build:
 	@$(call log_header,Building Go program...)
-	@go build -v -ldflags "-s -w -X $(MODULE)/internal/configuration.Version=$(VERSION)" -o bin/$(NAME) cmd/$(NAME)/main.go || ( $(call log_error,Failed Building Go program!) && exit 1 )
+	@go build -v -ldflags "-s -w -X github.com/hueristiq/$(NAME)/internal/configuration.Version=$(VERSION)" -o bin/$(NAME) cmd/$(NAME)/main.go || ( $(call log_error,Failed Building Go program!) && exit 1 )
 	@$(call log_success,Building Go program...done!)
 
 go-install:
@@ -143,7 +146,7 @@ go-install:
 
 DOCKERFILE := ./Dockerfile
 
-IMAGE_NAME = hueristiq/xurlfind3r
+IMAGE_NAME = hueristiq/$(NAME)
 IMAGE_TAG = $(VERSION)
 IMAGE = $(IMAGE_NAME):$(IMAGE_TAG)
 

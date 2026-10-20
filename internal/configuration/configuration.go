@@ -60,14 +60,14 @@ func (cfg *Configuration) Write(path string) (err error) {
 
 const Name = "xurlfind3r"
 
-var Version = "0.0.0"
+var Version = "v0.0.0-branch-00000000"
 
 var Banner = fmt.Sprintf(`
                          _  __ _           _ _____      
         __  ___   _ _ __| |/ _(_)_ __   __| |___ / _ __ 
         \ \/ / | | | '__| | |_| | '_ \ / _`+"`"+` | |_ \| '__|
          >  <| |_| | |  | |  _| | | | | (_| |___) | |
-        /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| v%s-dev-f711bbd
+        /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
 
                  Hueristiq Limited <hueristiq.com>
 

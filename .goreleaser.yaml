@@ -34,7 +34,7 @@ builds:
         flags:
             - -trimpath
         ldflags:
-            - -s -w -X github.com/hueristiq/xurlfind3r/internal/configuration.Version={{.Version}}
+            - -s -w -X github.com/hueristiq/xurlfind3r/internal/configuration.Version=v{{.Version}}-{{ if .Branch }}{{ .Branch }}{{ else }}main{{ end }}-{{.ShortCommit}}
 
 snapshot:
     version_template: "{{ .Tag }}-next"
