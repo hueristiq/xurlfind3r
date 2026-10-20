@@ -118,32 +118,6 @@ var List = []string{
 
 var _ error = (*redactedError)(nil)
 
-func RedactError(err error, secrets ...string) (redacted error) {
-	if err == nil || len(secrets) == 0 {
-		return err
-	}
-
-	message := err.Error()
-
-	for _, secret := range secrets {
-		if secret == "" {
-			continue
-		}
-
-		message = strings.ReplaceAll(message, secret, "[REDACTED]")
-		message = strings.ReplaceAll(message, url.QueryEscape(secret), "[REDACTED]")
-	}
-
-	if message == err.Error() {
-		return err
-	}
-
-	return &redactedError{
-		err:     err,
-		message: message,
-	}
-}
-
 func ExtractURLs(extractor *regexp.Regexp, text string) (URLs []string) {
 	URLs = make([]string, 0)
 
@@ -170,4 +144,30 @@ func isHostLabelCharacter(character byte) (ok bool) {
 	}
 
 	return
+}
+
+func RedactError(err error, secrets ...string) (redacted error) {
+	if err == nil || len(secrets) == 0 {
+		return err
+	}
+
+	message := err.Error()
+
+	for _, secret := range secrets {
+		if secret == "" {
+			continue
+		}
+
+		message = strings.ReplaceAll(message, secret, "[REDACTED]")
+		message = strings.ReplaceAll(message, url.QueryEscape(secret), "[REDACTED]")
+	}
+
+	if message == err.Error() {
+		return err
+	}
+
+	return &redactedError{
+		err:     err,
+		message: message,
+	}
 }

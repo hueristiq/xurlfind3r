@@ -97,93 +97,30 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 	return
 }
 
-func hostPattern(domain string) (pattern string) {
-	pattern = `(?i)(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
-
-	return
+type deduper struct {
+	shards [dedupShardCount]dedupShard
 }
 
-func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
-	extractor, err = hqgourlextractor.New(
-		hqgourlextractor.WithHostPattern(hostPattern(domain)),
-	).CompileRegex()
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile URL extractor: %w", err)
+func (d *deduper) seen(value string) (duplicate bool) {
+	hash := dedupHash(value)
+
+	shard := &d.shards[hash%dedupShardCount]
+
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+
+	if _, exists := shard.entries[hash]; exists {
+		return true
 	}
 
-	return
-}
-
-func hasScheme(target string) (ok bool) {
-	if target == "" {
-		return false
-	}
-
-	if !isASCIIAlpha(target[0]) {
-		return false
-	}
-
-	for index := 1; index < len(target); index++ {
-		character := target[index]
-
-		switch {
-		case character == ':':
-			return true
-		case isASCIIAlpha(character), character >= '0' && character <= '9', character == '+', character == '-', character == '.':
-			continue
-		default:
-			return false
-		}
-	}
+	shard.entries[hash] = struct{}{}
 
 	return false
 }
 
-func isASCIIAlpha(character byte) (ok bool) {
-	return character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
-}
-
-func validateURL(target, domain string, includeSubdomains bool) (URL string, valid bool) {
-	scheme := "https"
-
-	switch {
-	case strings.HasPrefix(target, "//"):
-		URL = scheme + ":" + target
-	case strings.HasPrefix(target, "://"):
-		URL = scheme + target
-	case hasScheme(target):
-		URL = target
-	case !strings.Contains(target, "//"):
-		URL = scheme + "://" + target
-	default:
-		URL = target
-	}
-
-	parsed, err := url.Parse(URL)
-	if err != nil {
-		return URL, false
-	}
-
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return URL, false
-	}
-
-	hostname := strings.ToLower(parsed.Hostname())
-	if hostname == "" {
-		return URL, false
-	}
-
-	domain = strings.ToLower(domain)
-
-	if includeSubdomains {
-		valid = hostname == domain || strings.HasSuffix(hostname, "."+domain)
-
-		return URL, valid
-	}
-
-	valid = hostname == domain || hostname == "www."+domain
-
-	return URL, valid
+type dedupShard struct {
+	mu      sync.Mutex
+	entries map[uint64]struct{}
 }
 
 type ClientConfiguration struct {
@@ -197,6 +134,8 @@ type Configuration struct {
 	Keys              map[string]sources.Keys
 	IncludeSubdomains bool
 }
+
+const dedupShardCount = 32
 
 var registry = map[string]func() sources.Source{
 	sources.Arquivo:            arquivo.New,
@@ -213,25 +152,6 @@ var registry = map[string]func() sources.Source{
 	sources.Virustotal:         virustotal.New,
 	sources.Wayback:            wayback.New,
 	sources.Zoomeye:            zoomeye.New,
-}
-
-// NewSource returns a fresh instance of the source registered under
-// name.
-//
-// Parameters:
-//   - name (string): the registered source name.
-//
-// Returns:
-//   - source (sources.Source): the new source instance; nil when name
-//     is unknown.
-//   - ok (bool): whether name is registered.
-func NewSource(name string) (source sources.Source, ok bool) {
-	constructor, exists := registry[name]
-	if !exists {
-		return nil, false
-	}
-
-	return constructor(), true
 }
 
 // New returns a finder configured with cfg. Every finder owns fresh
@@ -304,15 +224,112 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	return
 }
 
-const dedupShardCount = 32
+// NewSource returns a fresh instance of the source registered under
+// name.
+//
+// Parameters:
+//   - name (string): the registered source name.
+//
+// Returns:
+//   - source (sources.Source): the new source instance; nil when name
+//     is unknown.
+//   - ok (bool): whether name is registered.
+func NewSource(name string) (source sources.Source, ok bool) {
+	constructor, exists := registry[name]
+	if !exists {
+		return nil, false
+	}
 
-type deduper struct {
-	shards [dedupShardCount]dedupShard
+	return constructor(), true
 }
 
-type dedupShard struct {
-	mu      sync.Mutex
-	entries map[uint64]struct{}
+func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
+	extractor, err = hqgourlextractor.New(
+		hqgourlextractor.WithHostPattern(hostPattern(domain)),
+	).CompileRegex()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile URL extractor: %w", err)
+	}
+
+	return
+}
+
+func hostPattern(domain string) (pattern string) {
+	pattern = `(?i)(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
+
+	return
+}
+
+func validateURL(target, domain string, includeSubdomains bool) (URL string, valid bool) {
+	scheme := "https"
+
+	switch {
+	case strings.HasPrefix(target, "//"):
+		URL = scheme + ":" + target
+	case strings.HasPrefix(target, "://"):
+		URL = scheme + target
+	case hasScheme(target):
+		URL = target
+	case !strings.Contains(target, "//"):
+		URL = scheme + "://" + target
+	default:
+		URL = target
+	}
+
+	parsed, err := url.Parse(URL)
+	if err != nil {
+		return URL, false
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return URL, false
+	}
+
+	hostname := strings.ToLower(parsed.Hostname())
+	if hostname == "" {
+		return URL, false
+	}
+
+	domain = strings.ToLower(domain)
+
+	if includeSubdomains {
+		valid = hostname == domain || strings.HasSuffix(hostname, "."+domain)
+
+		return URL, valid
+	}
+
+	valid = hostname == domain || hostname == "www."+domain
+
+	return URL, valid
+}
+
+func hasScheme(target string) (ok bool) {
+	if target == "" {
+		return false
+	}
+
+	if !isASCIIAlpha(target[0]) {
+		return false
+	}
+
+	for index := 1; index < len(target); index++ {
+		character := target[index]
+
+		switch {
+		case character == ':':
+			return true
+		case isASCIIAlpha(character), character >= '0' && character <= '9', character == '+', character == '-', character == '.':
+			continue
+		default:
+			return false
+		}
+	}
+
+	return false
+}
+
+func isASCIIAlpha(character byte) (ok bool) {
+	return character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
 }
 
 func newDeduper() (d *deduper) {
@@ -323,23 +340,6 @@ func newDeduper() (d *deduper) {
 	}
 
 	return
-}
-
-func (d *deduper) seen(value string) (duplicate bool) {
-	hash := dedupHash(value)
-
-	shard := &d.shards[hash%dedupShardCount]
-
-	shard.mu.Lock()
-	defer shard.mu.Unlock()
-
-	if _, exists := shard.entries[hash]; exists {
-		return true
-	}
-
-	shard.entries[hash] = struct{}{}
-
-	return false
 }
 
 func dedupHash(value string) (hash uint64) {
