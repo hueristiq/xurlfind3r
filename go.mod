@@ -27,3 +27,5 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )
+
+replace github.com/hueristiq/hq-lib-url-go => ../../libs/go/hq-lib-url-go

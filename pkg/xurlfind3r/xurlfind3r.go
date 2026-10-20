@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"html"
 	"net/url"
 	"regexp"
 	"strings"
@@ -247,6 +248,8 @@ func NewSource(name string) (source sources.Source, ok bool) {
 func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
 	extractor, err = hqgourlextractor.New(
 		hqgourlextractor.WithHostPattern(hostPattern(domain)),
+		hqgourlextractor.WithoutEmail(),
+		hqgourlextractor.WithoutUserInfo(),
 	).CompileRegex()
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile URL extractor: %w", err)
@@ -262,19 +265,19 @@ func hostPattern(domain string) (pattern string) {
 }
 
 func validateURL(target, domain string, includeSubdomains bool) (URL string, valid bool) {
+	URL = strings.Trim(target, `'"`)
+	URL = html.UnescapeString(URL)
+
 	scheme := "https"
 
 	switch {
-	case strings.HasPrefix(target, "//"):
-		URL = scheme + ":" + target
-	case strings.HasPrefix(target, "://"):
-		URL = scheme + target
-	case hasScheme(target):
-		URL = target
-	case !strings.Contains(target, "//"):
-		URL = scheme + "://" + target
-	default:
-		URL = target
+	case strings.HasPrefix(URL, "//"):
+		URL = scheme + ":" + URL
+	case strings.HasPrefix(URL, "://"):
+		URL = scheme + URL
+	case hasScheme(URL):
+	case !strings.Contains(URL, "//"):
+		URL = scheme + "://" + URL
 	}
 
 	parsed, err := url.Parse(URL)
@@ -286,22 +289,67 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 		return URL, false
 	}
 
-	hostname := strings.ToLower(parsed.Hostname())
-	if hostname == "" {
+	if parsed.User != nil {
 		return URL, false
 	}
 
 	domain = strings.ToLower(domain)
 
-	if includeSubdomains {
-		valid = hostname == domain || strings.HasSuffix(hostname, "."+domain)
+	hostname := strings.ToLower(parsed.Hostname())
 
-		return URL, valid
+	if hostname == "" {
+		return URL, false
 	}
 
-	valid = hostname == domain || hostname == "www."+domain
+	// Normalize the %2F-extraction artifact: a leading "2f" label glued to
+	// the hostname. Stripped candidates are accepted only when they actually
+	// change the hostname, do not start with a dot, and fall within the
+	// domain's scope; the hostname keeps its original form otherwise and the
+	// scope checks below decide.
+	for _, candidate := range []string{
+		strings.TrimPrefix(hostname, "%2f"),
+		strings.TrimPrefix(hostname, "2f"),
+	} {
+		if candidate == hostname || strings.HasPrefix(candidate, ".") {
+			continue
+		}
 
-	return URL, valid
+		if hostnameMatches(candidate, domain, includeSubdomains) {
+			hostname = candidate
+
+			break
+		}
+	}
+
+	if !hostnameMatches(hostname, domain, includeSubdomains) {
+		return URL, false
+	}
+
+	normalizedHost := hostname
+
+	if port := parsed.Port(); port != "" {
+		normalizedHost += ":" + port
+	}
+
+	if normalizedHost != parsed.Host {
+		URL = strings.Replace(URL, parsed.Host, normalizedHost, 1)
+	}
+
+	URL = strings.TrimRight(URL, `+"'`)
+
+	return URL, true
+}
+
+func hostnameMatches(hostname, domain string, includeSubdomains bool) (matches bool) {
+	if includeSubdomains {
+		matches = hostname == domain || strings.HasSuffix(hostname, "."+domain)
+
+		return
+	}
+
+	matches = hostname == domain || hostname == "www."+domain
+
+	return
 }
 
 func hasScheme(target string) (ok bool) {

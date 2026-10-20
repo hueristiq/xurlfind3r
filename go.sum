@@ -16,8 +16,6 @@ github.com/hueristiq/hq-lib-logger-go v0.0.0-20261011132023-c2e708c1233d h1:O0ko
 github.com/hueristiq/hq-lib-logger-go v0.0.0-20261011132023-c2e708c1233d/go.mod h1:fRDOBLlfTb04nVeZgRJDshT9P683TMaVUsvMIoPjbu4=
 github.com/hueristiq/hq-lib-retrier-go v0.0.0-20261011132200-c4007130d81a h1:WPY5yA/okhaRZUWwLfjMo781Df5nPO1HHXFa2rveQvQ=
 github.com/hueristiq/hq-lib-retrier-go v0.0.0-20261011132200-c4007130d81a/go.mod h1:REHgf5NmCSmATCxDhTWmnl5wRMVOknoPh+p0ON8UqCk=
-github.com/hueristiq/hq-lib-url-go v0.0.0-20261011135834-c92a0bfe9148 h1:WJ3u1AZHJn8K1VfCPz2kTd7moG9H6WbiT38JoSDniSw=
-github.com/hueristiq/hq-lib-url-go v0.0.0-20261011135834-c92a0bfe9148/go.mod h1:4euQEewth0mran7PKFRv1dEHVBCLE/kcEG8+tbLS8U4=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
 github.com/kr/text v0.2.0 h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=

@@ -73,13 +73,10 @@ func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (
 			Source: result.Source,
 		}
 
-		var dataJSONBytes []byte
+		encoder := json.NewEncoder(bw)
+		encoder.SetEscapeHTML(false)
 
-		if dataJSONBytes, err = json.Marshal(data); err != nil {
-			return
-		}
-
-		if _, err = bw.Write(append(dataJSONBytes, '\n')); err != nil {
+		if err = encoder.Encode(data); err != nil {
 			return
 		}
 	}
