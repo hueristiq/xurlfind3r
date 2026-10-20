@@ -243,7 +243,7 @@ func main() {
 
 	finder, err := xurlfind3r.New(&xurlfind3r.Configuration{
 		Client: &xurlfind3r.ClientConfiguration{
-			UserAgent: fmt.Sprintf("%s %s (https://github.com/hueristiq/%s.git)", configuration.Name, configuration.Version, configuration.Name),
+			UserAgent: fmt.Sprintf("%s %s", configuration.Name, configuration.Version),
 		},
 		SourcesToUse:      sourcesToUse,
 		SourcesToExclude:  sourcesToExclude,
