@@ -178,8 +178,8 @@ SCOPE:
 
 SOURCES:
      --sources bool                   list supported sources
- -u, --sources-to-use string[]        comma(,) separated sources to use
- -e, --sources-to-exclude string[]    comma(,) separated sources to exclude
+     --sources-to-use string[]        comma(,) separated sources to use
+     --sources-to-exclude string[]    comma(,) separated sources to exclude
 
 OUTPUT:
      --jsonl bool                     output in JSONL(ines)
@@ -240,7 +240,7 @@ xurlfind3r -d example.com --include-subdomains
 Restrict the sources to use with `--sources-to-use`:
 
 ```bash
-xurlfind3r -d example.com -u wayback,commoncrawl
+xurlfind3r -d example.com --sources-to-use wayback,commoncrawl
 ```
 
 #### Excluding sources
@@ -248,7 +248,7 @@ xurlfind3r -d example.com -u wayback,commoncrawl
 Exclude sources with `--sources-to-exclude`:
 
 ```bash
-xurlfind3r -d example.com -e otx
+xurlfind3r -d example.com --sources-to-exclude otx
 ```
 
 #### Writing output to a file

@@ -48,8 +48,8 @@ func init() {
 	pflag.StringVarP(&domainsFilePath, "list", "l", "", "")
 	pflag.BoolVar(&includeSubdomains, "include-subdomains", false, "")
 	pflag.BoolVar(&listSupportedSources, "sources", false, "")
-	pflag.StringSliceVarP(&sourcesToUse, "sources-to-use", "u", []string{}, "")
-	pflag.StringSliceVarP(&sourcesToExclude, "sources-to-exclude", "e", []string{}, "")
+	pflag.StringSliceVar(&sourcesToUse, "sources-to-use", []string{}, "")
+	pflag.StringSliceVar(&sourcesToExclude, "sources-to-exclude", []string{}, "")
 	pflag.BoolVar(&outputInJSONL, "jsonl", false, "")
 	pflag.StringVarP(&outputFilePath, "output", "o", "", "")
 	pflag.StringVarP(&outputDirectoryPath, "output-directory", "O", "", "")
@@ -126,8 +126,8 @@ func usage() {
 
 	h += "\nSOURCES:\n"
 	h += "     --sources bool                   list supported sources\n"
-	h += " -u, --sources-to-use string[]        comma(,) separated sources to use\n"
-	h += " -e, --sources-to-exclude string[]    comma(,) separated sources to exclude\n"
+	h += "     --sources-to-use string[]        comma(,) separated sources to use\n"
+	h += "     --sources-to-exclude string[]    comma(,) separated sources to exclude\n"
 
 	h += "\nOUTPUT:\n"
 	h += "     --jsonl bool                     output in JSONL(ines)\n"
