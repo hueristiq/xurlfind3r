@@ -65,11 +65,17 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 			URL(getIndexesReqURL).
 			Do(ctx)
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  fmt.Errorf("request failed: %w", err),
-			}
+			result := sources.ErrorResult(source.Name(), fmt.Errorf("request failed: %w", err))
+
+			results <- result
+
+			return
+		}
+
+		if err = sources.CheckResponse(getIndexesRes); err != nil {
+			_ = getIndexesRes.Body.Close()
+
+			result := sources.ErrorResult(source.Name(), err)
 
 			results <- result
 
@@ -79,11 +85,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 		var getIndexesResData getIndexesResponse
 
 		if err = json.NewDecoder(getIndexesRes.Body).Decode(&getIndexesResData); err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: source.Name(),
-				Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-			}
+			result := sources.ErrorResult(source.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 			results <- result
 
@@ -130,11 +132,17 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 					_ = getPaginationRes.Body.Close()
 				}
 
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: source.Name(),
-					Error:  fmt.Errorf("request failed: %w", err),
-				}
+				result := sources.ErrorResult(source.Name(), fmt.Errorf("request failed: %w", err))
+
+				results <- result
+
+				continue
+			}
+
+			if err = sources.CheckResponse(getPaginationRes); err != nil {
+				_ = getPaginationRes.Body.Close()
+
+				result := sources.ErrorResult(source.Name(), err)
 
 				results <- result
 
@@ -144,11 +152,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 			var getPaginationData getPaginationResponse
 
 			if err = json.NewDecoder(getPaginationRes.Body).Decode(&getPaginationData); err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: source.Name(),
-					Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-				}
+				result := sources.ErrorResult(source.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 				results <- result
 
@@ -167,11 +171,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 			for page := range getPaginationData.Pages {
 				if err := limiter.Wait(ctx); err != nil {
-					result := sources.Result{
-						Type:   sources.ResultError,
-						Source: source.Name(),
-						Error:  fmt.Errorf("failed to wait on rate limiter: %w", err),
-					}
+					result := sources.ErrorResult(source.Name(), fmt.Errorf("failed to wait on rate limiter: %w", err))
 
 					results <- result
 
@@ -193,18 +193,24 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 						_ = getURLsRes.Body.Close()
 					}
 
-					result := sources.Result{
-						Type:   sources.ResultError,
-						Source: source.Name(),
-						Error:  fmt.Errorf("request failed: %w", err),
-					}
+					result := sources.ErrorResult(source.Name(), fmt.Errorf("request failed: %w", err))
 
 					results <- result
 
 					continue
 				}
 
-				emittedThisPage := 0
+				if err = sources.CheckResponse(getURLsRes); err != nil {
+					_ = getURLsRes.Body.Close()
+
+					result := sources.ErrorResult(source.Name(), err)
+
+					results <- result
+
+					continue
+				}
+
+				scannedThisPage := 0
 
 				done := make(chan struct{})
 
@@ -216,14 +222,12 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 					scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
 
 					for scanner.Scan() {
+						scannedThisPage++
+
 						var getURLsResData getURLsResponse
 
 						if err = json.Unmarshal(scanner.Bytes(), &getURLsResData); err != nil {
-							result := sources.Result{
-								Type:   sources.ResultError,
-								Source: source.Name(),
-								Error:  err,
-							}
+							result := sources.ErrorResult(source.Name(), err)
 
 							results <- result
 
@@ -231,11 +235,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 						}
 
 						if getURLsResData.Error != "" {
-							result := sources.Result{
-								Type:   sources.ResultError,
-								Source: source.Name(),
-								Error:  fmt.Errorf("domain error: %s", getURLsResData.Error),
-							}
+							result := sources.ErrorResult(source.Name(), fmt.Errorf("domain error: %s", getURLsResData.Error))
 
 							results <- result
 
@@ -247,23 +247,13 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 							continue
 						}
 
-						result := sources.Result{
-							Type:   sources.ResultURL,
-							Source: source.Name(),
-							Value:  URL,
-						}
+						result := sources.URLResult(source.Name(), URL)
 
 						results <- result
-
-						emittedThisPage++
 					}
 
 					if scanErr := scanner.Err(); scanErr != nil && ctx.Err() == nil {
-						result := sources.Result{
-							Type:   sources.ResultError,
-							Source: source.Name(),
-							Error:  fmt.Errorf("failed to read response body: %w", scanErr),
-						}
+						result := sources.ErrorResult(source.Name(), fmt.Errorf("failed to read response body: %w", scanErr))
 
 						results <- result
 					}
@@ -283,7 +273,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 					return
 				}
 
-				if emittedThisPage == 0 {
+				if scannedThisPage == 0 {
 					emptyPages++
 
 					if emptyPages >= 3 {

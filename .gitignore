@@ -7,3 +7,6 @@ bin
 
 # GoReleaser
 dist
+
+# Local documentation
+docs/

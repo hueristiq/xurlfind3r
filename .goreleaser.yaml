@@ -5,7 +5,7 @@ before:
 builds:
     -
         id: xurlfind3r-cli
-        main: cmd/xurlfind3r/main.go
+        main: ./cmd/xurlfind3r
         binary: xurlfind3r
 
         env:

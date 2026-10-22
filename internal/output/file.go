@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
@@ -27,7 +28,7 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 		return
 	}
 
-	extension := filepath.Ext(path)
+	extension := strings.ToLower(filepath.Ext(path))
 
 	switch w.format {
 	case formatTXT:
@@ -35,7 +36,7 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 			path += ".txt"
 		}
 	case formatJSONL:
-		if extension != ".json" {
+		if extension != ".json" && extension != ".jsonl" {
 			path += ".json"
 		}
 	}
@@ -50,7 +51,7 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec // path is the user-specified output file location.
+	file, err = os.OpenFile(path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return
 	}
@@ -84,17 +85,6 @@ func (w *Writer) Write(writer io.Writer, domain string, result sources.Result) (
 	return
 }
 
-// WriteWithSource writes result to writer with its source as a `[source] `
-// prefix on the value line. JSONL output already includes the source field,
-// so it is written verbatim.
-//
-// Parameters:
-//   - writer (io.Writer): the destination to write result to.
-//   - domain (string): the domain result was found for.
-//   - result (sources.Result): the result to write.
-//
-// Returns:
-//   - err (error): non-nil when writing to writer fails.
 func (w *Writer) WriteWithSource(writer io.Writer, domain string, result sources.Result) (err error) {
 	switch w.format {
 	case formatTXT:
@@ -121,6 +111,19 @@ func (w *Writer) Flush(writer io.Writer) (err error) {
 	if err = bw.Flush(); err != nil {
 		return
 	}
+
+	return
+}
+
+func (w *Writer) Release(writer io.Writer) (err error) {
+	bw, ok := w.writers[writer]
+	if !ok {
+		return
+	}
+
+	err = bw.Flush()
+
+	delete(w.writers, writer)
 
 	return
 }

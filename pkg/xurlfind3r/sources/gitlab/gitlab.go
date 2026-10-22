@@ -1,10 +1,10 @@
 package gitlab
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 
 	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
@@ -48,11 +48,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		key, err := s.keys.PickRandom()
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to select key: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to select key: %w", err))
 
 			results <- result
 
@@ -62,6 +58,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		page := 1
 
 		for page > 0 {
+			if page > sources.MaxPages {
+				result := sources.WarningResult(s.Name(), fmt.Sprintf("pagination capped at %d pages", sources.MaxPages))
+
+				results <- result
+
+				break
+			}
+
 			searchReqURL := "https://gitlab.com/api/v4/search"
 
 			searchRes, err := cfg.Client.NewRequest().
@@ -77,11 +81,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					_ = searchRes.Body.Close()
 				}
 
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("request failed: %w", err),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
+
+				results <- result
+
+				return
+			}
+
+			if err = sources.CheckResponse(searchRes, key); err != nil {
+				_ = searchRes.Body.Close()
+
+				result := sources.ErrorResult(s.Name(), err)
 
 				results <- result
 
@@ -93,11 +103,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			var items []searchResponseItem
 
 			if err = json.NewDecoder(searchRes.Body).Decode(&items); err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 				results <- result
 
@@ -109,22 +115,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			_ = searchRes.Body.Close()
 
 			for _, item := range items {
-				URLs := sources.ExtractURLs(cfg.Extractor, item.Data)
-
-				for _, URL := range URLs {
-					URL, valid := cfg.Validator(URL)
-					if !valid {
-						continue
-					}
-
-					result := sources.Result{
-						Type:   sources.ResultURL,
-						Source: s.Name(),
-						Value:  URL,
-					}
-
-					results <- result
-				}
+				sources.SendURLs(results, cfg, s.Name(), sources.ExtractURLsAll(cfg.Extractor, item.Data))
 
 				getRawContentReqURL := fmt.Sprintf(
 					"https://gitlab.com/api/v4/projects/%d/repository/files/%s/raw?%s",
@@ -142,11 +133,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 						_ = getRawContentRes.Body.Close()
 					}
 
-					result := sources.Result{
-						Type:   sources.ResultError,
-						Source: s.Name(),
-						Error:  fmt.Errorf("request failed: %w", err),
-					}
+					result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
 
 					results <- result
 
@@ -159,41 +146,9 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					continue
 				}
 
-				scanner := bufio.NewScanner(getRawContentRes.Body)
-
-				scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
-
-				for scanner.Scan() {
-					line := scanner.Text()
-
-					if line == "" {
-						continue
-					}
-
-					URLs := sources.ExtractURLs(cfg.Extractor, line)
-
-					for _, URL := range URLs {
-						URL, valid := cfg.Validator(URL)
-						if !valid {
-							continue
-						}
-
-						result := sources.Result{
-							Type:   sources.ResultURL,
-							Source: s.Name(),
-							Value:  URL,
-						}
-
-						results <- result
-					}
-				}
-
-				if err = scanner.Err(); err != nil {
-					result := sources.Result{
-						Type:   sources.ResultError,
-						Source: s.Name(),
-						Error:  fmt.Errorf("failed to read response body: %w", err),
-					}
+				rawContent, err := io.ReadAll(io.LimitReader(getRawContentRes.Body, maxScanBytes))
+				if err != nil {
+					result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to read response body: %w", err))
 
 					results <- result
 
@@ -203,16 +158,31 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				}
 
 				_ = getRawContentRes.Body.Close()
+
+				content := string(rawContent)
+
+				sources.SendURLs(results, cfg, s.Name(), sources.ExtractURLsAll(cfg.Extractor, content))
+				sources.SendURLs(results, cfg, s.Name(), sources.ExtractCollapsedURLs(cfg.Extractor, content))
 			}
 
-			page = cast.ToInt(nextPage)
+			nextPageNumber := cast.ToInt(nextPage)
+
+			if nextPageNumber == page {
+				result := sources.WarningResult(s.Name(), "pagination stopped: next page did not advance")
+
+				results <- result
+
+				break
+			}
+
+			page = nextPageNumber
 		}
 	}()
 
 	return results
 }
 
-const maxScanTokenSize = 16 << 20
+const maxScanBytes = 8 << 20
 
 var _ sources.Source = (*Source)(nil)
 

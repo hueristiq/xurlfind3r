@@ -1,11 +1,11 @@
 package github
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,12 +18,6 @@ import (
 	"github.com/spf13/cast"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
-)
-
-const (
-	searchAPIURL = "https://api.github.com/search/code"
-
-	maxScanTokenSize = 16 << 20
 )
 
 type codeSearchResponse struct {
@@ -71,13 +65,16 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		parameters := url.Values{}
 		parameters.Set("per_page", "100")
-		parameters.Set("q", fmt.Sprintf("%q", domain))
-		parameters.Set("sort", "created")
+		parameters.Set("sort", "indexed")
 		parameters.Set("order", "asc")
 
-		searchReqURL := searchAPIURL + "?" + parameters.Encode()
+		for _, query := range searchQueries(domain) {
+			parameters.Set("q", fmt.Sprintf("%q", query))
 
-		s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
+			searchReqURL := searchAPIURL + "?" + parameters.Encode()
+
+			s.Enumerate(ctx, searchReqURL, cfg, results, keysManager)
+		}
 	}()
 
 	return results
@@ -114,11 +111,15 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 			_ = codeSearchRes.Body.Close()
 		}
 
-		result := sources.Result{
-			Type:   sources.ResultError,
-			Source: s.Name(),
-			Error:  fmt.Errorf("request failed: %w", err),
-		}
+		result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
+
+		results <- result
+
+		return
+	}
+
+	if codeSearchRes == nil {
+		result := sources.ErrorResult(s.Name(), errors.New("request failed: nil response"))
 
 		results <- result
 
@@ -137,11 +138,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		if retryAfterSeconds <= 0 {
 			_ = codeSearchRes.Body.Close()
 
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  errors.New("rate limit reached with no recovery hint; try again later"),
-			}
+			result := sources.ErrorResult(s.Name(), errors.New("rate limit reached with no recovery hint; try again later"))
 
 			results <- result
 
@@ -157,14 +154,20 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		return
 	}
 
+	if err = sources.CheckResponse(codeSearchRes, token.Value); err != nil {
+		_ = codeSearchRes.Body.Close()
+
+		result := sources.ErrorResult(s.Name(), err)
+
+		results <- result
+
+		return
+	}
+
 	var codeSearchResData codeSearchResponse
 
 	if err = json.NewDecoder(codeSearchRes.Body).Decode(&codeSearchResData); err != nil {
-		result := sources.Result{
-			Type:   sources.ResultError,
-			Source: s.Name(),
-			Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-		}
+		result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 		results <- result
 
@@ -189,11 +192,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 				_ = getRawContentRes.Body.Close()
 			}
 
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("request failed: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
 
 			results <- result
 
@@ -206,41 +205,9 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 			continue
 		}
 
-		scanner := bufio.NewScanner(getRawContentRes.Body)
-
-		scanner.Buffer(make([]byte, 0, 64*1024), maxScanTokenSize)
-
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			if line == "" {
-				continue
-			}
-
-			URLs := sources.ExtractURLs(cfg.Extractor, line)
-
-			for _, URL := range URLs {
-				URL, valid := cfg.Validator(URL)
-				if !valid {
-					continue
-				}
-
-				result := sources.Result{
-					Type:   sources.ResultURL,
-					Source: s.Name(),
-					Value:  URL,
-				}
-
-				results <- result
-			}
-		}
-
-		if err = scanner.Err(); err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to read response body: %w", err),
-			}
+		rawContent, err := io.ReadAll(io.LimitReader(getRawContentRes.Body, maxScanBytes))
+		if err != nil {
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to read response body: %w", err))
 
 			results <- result
 
@@ -251,23 +218,13 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 		_ = getRawContentRes.Body.Close()
 
+		content := string(rawContent)
+
+		sources.SendURLs(results, cfg, s.Name(), sources.ExtractURLsAll(cfg.Extractor, content))
+		sources.SendURLs(results, cfg, s.Name(), sources.ExtractCollapsedURLs(cfg.Extractor, content))
+
 		for _, textMatch := range item.TextMatches {
-			URLs := sources.ExtractURLs(cfg.Extractor, textMatch.Fragment)
-
-			for _, URL := range URLs {
-				URL, valid := cfg.Validator(URL)
-				if !valid {
-					continue
-				}
-
-				result := sources.Result{
-					Type:   sources.ResultURL,
-					Source: s.Name(),
-					Value:  URL,
-				}
-
-				results <- result
-			}
+			sources.SendURLs(results, cfg, s.Name(), sources.ExtractURLsAll(cfg.Extractor, textMatch.Fragment))
 		}
 	}
 
@@ -280,11 +237,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 
 		nextURL, err := url.Parse(link.URL)
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  err,
-			}
+			result := sources.ErrorResult(s.Name(), err)
 
 			results <- result
 
@@ -307,20 +260,6 @@ type KeysManager struct {
 	mu      sync.Mutex
 	current int
 	pool    []ManagedKey
-}
-
-func NewKeyManager(keys []string) (manager *KeysManager) {
-	pool := make([]ManagedKey, len(keys))
-
-	for i, key := range keys {
-		pool[i] = ManagedKey{Value: key}
-	}
-
-	manager = &KeysManager{
-		pool: pool,
-	}
-
-	return
 }
 
 func (m *KeysManager) GetCurrentKey() (key *ManagedKey, index int) {
@@ -348,9 +287,6 @@ func (m *KeysManager) GetCurrentKey() (key *ManagedKey, index int) {
 	return
 }
 
-// WaitForRecovery returns how long to wait before the earliest
-// rate-limited key becomes usable again. ok is false when at least one
-// key is usable now.
 func (m *KeysManager) WaitForRecovery() (wait time.Duration, ok bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -392,6 +328,46 @@ func (m *KeysManager) SetKeyExceeded(index int, retryAfter int64) {
 	}
 }
 
+const (
+	searchAPIURL = "https://api.github.com/search/code"
+
+	maxScanBytes = 8 << 20
+)
+
+var _ sources.Source = (*Source)(nil)
+
+func New() (source sources.Source) {
+	source = &Source{
+		keys: make(sources.Keys, 0),
+	}
+
+	return
+}
+
+func NewKeyManager(keys []string) (manager *KeysManager) {
+	pool := make([]ManagedKey, len(keys))
+
+	for i, key := range keys {
+		pool[i] = ManagedKey{Value: key}
+	}
+
+	manager = &KeysManager{
+		pool: pool,
+	}
+
+	return
+}
+
+func searchQueries(domain string) (queries []string) {
+	queries = []string{
+		domain,
+		strings.ReplaceAll(domain, ".", `\.`),
+		strings.ReplaceAll(domain, ".", "[.]"),
+	}
+
+	return
+}
+
 func rateLimitResetRemaining(raw string) (remaining int64) {
 	reset := cast.ToInt64(raw)
 
@@ -412,14 +388,4 @@ func waitSleep(ctx context.Context, d time.Duration) (completed bool) {
 	case <-timer.C:
 		return true
 	}
-}
-
-var _ sources.Source = (*Source)(nil)
-
-func New() (source sources.Source) {
-	source = &Source{
-		keys: make(sources.Keys, 0),
-	}
-
-	return
 }

@@ -46,11 +46,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		key, err := s.keys.PickRandom()
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to select key: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to select key: %w", err))
 
 			results <- result
 
@@ -60,11 +56,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		getDomainReportReqURL := "https://www.virustotal.com/vtapi/v2/domain/report"
 
 		if err := limiter.Wait(ctx); err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to wait on rate limiter: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to wait on rate limiter: %w", err))
 
 			results <- result
 
@@ -77,11 +69,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			Param("domain", domain).
 			Do(ctx)
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("request failed: %w", sources.RedactError(err, key)),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", sources.RedactError(err, key)))
+
+			results <- result
+
+			return
+		}
+
+		if err = sources.CheckResponse(getDomainReportRes, key); err != nil {
+			_ = getDomainReportRes.Body.Close()
+
+			result := sources.ErrorResult(s.Name(), err)
 
 			results <- result
 
@@ -91,11 +89,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		var getDomainReportResData getDomainReportResponse
 
 		if err = json.NewDecoder(getDomainReportRes.Body).Decode(&getDomainReportResData); err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 			results <- result
 
@@ -112,11 +106,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				continue
 			}
 
-			result := sources.Result{
-				Type:   sources.ResultURL,
-				Source: s.Name(),
-				Value:  URL,
-			}
+			result := sources.URLResult(s.Name(), URL)
 
 			results <- result
 		}
@@ -127,11 +117,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				continue
 			}
 
-			result := sources.Result{
-				Type:   sources.ResultURL,
-				Source: s.Name(),
-				Value:  URL,
-			}
+			result := sources.URLResult(s.Name(), URL)
 
 			results <- result
 		}
@@ -144,11 +130,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 						continue
 					}
 
-					result := sources.Result{
-						Type:   sources.ResultURL,
-						Source: s.Name(),
-						Value:  URL,
-					}
+					result := sources.URLResult(s.Name(), URL)
 
 					results <- result
 				}

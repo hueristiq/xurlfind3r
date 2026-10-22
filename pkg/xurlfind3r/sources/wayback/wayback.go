@@ -40,13 +40,19 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	go func() {
 		defer close(results)
 
+		previousSignature := ""
+
 		for page := uint(0); ; page++ {
+			if page >= sources.MaxPages {
+				result := sources.WarningResult(s.Name(), fmt.Sprintf("pagination capped at %d pages", sources.MaxPages))
+
+				results <- result
+
+				break
+			}
+
 			if err := limiter.Wait(ctx); err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("failed to wait on rate limiter: %w", err),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to wait on rate limiter: %w", err))
 
 				results <- result
 
@@ -55,11 +61,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			data, err := getPage(ctx, cfg, domain, page, rateLimitWait)
 			if err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  err,
-				}
+				result := sources.ErrorResult(s.Name(), err)
 
 				results <- result
 
@@ -74,6 +76,18 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				break
 			}
 
+			signature := fmt.Sprintf("%d:%v:%v", len(data), data[1], data[len(data)-1])
+
+			if signature == previousSignature {
+				result := sources.WarningResult(s.Name(), "pagination stopped: page contents repeated")
+
+				results <- result
+
+				break
+			}
+
+			previousSignature = signature
+
 			// Slicing as [1:] to skip the header row.
 			for _, record := range data[1:] {
 				if len(record) < 2 {
@@ -85,11 +99,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					continue
 				}
 
-				result := sources.Result{
-					Type:   sources.ResultURL,
-					Source: s.Name(),
-					Value:  URL,
-				}
+				result := sources.URLResult(s.Name(), URL)
 
 				results <- result
 			}
@@ -135,6 +145,12 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 			}
 
 			continue
+		}
+
+		if err = sources.CheckResponse(getURLsRes); err != nil {
+			_ = getURLsRes.Body.Close()
+
+			return nil, fmt.Errorf("request failed: %w", err)
 		}
 
 		var body []byte

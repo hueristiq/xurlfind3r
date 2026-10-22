@@ -49,11 +49,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			Param("domain", domain).
 			Do(ctx)
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("request failed: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
+
+			results <- result
+
+			return
+		}
+
+		if err = sources.CheckResponse(getURLsRes); err != nil {
+			_ = getURLsRes.Body.Close()
+
+			result := sources.ErrorResult(s.Name(), err)
 
 			results <- result
 
@@ -63,11 +69,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		var getURLsResData getURLsResponse
 
 		if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 			results <- result
 
@@ -84,11 +86,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				continue
 			}
 
-			result := sources.Result{
-				Type:   sources.ResultURL,
-				Source: s.Name(),
-				Value:  URL,
-			}
+			result := sources.URLResult(s.Name(), URL)
 
 			results <- result
 		}

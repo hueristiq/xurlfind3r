@@ -2,9 +2,11 @@ package xurlfind3r
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"html"
+	"net"
 	"net/url"
 	"regexp"
 	"strings"
@@ -38,19 +40,13 @@ type Finder struct {
 }
 
 func (finder *Finder) Find(ctx context.Context, domain string) (results chan sources.Result) {
-	results = make(chan sources.Result)
+	results = make(chan sources.Result, 1)
 
 	domain = strings.ToLower(domain)
 
 	extractor, err := compileExtractor(domain)
 	if err != nil {
-		result := sources.Result{
-			Type:   sources.ResultError,
-			Source: "xurlfind3r",
-			Error:  err,
-		}
-
-		results <- result
+		results <- sources.ErrorResult("xurlfind3r", err)
 
 		close(results)
 
@@ -80,17 +76,7 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 			go func(source sources.Source) {
 				defer wg.Done()
 
-				sResults := source.Run(ctx, configuration, domain)
-
-				for sResult := range sResults {
-					if sResult.Type == sources.ResultURL {
-						if deduper.seen(sResult.Value) {
-							continue
-						}
-					}
-
-					results <- sResult
-				}
+				relayResults(ctx, source.Run(ctx, configuration, domain), deduper, results)
 			}(source)
 		}
 
@@ -100,25 +86,98 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 	return
 }
 
+func relayResults(ctx context.Context, sourceResults <-chan sources.Result, deduper *deduper, results chan<- sources.Result) {
+	for {
+		select {
+		case <-ctx.Done():
+			drainResults(sourceResults)
+
+			return
+		case result, ok := <-sourceResults:
+			if !ok {
+				return
+			}
+
+			if result.Type == sources.ResultURL && deduper.seen(result.Value) {
+				continue
+			}
+
+			select {
+			case results <- result:
+			case <-ctx.Done():
+				drainResults(sourceResults)
+
+				return
+			}
+		}
+	}
+}
+
+func drainResults(sourceResults <-chan sources.Result) {
+	for range sourceResults {
+	}
+}
+
 type deduper struct {
 	shards [dedupShardCount]dedupShard
 }
 
 func (d *deduper) seen(value string) (duplicate bool) {
-	hash := dedupHash(value)
+	key := canonicalURLKey(value)
+	hash := dedupHash(key)
 
 	shard := &d.shards[hash%dedupShardCount]
 
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
-	if _, exists := shard.entries[value]; exists {
+	if _, exists := shard.entries[key]; exists {
 		return true
 	}
 
-	shard.entries[value] = struct{}{}
+	shard.entries[key] = struct{}{}
 
 	return false
+}
+
+func canonicalURLKey(value string) (key string) {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return value
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	hostname := strings.ToLower(parsed.Hostname())
+	port := parsed.Port()
+
+	if scheme == schemeHTTP && port == "80" || scheme == schemeHTTPS && port == "443" {
+		port = ""
+	}
+
+	host := hostname
+
+	switch {
+	case port != "":
+		host = net.JoinHostPort(hostname, port)
+	case strings.Contains(hostname, ":"):
+		host = "[" + hostname + "]"
+	}
+
+	parsed.Scheme = scheme
+	parsed.Host = host
+	parsed.Fragment = ""
+	parsed.RawFragment = ""
+
+	if parsed.Path == "" {
+		parsed.Path = "/"
+		parsed.RawPath = ""
+	}
+
+	parsed.RawQuery = parsed.Query().Encode()
+
+	key = parsed.String()
+
+	return
 }
 
 type dedupShard struct {
@@ -136,9 +195,17 @@ type Configuration struct {
 	SourcesToExclude  []string
 	Keys              map[string]sources.Keys
 	IncludeSubdomains bool
+	Timeout           time.Duration
 }
 
-const dedupShardCount = 32
+const (
+	dedupShardCount = 32
+
+	defaultTimeout = 30 * time.Second
+
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
+)
 
 var registry = map[string]func() sources.Source{
 	sources.Arquivo:            arquivo.New,
@@ -157,26 +224,26 @@ var registry = map[string]func() sources.Source{
 	sources.Zoomeye:            zoomeye.New,
 }
 
-// New returns a finder configured with cfg. Every finder owns fresh
-// source instances, so finders are safe to construct and use
-// concurrently.
-//
-// Parameters:
-//   - cfg (*Configuration): the finder configuration.
-//
-// Returns:
-//   - finder (*Finder): the configured finder.
-//   - err (error): non-nil when the HTTP client cannot be initialized
-//     or a requested source name is unknown.
 func New(cfg *Configuration) (finder *Finder, err error) {
+	if cfg == nil {
+		err = errors.New("configuration is nil")
+
+		return
+	}
+
 	finder = &Finder{
 		sources:           make(map[string]sources.Source, len(sources.List)),
 		includeSubdomains: cfg.IncludeSubdomains,
 	}
 
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = defaultTimeout
+	}
+
 	ofs := []hqgohttp.ClientOptionFunc{
-		hqgohttp.WithHTTPClient(hqgohttp.DefaultHTTPClient()),
-		hqgohttp.WithTimeout(1 * time.Hour),
+		hqgohttp.WithHTTPClient(hqgohttp.DefaultHTTPPooledClient()),
+		hqgohttp.WithTimeout(timeout),
 		hqgohttp.WithMaxRetries(3),
 		hqgohttp.WithRetryWaitMin(1 * time.Second),
 		hqgohttp.WithRetryWaitMax(30 * time.Second),
@@ -214,7 +281,19 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	}
 
 	for _, name := range cfg.SourcesToExclude {
+		if _, ok := registry[name]; !ok {
+			err = fmt.Errorf("unknown source %q in sources to exclude", name)
+
+			return
+		}
+
 		delete(finder.sources, name)
+	}
+
+	if len(finder.sources) == 0 {
+		err = errors.New("no sources left after applying exclusions")
+
+		return
 	}
 
 	for _, source := range finder.sources {
@@ -226,16 +305,12 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	return
 }
 
-// NewSource returns a fresh instance of the source registered under
-// name.
-//
-// Parameters:
-//   - name (string): the registered source name.
-//
-// Returns:
-//   - source (sources.Source): the new source instance; nil when name
-//     is unknown.
-//   - ok (bool): whether name is registered.
+func (finder *Finder) SourceCount() (count int) {
+	count = len(finder.sources)
+
+	return
+}
+
 func NewSource(name string) (source sources.Source, ok bool) {
 	constructor, exists := registry[name]
 	if !exists {
@@ -259,7 +334,9 @@ func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
 }
 
 func hostPattern(domain string) (pattern string) {
-	pattern = `(?i)(?:(?:\w+[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
+	label := `[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?`
+
+	pattern = `(?i)(?:(?:` + label + `[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
 
 	return
 }
@@ -268,16 +345,11 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 	URL = strings.Trim(target, `'"`)
 	URL = html.UnescapeString(URL)
 
-	scheme := "https"
-
 	switch {
 	case strings.HasPrefix(URL, "//"):
-		URL = scheme + ":" + URL
+		URL = "https:" + URL
 	case strings.HasPrefix(URL, "://"):
-		URL = scheme + URL
-	case hasScheme(URL):
-	case !strings.Contains(URL, "//"):
-		URL = scheme + "://" + URL
+		URL = "https://" + strings.TrimPrefix(URL, "://")
 	}
 
 	parsed, err := url.Parse(URL)
@@ -285,7 +357,15 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 		return URL, false
 	}
 
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+	if parsed.Scheme != schemeHTTP && parsed.Scheme != schemeHTTPS || parsed.Hostname() == "" {
+		URL = "https://" + URL
+
+		if parsed, err = url.Parse(URL); err != nil {
+			return URL, false
+		}
+	}
+
+	if parsed.Scheme != schemeHTTP && parsed.Scheme != schemeHTTPS {
 		return URL, false
 	}
 
@@ -299,26 +379,6 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 
 	if hostname == "" {
 		return URL, false
-	}
-
-	// Normalize the %2F-extraction artifact: a leading "2f" label glued to
-	// the hostname. Stripped candidates are accepted only when they actually
-	// change the hostname, do not start with a dot, and fall within the
-	// domain's scope; the hostname keeps its original form otherwise and the
-	// scope checks below decide.
-	for _, candidate := range []string{
-		strings.TrimPrefix(hostname, "%2f"),
-		strings.TrimPrefix(hostname, "2f"),
-	} {
-		if candidate == hostname || strings.HasPrefix(candidate, ".") {
-			continue
-		}
-
-		if hostnameMatches(candidate, domain, includeSubdomains) {
-			hostname = candidate
-
-			break
-		}
 	}
 
 	if !hostnameMatches(hostname, domain, includeSubdomains) {
@@ -335,7 +395,7 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 		URL = strings.Replace(URL, parsed.Host, normalizedHost, 1)
 	}
 
-	URL = strings.TrimRight(URL, `+"'`)
+	URL = strings.TrimRight(URL, "'")
 
 	return URL, true
 }
@@ -350,35 +410,6 @@ func hostnameMatches(hostname, domain string, includeSubdomains bool) (matches b
 	matches = hostname == domain || hostname == "www."+domain
 
 	return
-}
-
-func hasScheme(target string) (ok bool) {
-	if target == "" {
-		return false
-	}
-
-	if !isASCIIAlpha(target[0]) {
-		return false
-	}
-
-	for index := 1; index < len(target); index++ {
-		character := target[index]
-
-		switch {
-		case character == ':':
-			return true
-		case isASCIIAlpha(character), character >= '0' && character <= '9', character == '+', character == '-', character == '.':
-			continue
-		default:
-			return false
-		}
-	}
-
-	return false
-}
-
-func isASCIIAlpha(character byte) (ok bool) {
-	return character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z'
 }
 
 func newDeduper() (d *deduper) {

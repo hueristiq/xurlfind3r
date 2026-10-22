@@ -70,11 +70,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		key, err := s.keys.PickRandom()
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to select key: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to select key: %w", err))
 
 			results <- result
 
@@ -82,24 +78,16 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		}
 
 		if key == "" {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  errors.New("failed to select key: selected key is empty"),
-			}
+			result := sources.ErrorResult(s.Name(), errors.New("failed to select key: selected key is empty"))
 
 			results <- result
 
 			return
 		}
 
-		parts := strings.Split(key, ":")
+		parts := strings.SplitN(key, ":", 2)
 		if len(parts) != 2 {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  errors.New("failed to parse key: expected host:key format"),
-			}
+			result := sources.ErrorResult(s.Name(), errors.New("failed to parse key: expected host:key format"))
 
 			results <- result
 
@@ -110,11 +98,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		intelXKey := parts[1]
 
 		if intelXKey == "" || intelXHost == "" {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  errors.New("failed to parse key: host or key is empty"),
-			}
+			result := sources.ErrorResult(s.Name(), errors.New("failed to parse key: host or key is empty"))
 
 			results <- result
 
@@ -134,11 +118,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		searchReqBodyBytes, err = json.Marshal(searchReqBody)
 		if err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  err,
-			}
+			result := sources.ErrorResult(s.Name(), err)
 
 			results <- result
 
@@ -161,11 +141,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				_ = searchRes.Body.Close()
 			}
 
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("request failed: %w", sources.RedactError(err, intelXKey)),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", sources.RedactError(err, intelXKey)))
+
+			results <- result
+
+			return
+		}
+
+		if err = sources.CheckResponse(searchRes, intelXKey); err != nil {
+			_ = searchRes.Body.Close()
+
+			result := sources.ErrorResult(s.Name(), err)
 
 			results <- result
 
@@ -175,11 +161,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 		var searchResData searchResponse
 
 		if err = json.NewDecoder(searchRes.Body).Decode(&searchResData); err != nil {
-			result := sources.Result{
-				Type:   sources.ResultError,
-				Source: s.Name(),
-				Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-			}
+			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 			results <- result
 
@@ -196,11 +178,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		for attempts := 0; status == 0 || status == 3; attempts++ {
 			if attempts >= s.pollAttemptsMax {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("giving up after %d result polls", attempts),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("giving up after %d result polls", attempts))
 
 				results <- result
 
@@ -232,11 +210,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					_ = getResultsRes.Body.Close()
 				}
 
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("request failed: %w", sources.RedactError(err, intelXKey)),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", sources.RedactError(err, intelXKey)))
+
+				results <- result
+
+				return
+			}
+
+			if err = sources.CheckResponse(getResultsRes, intelXKey); err != nil {
+				_ = getResultsRes.Body.Close()
+
+				result := sources.ErrorResult(s.Name(), err)
 
 				results <- result
 
@@ -246,11 +230,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			var getResultsResData getResultsResponse
 
 			if err = json.NewDecoder(getResultsRes.Body).Decode(&getResultsResData); err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 				results <- result
 
@@ -275,11 +255,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 					continue
 				}
 
-				result := sources.Result{
-					Type:   sources.ResultURL,
-					Source: s.Name(),
-					Value:  URL,
-				}
+				result := sources.URLResult(s.Name(), URL)
 
 				results <- result
 			}

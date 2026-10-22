@@ -137,7 +137,7 @@ Example of environment variables for API keys:
 
 ```bash
 XURLFIND3R_KEYS_BEVIGIL=your_bevigil_key
-XURLFIND3R_KEYS_INTELX=your_intelx_key
+XURLFIND3R_KEYS_INTELX=your_intelx_host:your_intelx_key
 ```
 
 ## Usage

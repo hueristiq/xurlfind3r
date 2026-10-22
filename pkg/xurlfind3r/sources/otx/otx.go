@@ -64,7 +64,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			key = picked
 		}
 
+		previousSignature := ""
+
 		for page := 1; ; page++ {
+			if page > sources.MaxPages {
+				result := sources.WarningResult(s.Name(), fmt.Sprintf("pagination capped at %d pages", sources.MaxPages))
+
+				results <- result
+
+				break
+			}
+
 			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list", domain)
 
 			getURLsReq := cfg.Client.NewRequest().
@@ -78,11 +88,17 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			getURLsRes, err := getURLsReq.Do(ctx)
 			if err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("request failed: %w", err),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
+
+				results <- result
+
+				return
+			}
+
+			if err = sources.CheckResponse(getURLsRes, key); err != nil {
+				_ = getURLsRes.Body.Close()
+
+				result := sources.ErrorResult(s.Name(), err)
 
 				results <- result
 
@@ -92,11 +108,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			var getURLsResData getURLsResponse
 
 			if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
-				result := sources.Result{
-					Type:   sources.ResultError,
-					Source: s.Name(),
-					Error:  fmt.Errorf("failed to parse JSON response: %w", err),
-				}
+				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
 
 				results <- result
 
@@ -107,17 +119,29 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			_ = getURLsRes.Body.Close()
 
+			signature := fmt.Sprintf("%d|%d", len(getURLsResData.URLList), getURLsResData.ActualSize)
+
+			if len(getURLsResData.URLList) > 0 {
+				signature += "|" + getURLsResData.URLList[0].URL + "|" + getURLsResData.URLList[len(getURLsResData.URLList)-1].URL
+			}
+
+			if signature == previousSignature {
+				result := sources.WarningResult(s.Name(), "pagination stopped: page watermark did not advance")
+
+				results <- result
+
+				break
+			}
+
+			previousSignature = signature
+
 			for _, item := range getURLsResData.URLList {
 				URL, valid := cfg.Validator(item.URL)
 				if !valid {
 					continue
 				}
 
-				result := sources.Result{
-					Type:   sources.ResultURL,
-					Source: s.Name(),
-					Value:  URL,
-				}
+				result := sources.URLResult(s.Name(), URL)
 
 				results <- result
 			}

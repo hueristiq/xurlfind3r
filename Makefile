@@ -136,7 +136,7 @@ go-test:
 
 go-build:
 	@$(call log_header,Building Go program...)
-	@go build -v -ldflags "-s -w -X github.com/hueristiq/$(NAME)/internal/configuration.Version=$(VERSION)" -o bin/$(NAME) cmd/$(NAME)/main.go || ( $(call log_error,Failed Building Go program!) && exit 1 )
+	@go build -v -ldflags "-s -w -X github.com/hueristiq/$(NAME)/internal/configuration.Version=$(VERSION)" -o bin/$(NAME) ./cmd/$(NAME) || ( $(call log_error,Failed Building Go program!) && exit 1 )
 	@$(call log_success,Building Go program...done!)
 
 go-install:
