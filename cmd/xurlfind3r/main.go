@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 
 	hqgologger "github.com/hueristiq/hq-lib-logger-go"
 	hqgologgerformatter "github.com/hueristiq/hq-lib-logger-go/formatter"
@@ -343,7 +345,7 @@ func collectDomainsFromFile() {
 		return
 	}
 
-	file, err := os.Open(domainsFilePath)
+	file, err := os.Open(domainsFilePath) //nolint:gosec // path is the user-specified domains file location.
 	if err != nil {
 		hqgologger.Fatal("failed opening input file", hqgologger.WithError(err))
 	}
@@ -471,6 +473,26 @@ func dropOutput(outputs []io.Writer, dropped io.Writer) (remaining []io.Writer) 
 			remaining = append(remaining, output)
 		}
 	}
+
+	return
+}
+
+func ignoreBrokenPipe() {
+	if runtime.GOOS == "windows" {
+		return
+	}
+
+	signal.Ignore(syscall.SIGPIPE)
+}
+
+func terminationSignals() (signals []os.Signal) {
+	if runtime.GOOS == "windows" {
+		signals = []os.Signal{os.Interrupt}
+
+		return
+	}
+
+	signals = []os.Signal{os.Interrupt, syscall.SIGTERM}
 
 	return
 }

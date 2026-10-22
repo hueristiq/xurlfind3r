@@ -186,7 +186,7 @@ func hasMissingKeySlots(cfg *Configuration) (missing bool) {
 }
 
 func Read(path string) (cfg Configuration, err error) {
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // path is the user-specified configuration file location.
 	if err != nil {
 		return
 	}

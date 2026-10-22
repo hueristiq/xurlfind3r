@@ -51,7 +51,7 @@ func (w *Writer) CreateFile(path string) (file *os.File, err error) {
 		}
 	}
 
-	file, err = os.OpenFile(path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600)
+	file, err = os.OpenFile(path, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec // path is the user-specified output file location.
 	if err != nil {
 		return
 	}
