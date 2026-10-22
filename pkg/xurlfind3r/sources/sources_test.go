@@ -253,6 +253,107 @@ func TestExtractURLsBoundary(t *testing.T) {
 	}
 }
 
+func TestExtractURLsEncodedSlashPrefix(t *testing.T) {
+	t.Parallel()
+
+	extractor := regexp.MustCompile(`(?i)(?:[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?\.)*example\.com`)
+
+	tests := []struct {
+		name string
+		text string
+		want []string
+	}{
+		{name: "encoded slash prefix", text: "%2Fwww.example.com", want: []string{"www.example.com"}},
+		{name: "encoded slash prefix lowercase", text: "%2fwww.example.com", want: []string{"www.example.com"}},
+		{name: "encoded slash empty label", text: "%2f.example.com", want: nil},
+		{name: "legitimate two f label", text: "2f.example.com", want: []string{"2f.example.com"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := sources.ExtractURLs(extractor, test.text)
+
+			if !slices.Equal(got, test.want) {
+				t.Fatalf("ExtractURLs(%q) = %v, want %v", test.text, got, test.want)
+			}
+		})
+	}
+}
+
+func TestExtractURLsTrimsCodeGlue(t *testing.T) {
+	t.Parallel()
+
+	const reportPDFURL = "https://example.com/report.pdf"
+
+	extractor := regexp.MustCompile(`https?://\S*`)
+
+	tests := []struct {
+		name string
+		text string
+		want []string
+	}{
+		{
+			name: "quote and list tail",
+			text: `https://example.com/investor-relations/',a['href']`,
+			want: []string{"https://example.com/investor-relations/"},
+		},
+		{
+			name: "dict tail",
+			text: `https://example.com/investor-relations/','download_url':url,'http_status':'linked`,
+			want: []string{"https://example.com/investor-relations/"},
+		},
+		{
+			name: "status column",
+			text: reportPDFURL + ",linked",
+			want: []string{reportPDFURL},
+		},
+		{
+			name: "numeric status columns",
+			text: reportPDFURL + ",200,application/pdf",
+			want: []string{reportPDFURL},
+		},
+		{
+			name: "method column",
+			text: reportPDFURL + ",GET",
+			want: []string{reportPDFURL},
+		},
+		{
+			name: "glued second url",
+			text: "https://example.com/a,https://example.com/b",
+			want: []string{"https://example.com/a", "https://example.com/b"},
+		},
+		{
+			name: "legitimate comma path",
+			text: "https://example.com/tags/foo,bar",
+			want: []string{"https://example.com/tags/foo,bar"},
+		},
+		{
+			name: "apostrophe path",
+			text: "https://example.com/company's-report",
+			want: []string{"https://example.com/company's-report"},
+		},
+		{
+			name: "trailing slash column",
+			text: "https://example.com/dir/,linked",
+			want: []string{"https://example.com/dir/"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := sources.ExtractURLs(extractor, test.text)
+
+			if !slices.Equal(got, test.want) {
+				t.Fatalf("ExtractURLs(%q) = %v, want %v", test.text, got, test.want)
+			}
+		})
+	}
+}
+
 func TestMaxPages(t *testing.T) {
 	t.Parallel()
 

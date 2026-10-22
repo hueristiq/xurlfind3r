@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	hqgourlextractor "github.com/hueristiq/hq-lib-url-go/extractor"
@@ -345,6 +346,10 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 	URL = strings.Trim(target, `'"`)
 	URL = html.UnescapeString(URL)
 
+	if hasInvalidURLCharacters(URL) {
+		return URL, false
+	}
+
 	switch {
 	case strings.HasPrefix(URL, "//"):
 		URL = "https:" + URL
@@ -398,6 +403,14 @@ func validateURL(target, domain string, includeSubdomains bool) (URL string, val
 	URL = strings.TrimRight(URL, "'")
 
 	return URL, true
+}
+
+// hasInvalidURLCharacters reports whether rawURL contains characters that
+// RFC 3986 requires to be percent-encoded.
+func hasInvalidURLCharacters(rawURL string) (invalid bool) {
+	return strings.IndexFunc(rawURL, func(r rune) bool {
+		return r == '"' || r == '\\' || r == '<' || r == '>' || unicode.IsControl(r) || unicode.IsSpace(r)
+	}) >= 0
 }
 
 func hostnameMatches(hostname, domain string, includeSubdomains bool) (matches bool) {

@@ -154,6 +154,10 @@ func TestValidateURL(t *testing.T) {
 		{name: "suffix trap", input: "https://" + exampleDomain + ".evil.com", want: false},
 		{name: "trailing dot", input: "https://" + exampleDomain + ".", want: false},
 		{name: "invalid port", input: "https://" + exampleDomain + ":bad", want: false},
+		{name: "literal quote", input: `https://` + exampleDomain + `/contact-us/"moz-extension://abc/logo.svg"`, want: false},
+		{name: "backslash quote", input: `https://` + exampleDomain + `/contact-us/\"moz-extension://abc/logo.svg\"`, want: false},
+		{name: "space", input: "https://" + exampleDomain + "/a b", want: false},
+		{name: "encoded quote", input: "https://" + exampleDomain + "/a%22b", want: true, value: "https://" + exampleDomain + "/a%22b"},
 	}
 
 	for _, test := range tests {

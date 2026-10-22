@@ -410,8 +410,8 @@ func normalizeDomains(rawDomains []string) (normalized []string) {
 }
 
 func logResult(result sources.Result) {
-	if result.Type == sources.ResultError {
-		hqgologger.Error("failed to find results!", hqgologger.WithString("source", result.Source), hqgologger.WithError(result.Error))
+	if result.Type == sources.ResultError && verbose && result.Error != nil {
+		hqgologger.Error(result.Error.Error(), hqgologger.WithString("source", result.Source))
 	}
 
 	if result.Type == sources.ResultWarning {

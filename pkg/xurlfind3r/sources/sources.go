@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 
@@ -139,26 +140,14 @@ func splitGluedURLs(match string) (URLs []string) {
 	glue := gluedSchemePattern.FindAllStringIndex(match, -1)
 
 	if len(glue) == 0 {
-		return []string{match}
+		if URL := trimGluedColumns(match); URL != "" {
+			return []string{URL}
+		}
+
+		return nil
 	}
 
 	URLs = make([]string, 0, len(glue)+1)
-
-	trim := func(URL string) (trimmed string) {
-		trimmed = URL
-
-		if statuses := gluedStatusPattern.FindAllStringIndex(URL, -1); len(statuses) > 0 {
-			trimmed = URL[:statuses[len(statuses)-1][0]]
-
-			return
-		}
-
-		if methods := gluedMethodPattern.FindStringIndex(URL); methods != nil {
-			trimmed = URL[:methods[0]]
-		}
-
-		return
-	}
 
 	start := 0
 
@@ -166,16 +155,102 @@ func splitGluedURLs(match string) (URLs []string) {
 		URL := match[start:indexes[0]]
 		start = indexes[0] + 1
 
-		if URL = trim(URL); URL != "" {
+		if URL = trimGluedColumns(URL); URL != "" {
 			URLs = append(URLs, URL)
 		}
 	}
 
-	if URL := trim(match[start:]); URL != "" {
+	if URL := trimGluedColumns(match[start:]); URL != "" {
 		URLs = append(URLs, URL)
 	}
 
 	return
+}
+
+func trimGluedColumns(URL string) (trimmed string) {
+	trimmed = trimCodeGlue(URL)
+
+	if statuses := gluedStatusPattern.FindAllStringIndex(trimmed, -1); len(statuses) > 0 {
+		return trimmed[:statuses[len(statuses)-1][0]]
+	}
+
+	if methods := gluedMethodPattern.FindStringIndex(trimmed); methods != nil {
+		trimmed = trimmed[:methods[0]]
+	}
+
+	return
+}
+
+// trimCodeGlue cuts source-code syntax that the extractor's path pattern
+// greedily includes after a URL.
+func trimCodeGlue(URL string) (trimmed string) {
+	trimmed = URL
+
+	if index := firstQuoteComma(trimmed); index >= 0 {
+		trimmed = trimmed[:index]
+	}
+
+	index := strings.LastIndexByte(trimmed, ',')
+	if index <= 0 {
+		return
+	}
+
+	column := trimmed[index+1:]
+
+	if !isSimpleColumn(column) || !endsLikeURL(trimmed[:index]) {
+		return
+	}
+
+	trimmed = trimmed[:index]
+
+	return
+}
+
+func firstQuoteComma(value string) (index int) {
+	index = -1
+
+	for position := 0; position+1 < len(value); position++ {
+		first := value[position]
+		second := value[position+1]
+
+		if ((first == '\'' || first == '"') && second == ',') || (first == ',' && (second == '\'' || second == '"')) {
+			return position
+		}
+	}
+
+	return
+}
+
+func isSimpleColumn(column string) (simple bool) {
+	if column == "" {
+		return false
+	}
+
+	for _, character := range column {
+		switch {
+		case character >= 'a' && character <= 'z':
+		case character >= 'A' && character <= 'Z':
+		case character >= '0' && character <= '9':
+		case character == '_', character == '-':
+		default:
+			return false
+		}
+	}
+
+	return true
+}
+
+func endsLikeURL(URL string) (ends bool) {
+	if strings.HasSuffix(URL, "/") {
+		return true
+	}
+
+	parsed, err := url.Parse(URL)
+	if err != nil {
+		return false
+	}
+
+	return path.Ext(parsed.Path) != ""
 }
 
 func ExtractURLs(extractor *regexp.Regexp, text string) (URLs []string) {
@@ -196,10 +271,33 @@ func ExtractURLs(extractor *regexp.Regexp, text string) (URLs []string) {
 			}
 		}
 
-		URLs = append(URLs, splitGluedURLs(text[start:end])...)
+		match, ok := trimEncodedSlashPrefix(text, start, text[start:end])
+		if !ok {
+			continue
+		}
+
+		URLs = append(URLs, splitGluedURLs(match)...)
 	}
 
 	return
+}
+
+// trimEncodedSlashPrefix removes the "2f" left behind when a match starts at
+// the percent-encoded slash in "%2F". The match must be directly preceded by
+// '%'; a remainder that is empty or starts with a dot is not a recoverable
+// hostname and is dropped.
+func trimEncodedSlashPrefix(text string, start int, value string) (trimmed string, ok bool) {
+	if start == 0 || text[start-1] != '%' || len(value) < 3 || !strings.EqualFold(value[:2], "2f") {
+		return value, true
+	}
+
+	trimmed = value[2:]
+
+	if trimmed == "" || trimmed[0] == '.' {
+		return "", false
+	}
+
+	return trimmed, true
 }
 
 func ExtractURLsAll(extractor *regexp.Regexp, rawText string) (URLs []string) {
