@@ -56,10 +56,7 @@ func newClient(t *testing.T, serverURL string) (client *hqgohttp.Client) {
 		},
 	}
 
-	client, err = hqgohttp.NewClient(hqgohttp.WithHTTPClient(httpClient))
-	if err != nil {
-		t.Fatalf("NewClient() error: %v", err)
-	}
+	client = hqgohttp.New(hqgohttp.WithHTTPClient(httpClient))
 
 	return
 }

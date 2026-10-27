@@ -7,6 +7,7 @@ import (
 	"hash/fnv"
 	"html"
 	"net"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -15,6 +16,9 @@ import (
 	"unicode"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
+	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
+	hqgoretrier "github.com/hueristiq/hq-lib-retrier-go"
+	hqgoretrierbackoff "github.com/hueristiq/hq-lib-retrier-go/backoff"
 	hqgourlextractor "github.com/hueristiq/hq-lib-url-go/extractor"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
@@ -245,22 +249,15 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	ofs := []hqgohttp.ClientOptionFunc{
 		hqgohttp.WithHTTPClient(hqgohttp.DefaultHTTPPooledClient()),
 		hqgohttp.WithTimeout(timeout),
-		hqgohttp.WithMaxRetries(3),
-		hqgohttp.WithRetryWaitMin(1 * time.Second),
-		hqgohttp.WithRetryWaitMax(30 * time.Second),
+		hqgohttp.WithRetrier(newRetrier()),
 		hqgohttp.WithResponseReadLimit(4096),
 	}
 
 	if cfg.Client != nil && cfg.Client.UserAgent != "" {
-		ofs = append(ofs, hqgohttp.WithUserAgent(cfg.Client.UserAgent))
+		ofs = append(ofs, hqgohttp.WithHeader(hqgohttpheader.UserAgent.String(), cfg.Client.UserAgent))
 	}
 
-	finder.client, err = hqgohttp.NewClient(ofs...)
-	if err != nil {
-		err = fmt.Errorf("failed to initialize HTTP client: %w", err)
-
-		return
-	}
+	finder.client = hqgohttp.New(ofs...)
 
 	sourcesToUse := cfg.SourcesToUse
 
@@ -441,6 +438,33 @@ func dedupHash(value string) (hash uint64) {
 	_, _ = hasher.Write([]byte(value))
 
 	hash = hasher.Sum64()
+
+	return
+}
+
+func newRetrier() (retrier hqgohttp.Retrier) {
+	retrier = hqgohttp.RetrierFunc(func(ctx context.Context, operation hqgohttp.RetryOperation, options hqgohttp.RetrierOptions) (*http.Response, error) {
+		return hqgoretrier.RetryWithData(ctx, operation,
+			hqgoretrier.WithMaxAttempts(4),
+			hqgoretrier.WithWaitMin(1*time.Second),
+			hqgoretrier.WithWaitMax(30*time.Second),
+			hqgoretrier.WithBackoff(func(minDelay, maxDelay time.Duration) hqgoretrierbackoff.Backoff {
+				base := hqgoretrierbackoff.ExponentialWithDecorrelatedJitter(minDelay, maxDelay)
+
+				return func(attempt int) time.Duration {
+					if wait, ok := options.RetryAfter(); ok {
+						return min(wait, maxDelay)
+					}
+
+					return base(attempt)
+				}
+			}),
+			hqgoretrier.WithRetryOn(options.RetryOn),
+			hqgoretrier.WithOnRetry(func(event hqgoretrier.RetryEvent) {
+				options.OnRetry(hqgohttp.RetrierEvent{Attempt: event.Attempt, Err: event.Err, Wait: event.Wait})
+			}),
+		)
+	})
 
 	return
 }

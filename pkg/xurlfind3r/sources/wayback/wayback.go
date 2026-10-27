@@ -111,9 +111,9 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 func getPage(ctx context.Context, cfg *sources.Configuration, domain string, page uint, wait time.Duration) (data [][]string, err error) {
 	for attempts := 0; attempts <= rateLimitMaxRetries; attempts++ {
-		var getURLsRes *http.Response
+		var getURLsRes *hqgohttp.Response
 
-		getURLsRes, err = cfg.Client.NewRequest().
+		getURLsRes, err = cfg.Client.Request().
 			URL("https://web.archive.org/cdx/search/cdx").
 			Param("url", "*."+domain+"/*").
 			Param("output", "json").
@@ -122,7 +122,7 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 			Param("pageSize", cast.ToString(pageSize)).
 			Param("page", cast.ToString(page)).
 			WithOptions(hqgohttp.WithRequestRetryPolicy(no429RetryPolicy)).
-			Do(ctx)
+			Context(ctx).Do()
 		if err != nil {
 			if getURLsRes != nil {
 				_ = getURLsRes.Body.Close()
@@ -147,7 +147,7 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 			continue
 		}
 
-		if err = sources.CheckResponse(getURLsRes); err != nil {
+		if err = sources.CheckResponse(getURLsRes.Std()); err != nil { //nolint:bodyclose // the body belongs to getURLsRes and is closed below.
 			_ = getURLsRes.Body.Close()
 
 			return nil, fmt.Errorf("request failed: %w", err)
@@ -177,12 +177,12 @@ func getPage(ctx context.Context, cfg *sources.Configuration, domain string, pag
 	return nil, fmt.Errorf("wayback rate limited after %d attempts", rateLimitMaxRetries+1)
 }
 
-func no429RetryPolicy(ctx context.Context, resp *http.Response, err error) (retry bool, rerr error) {
+func no429RetryPolicy(ctx context.Context, req *http.Request, resp *http.Response, err error, attempt int) (retry bool, rerr error) {
 	if ctx.Err() == nil && resp != nil && resp.StatusCode == hqgohttpstatus.TooManyRequests.Int() {
 		return false, nil
 	}
 
-	return hqgohttp.DefaultRetryPolicy(ctx, resp, err) //nolint:wrapcheck // the policy result is passed through verbatim by design.
+	return hqgohttp.DefaultRetryPolicy(ctx, req, resp, err, attempt) //nolint:wrapcheck // the policy result is passed through verbatim by design.
 }
 
 var limiter = hqgolimiter.New(

@@ -77,7 +77,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			getURLsReqURL := fmt.Sprintf("https://otx.alienvault.com/api/v1/indicators/domain/%s/url_list", domain)
 
-			getURLsReq := cfg.Client.NewRequest().
+			getURLsReq := cfg.Client.Request().
 				URL(getURLsReqURL).
 				Param("limit", "100").
 				Param("page", cast.ToString(page))
@@ -86,7 +86,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				getURLsReq = getURLsReq.SetHeader("X-OTX-API-KEY", key)
 			}
 
-			getURLsRes, err := getURLsReq.Do(ctx)
+			getURLsRes, err := getURLsReq.Context(ctx).Do()
 			if err != nil {
 				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
 
@@ -95,7 +95,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				return
 			}
 
-			if err = sources.CheckResponse(getURLsRes, key); err != nil {
+			if err = sources.CheckResponse(getURLsRes.Std(), key); err != nil {
 				_ = getURLsRes.Body.Close()
 
 				result := sources.ErrorResult(s.Name(), err)

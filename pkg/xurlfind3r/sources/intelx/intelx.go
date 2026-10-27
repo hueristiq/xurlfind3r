@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
+	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
 	hqgohttpmethod "github.com/hueristiq/hq-lib-http-go/method"
 	hqgohttpmime "github.com/hueristiq/hq-lib-http-go/mime"
@@ -127,15 +127,15 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 		searchReqBodyReader := bytes.NewBuffer(searchReqBodyBytes)
 
-		var searchRes *http.Response
+		var searchRes *hqgohttp.Response
 
-		searchRes, err = cfg.Client.NewRequest().
+		searchRes, err = cfg.Client.Request().
 			Method(hqgohttpmethod.POST).
 			URL(searchReqURL).
 			Param("k", intelXKey).
 			SetHeader(hqgohttpheader.ContentType.String(), hqgohttpmime.JSON.String()).
 			Body(searchReqBodyReader).
-			Do(ctx)
+			Context(ctx).Do()
 		if err != nil {
 			if searchRes != nil {
 				_ = searchRes.Body.Close()
@@ -148,7 +148,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			return
 		}
 
-		if err = sources.CheckResponse(searchRes, intelXKey); err != nil {
+		if err = sources.CheckResponse(searchRes.Std(), intelXKey); err != nil {
 			_ = searchRes.Body.Close()
 
 			result := sources.ErrorResult(s.Name(), err)
@@ -197,14 +197,14 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				}
 			}
 
-			var getResultsRes *http.Response
+			var getResultsRes *hqgohttp.Response
 
-			getResultsRes, err = cfg.Client.NewRequest().
+			getResultsRes, err = cfg.Client.Request().
 				URL(getResultsReqURL).
 				Param("k", intelXKey).
 				Param("id", searchResData.ID).
 				Param("limit", "10000").
-				Do(ctx)
+				Context(ctx).Do()
 			if err != nil {
 				if getResultsRes != nil {
 					_ = getResultsRes.Body.Close()
@@ -217,7 +217,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				return
 			}
 
-			if err = sources.CheckResponse(getResultsRes, intelXKey); err != nil {
+			if err = sources.CheckResponse(getResultsRes.Std(), intelXKey); err != nil {
 				_ = getResultsRes.Body.Close()
 
 				result := sources.ErrorResult(s.Name(), err)

@@ -79,13 +79,13 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				return
 			}
 
-			getURLsRes, err := cfg.Client.NewRequest().
+			getURLsRes, err := cfg.Client.Request().
 				Method(hqgohttpmethod.POST).
 				URL(getURLsReqURL).
 				SetHeader("API-KEY", key).
 				SetHeader("Content-Type", "application/json").
 				Body(searchReqBody).
-				Do(ctx)
+				Context(ctx).Do()
 			if err != nil {
 				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
 
@@ -94,7 +94,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				return
 			}
 
-			if err = sources.CheckResponse(getURLsRes, key); err != nil {
+			if err = sources.CheckResponse(getURLsRes.Std(), key); err != nil {
 				_ = getURLsRes.Body.Close()
 
 				result := sources.ErrorResult(s.Name(), err)

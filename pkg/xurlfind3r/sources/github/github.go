@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
-	hqgohttpheaderutils "github.com/hueristiq/hq-lib-http-go/header/utils"
+	hqgohttplink "github.com/hueristiq/hq-lib-http-go/header/link"
 	hqgohttpstatus "github.com/hueristiq/hq-lib-http-go/status"
 	"github.com/spf13/cast"
 
@@ -98,11 +98,11 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		token, index = keysManager.GetCurrentKey()
 	}
 
-	codeSearchRes, err := cfg.Client.NewRequest().
+	codeSearchRes, err := cfg.Client.Request().
 		URL(searchReqURL).
 		SetHeader(hqgohttpheader.Accept.String(), "application/vnd.github.v3.text-match+json").
 		SetHeader(hqgohttpheader.Authorization.String(), "token "+token.Value).
-		Do(ctx)
+		Context(ctx).Do()
 
 	isForbidden := codeSearchRes != nil && codeSearchRes.StatusCode == hqgohttpstatus.Forbidden.Int()
 
@@ -154,7 +154,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		return
 	}
 
-	if err = sources.CheckResponse(codeSearchRes, token.Value); err != nil {
+	if err = sources.CheckResponse(codeSearchRes.Std(), token.Value); err != nil {
 		_ = codeSearchRes.Body.Close()
 
 		result := sources.ErrorResult(s.Name(), err)
@@ -182,11 +182,11 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		getRawContentReqURL := strings.ReplaceAll(item.HTMLURL, "https://github.com/", "https://raw.githubusercontent.com/")
 		getRawContentReqURL = strings.ReplaceAll(getRawContentReqURL, "/blob/", "/")
 
-		var getRawContentRes *http.Response
+		var getRawContentRes *hqgohttp.Response
 
-		getRawContentRes, err = cfg.Client.NewRequest().
+		getRawContentRes, err = cfg.Client.Request().
 			URL(getRawContentReqURL).
-			Do(ctx)
+			Context(ctx).Do()
 		if err != nil {
 			if getRawContentRes != nil {
 				_ = getRawContentRes.Body.Close()
@@ -228,7 +228,7 @@ func (s *Source) Enumerate(ctx context.Context, searchReqURL string, cfg *source
 		}
 	}
 
-	links := hqgohttpheaderutils.Parse(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
+	links := hqgohttplink.Parse(codeSearchRes.Header.Get(hqgohttpheader.Link.String()))
 
 	for _, link := range links {
 		if link.Rel != "next" {

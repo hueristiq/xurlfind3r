@@ -56,11 +56,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 			getURLsReqURL := "https://ghostarchive.org/search"
 
-			getURLsRes, err := cfg.Client.NewRequest().
+			getURLsRes, err := cfg.Client.Request().
 				URL(getURLsReqURL).
 				Param("term", term).
 				Param("page", cast.ToString(page)).
-				Do(ctx)
+				Context(ctx).Do()
 			if err != nil {
 				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
 
@@ -69,7 +69,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 				break
 			}
 
-			if err = sources.CheckResponse(getURLsRes); err != nil {
+			if err = sources.CheckResponse(getURLsRes.Std()); err != nil {
 				_ = getURLsRes.Body.Close()
 
 				result := sources.ErrorResult(s.Name(), err)

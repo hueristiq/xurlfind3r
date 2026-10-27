@@ -63,11 +63,11 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			return
 		}
 
-		getDomainReportRes, err := cfg.Client.NewRequest().
+		getDomainReportRes, err := cfg.Client.Request().
 			URL(getDomainReportReqURL).
 			Param("apikey", key).
 			Param("domain", domain).
-			Do(ctx)
+			Context(ctx).Do()
 		if err != nil {
 			result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", sources.RedactError(err, key)))
 
@@ -76,7 +76,7 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 			return
 		}
 
-		if err = sources.CheckResponse(getDomainReportRes, key); err != nil {
+		if err = sources.CheckResponse(getDomainReportRes.Std(), key); err != nil {
 			_ = getDomainReportRes.Body.Close()
 
 			result := sources.ErrorResult(s.Name(), err)

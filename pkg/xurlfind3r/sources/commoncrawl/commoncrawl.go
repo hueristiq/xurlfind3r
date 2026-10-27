@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	hqgolimiter "github.com/hueristiq/hq-lib-limiter-go"
 	"github.com/spf13/cast"
 
@@ -61,9 +61,9 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 
 		getIndexesReqURL := "https://index.commoncrawl.org/collinfo.json"
 
-		getIndexesRes, err := cfg.Client.NewRequest().
+		getIndexesRes, err := cfg.Client.Request().
 			URL(getIndexesReqURL).
-			Do(ctx)
+			Context(ctx).Do()
 		if err != nil {
 			result := sources.ErrorResult(source.Name(), fmt.Errorf("request failed: %w", err))
 
@@ -72,7 +72,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 			return
 		}
 
-		if err = sources.CheckResponse(getIndexesRes); err != nil {
+		if err = sources.CheckResponse(getIndexesRes.Std()); err != nil {
 			_ = getIndexesRes.Body.Close()
 
 			result := sources.ErrorResult(source.Name(), err)
@@ -119,14 +119,14 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 		}
 
 		for _, CCIndexAPI := range searchIndexes {
-			getPaginationRes, err := cfg.Client.NewRequest().
+			getPaginationRes, err := cfg.Client.Request().
 				URL(CCIndexAPI).
 				Param("url", "*."+domain).
 				Param("output", "json").
 				Param("fl", "url").
 				Param("collapse", "urlkey").
 				Param("showNumPages", "true").
-				Do(ctx)
+				Context(ctx).Do()
 			if err != nil {
 				if getPaginationRes != nil {
 					_ = getPaginationRes.Body.Close()
@@ -139,7 +139,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 				continue
 			}
 
-			if err = sources.CheckResponse(getPaginationRes); err != nil {
+			if err = sources.CheckResponse(getPaginationRes.Std()); err != nil {
 				_ = getPaginationRes.Body.Close()
 
 				result := sources.ErrorResult(source.Name(), err)
@@ -178,16 +178,16 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 					break
 				}
 
-				var getURLsRes *http.Response
+				var getURLsRes *hqgohttp.Response
 
-				getURLsRes, err = cfg.Client.NewRequest().
+				getURLsRes, err = cfg.Client.Request().
 					URL(CCIndexAPI).
 					Param("url", "*."+domain).
 					Param("output", "json").
 					Param("fl", "url").
 					Param("collapse", "urlkey").
 					Param("page", cast.ToString(page)).
-					Do(ctx) //nolint:bodyclose // closed after the reader goroutine exits, see the select below.
+					Context(ctx).Do()
 				if err != nil {
 					if getURLsRes != nil {
 						_ = getURLsRes.Body.Close()
@@ -200,7 +200,7 @@ func (source *Source) Run(ctx context.Context, cfg *sources.Configuration, domai
 					continue
 				}
 
-				if err = sources.CheckResponse(getURLsRes); err != nil {
+				if err = sources.CheckResponse(getURLsRes.Std()); err != nil {
 					_ = getURLsRes.Body.Close()
 
 					result := sources.ErrorResult(source.Name(), err)
