@@ -4,44 +4,92 @@ on:
     push:
         branches:
             - "main"
+            - "dev"
         paths:
             - '**.go'
             - '**.mod'
-            - '**_test.go'
+            - '**.sum'
+            - '.golangci.yaml'
+            - '.github/workflows/**'
     pull_request:
         branches:
-            - "main"
+          - "main"
+          - "dev"
         paths:
             - '**.go'
             - '**.mod'
-            - '**_test.go'
+            - '**.sum'
+            - '.golangci.yaml'
+            - '.github/workflows/**'
     workflow_dispatch:
+
+permissions:
+    contents: read
 
 jobs:
     test:
         name: Test
         strategy:
+            fail-fast: false
             matrix:
-                os: [ubuntu-latest, windows-latest, macos-latest]
+                include:
+                    - os: ubuntu-26.04
+                      args: -race
+                    - os: ubuntu-26.04-arm
+                      args: -race
+                    - os: windows-2025
+                      args: -race
+                    - os: windows-11-arm
+                      args: ""
+                    - os: macos-26
+                      args: -race
+                    - os: macos-26-intel
+                      args: -race
         runs-on: ${{ matrix.os }}
         steps:
-            -
-                name: Set up Go
-                uses: actions/setup-go@v7
-                with:
-                    go-version: '>=1.26'
             -
                 name: Code Checkout
                 uses: actions/checkout@v7
                 with:
                     fetch-depth: 0
             -
+                name: Set up Go
+                uses: actions/setup-go@v7
+                with:
+                    go-version-file: go.mod
+            -
                 name: Go Module Management
-                run: |
-                    make go-mod-tidy
+                run: go mod tidy
                 working-directory: .
             -
-                name: Go Test
+                name: Verify go.mod tidy
+                run: git diff --exit-code go.mod go.sum
+                working-directory: .
+            -
+                name: Go test
+                run: go test -v ${{ matrix.args }} -count=1 ./...
+                working-directory: .
+    cross-build:
+        name: Cross Build
+        runs-on: ubuntu-latest
+        steps:
+            -
+                name: Code Checkout
+                uses: actions/checkout@v7
+            -
+                name: Set up Go
+                uses: actions/setup-go@v7
+                with:
+                    go-version-file: go.mod
+            -
+                name: Build every GOOS/GOARCH pair
                 run: |
-                    make go-test
+                    set -euo pipefail
+                    for target in $(go tool dist list); do
+                        goos=${target%/*}
+                        goarch=${target#*/}
+                        echo "::group::${goos}/${goarch}"
+                        CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build ./...
+                        echo "::endgroup::"
+                    done
                 working-directory: .

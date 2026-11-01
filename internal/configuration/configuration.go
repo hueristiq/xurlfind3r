@@ -94,7 +94,6 @@ var Banner = fmt.Sprintf(`
         /_/\_\\__,_|_|  |_|_| |_|_| |_|\__,_|____/|_| %s
 
                  Hueristiq Limited <hueristiq.com>
-
 `, Version)
 
 func UserConfigDirectoryPath() (userConfigDirectoryPath string, err error) {

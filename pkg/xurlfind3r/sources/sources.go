@@ -5,12 +5,10 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"html"
 	"io"
 	"math/big"
 	"net/http"
 	"net/url"
-	"path"
 	"regexp"
 	"strings"
 
@@ -18,9 +16,52 @@ import (
 	hqgourlextractor "github.com/hueristiq/hq-lib-url-go/extractor"
 )
 
+// URLExtractor binds a target domain's host pattern to the shared extractor
+// implementation. Sources pass the value carried in
+// [Configuration.Extractor] to [ExtractURLs], [ExtractURLsAll], and
+// [ExtractCollapsedURLs].
+type URLExtractor struct {
+	options []hqgourlextractor.OptionFunc
+}
+
+// NewURLExtractor creates an extractor restricted to domain and its
+// subdomains, without email addresses or user info.
+func NewURLExtractor(domain string) (extractor *URLExtractor) {
+	label := `[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?`
+	pattern := `(?i)(?:(?:` + label + `[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
+
+	return &URLExtractor{
+		options: []hqgourlextractor.OptionFunc{
+			hqgourlextractor.WithHostPattern(pattern),
+			hqgourlextractor.WithoutEmail(),
+			hqgourlextractor.WithoutUserInfo(),
+		},
+	}
+}
+
+// NewURLExtractorFromRegexp creates an extractor around a precompiled
+// pattern. It keeps the boundary and glue cleanup behavior of [ExtractURLs].
+func NewURLExtractorFromRegexp(re *regexp.Regexp) (extractor *URLExtractor) {
+	return &URLExtractor{
+		options: []hqgourlextractor.OptionFunc{
+			hqgourlextractor.WithRegexp(re),
+		},
+	}
+}
+
+// Regexp compiles the extractor's configured pattern.
+func (e *URLExtractor) Regexp() (regex *regexp.Regexp, err error) {
+	extractor, err := hqgourlextractor.New(e.options...)
+	if err != nil {
+		return nil, err //nolint:wrapcheck // pass-through
+	}
+
+	return extractor.Regexp(), nil
+}
+
 type Configuration struct {
 	Client    *hqgohttp.Client
-	Extractor *regexp.Regexp
+	Extractor *URLExtractor
 	Validator func(target string) (URL string, valid bool)
 }
 
@@ -130,214 +171,32 @@ var List = []string{
 
 var _ error = (*redactedError)(nil)
 
-var (
-	gluedSchemePattern = regexp.MustCompile(`[,;|][Hh][Tt]{2}[Pp][Ss]?://`)
-	gluedStatusPattern = regexp.MustCompile(`[,;|]\d{3}(?:[,;|]|$)`)
-	gluedMethodPattern = regexp.MustCompile(`[,;|][A-Z]{2,8}$`)
-)
-
-func splitGluedURLs(match string) (URLs []string) {
-	glue := gluedSchemePattern.FindAllStringIndex(match, -1)
-
-	if len(glue) == 0 {
-		if URL := trimGluedColumns(match); URL != "" {
-			return []string{URL}
-		}
-
+func ExtractURLs(extractor *URLExtractor, text string) (URLs []string) {
+	if extractor == nil {
 		return nil
 	}
 
-	URLs = make([]string, 0, len(glue)+1)
-
-	start := 0
-
-	for _, indexes := range glue {
-		URL := match[start:indexes[0]]
-		start = indexes[0] + 1
-
-		if URL = trimGluedColumns(URL); URL != "" {
-			URLs = append(URLs, URL)
-		}
-	}
-
-	if URL := trimGluedColumns(match[start:]); URL != "" {
-		URLs = append(URLs, URL)
-	}
+	URLs, _ = hqgourlextractor.ExtractURLs(text, extractor.options...)
 
 	return
 }
 
-func trimGluedColumns(URL string) (trimmed string) {
-	trimmed = trimCodeGlue(URL)
-
-	if statuses := gluedStatusPattern.FindAllStringIndex(trimmed, -1); len(statuses) > 0 {
-		return trimmed[:statuses[len(statuses)-1][0]]
+func ExtractURLsAll(extractor *URLExtractor, rawText string) (URLs []string) {
+	if extractor == nil {
+		return nil
 	}
 
-	if methods := gluedMethodPattern.FindStringIndex(trimmed); methods != nil {
-		trimmed = trimmed[:methods[0]]
-	}
+	URLs, _ = hqgourlextractor.ExtractURLsAll(rawText, extractor.options...)
 
 	return
 }
 
-// trimCodeGlue cuts source-code syntax that the extractor's path pattern
-// greedily includes after a URL.
-func trimCodeGlue(URL string) (trimmed string) {
-	trimmed = URL
-
-	if index := firstQuoteComma(trimmed); index >= 0 {
-		trimmed = trimmed[:index]
+func ExtractCollapsedURLs(extractor *URLExtractor, text string) (URLs []string) {
+	if extractor == nil {
+		return nil
 	}
 
-	index := strings.LastIndexByte(trimmed, ',')
-	if index <= 0 {
-		return
-	}
-
-	column := trimmed[index+1:]
-
-	if !isSimpleColumn(column) || !endsLikeURL(trimmed[:index]) {
-		return
-	}
-
-	trimmed = trimmed[:index]
-
-	return
-}
-
-func firstQuoteComma(value string) (index int) {
-	index = -1
-
-	for position := 0; position+1 < len(value); position++ {
-		first := value[position]
-		second := value[position+1]
-
-		if ((first == '\'' || first == '"') && second == ',') || (first == ',' && (second == '\'' || second == '"')) {
-			return position
-		}
-	}
-
-	return
-}
-
-func isSimpleColumn(column string) (simple bool) {
-	if column == "" {
-		return false
-	}
-
-	for _, character := range column {
-		switch {
-		case character >= 'a' && character <= 'z':
-		case character >= 'A' && character <= 'Z':
-		case character >= '0' && character <= '9':
-		case character == '_', character == '-':
-		default:
-			return false
-		}
-	}
-
-	return true
-}
-
-func endsLikeURL(URL string) (ends bool) {
-	if strings.HasSuffix(URL, "/") {
-		return true
-	}
-
-	parsed, err := url.Parse(URL)
-	if err != nil {
-		return false
-	}
-
-	return path.Ext(parsed.Path) != ""
-}
-
-func ExtractURLs(extractor *regexp.Regexp, text string) (URLs []string) {
-	URLs = make([]string, 0)
-
-	for _, indexes := range extractor.FindAllStringIndex(text, -1) {
-		start := indexes[0]
-
-		if start > 0 && isHostLabelCharacter(text[start-1]) {
-			continue
-		}
-
-		end := indexes[1]
-
-		if end < len(text) && isHostLabelCharacter(text[end]) {
-			if text[end] != '.' || end+1 < len(text) && isHostLabelCharacter(text[end+1]) {
-				continue
-			}
-		}
-
-		match, ok := trimEncodedSlashPrefix(text, start, text[start:end])
-		if !ok {
-			continue
-		}
-
-		URLs = append(URLs, splitGluedURLs(match)...)
-	}
-
-	return
-}
-
-// trimEncodedSlashPrefix removes the "2f" left behind when a match starts at
-// the percent-encoded slash in "%2F". The match must be directly preceded by
-// '%'; a remainder that is empty or starts with a dot is not a recoverable
-// hostname and is dropped.
-func trimEncodedSlashPrefix(text string, start int, value string) (trimmed string, ok bool) {
-	if start == 0 || text[start-1] != '%' || len(value) < 3 || !strings.EqualFold(value[:2], "2f") {
-		return value, true
-	}
-
-	trimmed = value[2:]
-
-	if trimmed == "" || trimmed[0] == '.' {
-		return "", false
-	}
-
-	return trimmed, true
-}
-
-func ExtractURLsAll(extractor *regexp.Regexp, rawText string) (URLs []string) {
-	seen := make(map[string]struct{})
-
-	collect := func(text string) {
-		for _, URL := range ExtractURLs(extractor, text) {
-			if _, exists := seen[URL]; exists {
-				continue
-			}
-
-			seen[URL] = struct{}{}
-
-			URLs = append(URLs, URL)
-		}
-	}
-
-	collect(rawText)
-
-	if decoded := hqgourlextractor.DecodeJSEscapes(html.UnescapeString(rawText)); decoded != rawText {
-		collect(decoded)
-	}
-
-	return
-}
-
-func ExtractCollapsedURLs(extractor *regexp.Regexp, text string) (URLs []string) {
-	for _, group := range hqgourlextractor.JSLiteralGroups(text) {
-		if len(group.Pieces) == 1 && !group.HasExpr {
-			continue
-		}
-
-		collapsed := group.Collapsed()
-
-		if strings.Trim(collapsed, hqgourlextractor.ExpressionPlaceholder+"/") == "" {
-			continue
-		}
-
-		URLs = append(URLs, ExtractURLs(extractor, collapsed)...)
-	}
+	URLs, _ = hqgourlextractor.ExtractCollapsedURLs(text, extractor.options...)
 
 	return
 }
@@ -355,15 +214,6 @@ func SendURLs(results chan<- Result, cfg *Configuration, sourceName string, URLs
 			Value:  URL,
 		}
 	}
-}
-
-func isHostLabelCharacter(character byte) (ok bool) {
-	switch {
-	case character >= 'a' && character <= 'z', character >= 'A' && character <= 'Z', character >= '0' && character <= '9', character == '.', character == '-', character == '_':
-		ok = true
-	}
-
-	return
 }
 
 func RedactError(err error, secrets ...string) (redacted error) {

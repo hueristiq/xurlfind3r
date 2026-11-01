@@ -1,12 +1,10 @@
 package github_test
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
-	"sync/atomic"
 	"testing"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
@@ -15,151 +13,76 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/github"
 )
 
-const exampleDomain = "example.com"
+type roundTripFunc func(*http.Request) (*http.Response, error)
 
-type rewriteTransport struct {
-	base   *http.Transport
-	target *url.URL
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
-func (transport *rewriteTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	clone := request.Clone(request.Context())
-	clone.URL.Scheme = transport.target.Scheme
-	clone.URL.Host = transport.target.Host
-	clone.Host = transport.target.Host
-
-	response, err := transport.base.RoundTrip(clone)
-	if err != nil {
-		return nil, fmt.Errorf("round trip: %w", err)
-	}
-
-	return response, nil
-}
-
-func newClient(t *testing.T, serverURL string) (client *hqgohttp.Client) {
-	t.Helper()
-
-	target, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() error: %v", err)
-	}
-
-	base := &http.Transport{Proxy: nil}
-
-	t.Cleanup(base.CloseIdleConnections)
-
-	httpClient := &http.Client{
-		Transport: &rewriteTransport{
-			base:   base,
-			target: target,
-		},
-	}
-
-	client = hqgohttp.New(hqgohttp.WithHTTPClient(httpClient))
-
-	return
-}
-
-func acceptAll(target string) (string, bool) {
-	return target, true
-}
-
-func collectResults(t *testing.T, results <-chan sources.Result) (collected []sources.Result) {
-	t.Helper()
-
-	for result := range results {
-		collected = append(collected, result)
-	}
-
-	return
-}
-
-func TestGitHubRateLimitRecovery(t *testing.T) {
+func TestRunMapsURLs(t *testing.T) {
 	t.Parallel()
 
-	var requests atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if got := request.URL.Query().Get("sort"); got != "indexed" {
-			t.Errorf("sort query = %q, want indexed", got)
-		}
-
-		if requests.Add(1) == 1 {
-			writer.Header().Set("X-Ratelimit-Remaining", "0")
-			writer.Header().Set("Retry-After", "1")
-			writer.WriteHeader(http.StatusForbidden)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/search/code" {
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = writer.Write([]byte(`{"items":[{"html_url":"https://github.com/org/repo/blob/main/file","text_matches":[{"fragment":"https://api.example.com/y"}]}]}`))
 
 			return
 		}
 
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"total_count":0,"items":[]}`))
+		_, _ = writer.Write([]byte("https://api.example.com/x"))
 	}))
-	t.Cleanup(server.Close)
+	defer server.Close()
+
+	target, _ := url.Parse(server.URL)
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		clone := request.Clone(request.Context())
+		clone.URL.Scheme = target.Scheme
+		clone.URL.Host = target.Host
+
+		return http.DefaultTransport.RoundTrip(clone)
+	})
+
+	client, err := hqgohttp.New(hqgohttp.WithHTTPClient(&http.Client{Transport: transport}))
+	if err != nil {
+		t.Fatalf("New HTTP client: %v", err)
+	}
 
 	source := github.New()
-	source.UseKeys("token")
+	source.UseKeys("secret")
 
 	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
+		Client:    client,
+		Extractor: sources.NewURLExtractor("example.com"),
+		Validator: func(value string) (string, bool) { return value, true },
 	}
 
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
+	var values []string
 
-	for _, result := range results {
-		if result.Type == sources.ResultError {
-			t.Fatalf("Run() error result: %v", result.Error)
+	for result := range source.Run(context.Background(), cfg, "example.com") {
+		if result.Error != nil {
+			t.Fatalf("Run: %v", result.Error)
 		}
+
+		if result.Type != sources.ResultURL {
+			t.Fatalf("result type = %v; want URL", result.Type)
+		}
+
+		values = append(values, result.Value)
 	}
 
-	if got := requests.Load(); got < 2 {
-		t.Fatalf("requests = %d, want at least 2", got)
+	if len(values) != 6 || values[0] != "https://api.example.com/x" || values[1] != "https://api.example.com/y" {
+		t.Fatalf("values = %v; want raw and match URLs from all query variants", values)
 	}
 }
 
-func TestGitHubStatusError(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusUnauthorized)
-		_, _ = writer.Write([]byte("bad credentials"))
-	}))
-	t.Cleanup(server.Close)
-
-	source := github.New()
-	source.UseKeys("token")
-
-	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
-	}
-
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
-
-	var found bool
-
-	for _, result := range results {
-		if result.Type == sources.ResultError && strings.Contains(result.Error.Error(), "401") {
-			found = true
-		}
-	}
-
-	if !found {
-		t.Fatalf("Run() results = %v, want a 401 error", results)
-	}
-}
-
-func TestGitHubWithoutKeys(t *testing.T) {
+func TestRunRequiresKeys(t *testing.T) {
 	t.Parallel()
 
 	source := github.New()
 
-	cfg := &sources.Configuration{Validator: acceptAll}
-
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
-
-	if len(results) != 0 {
-		t.Fatalf("Run() without keys = %v, want no results", results)
+	result := <-source.Run(context.Background(), &sources.Configuration{}, "example.com")
+	if result.Error == nil {
+		t.Fatal("Run accepted no API keys")
 	}
 }

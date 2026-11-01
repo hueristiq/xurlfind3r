@@ -7,9 +7,7 @@ import (
 	"hash/fnv"
 	"html"
 	"net"
-	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -17,9 +15,6 @@ import (
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
 	hqgohttpheader "github.com/hueristiq/hq-lib-http-go/header"
-	hqgoretrier "github.com/hueristiq/hq-lib-retrier-go"
-	hqgoretrierbackoff "github.com/hueristiq/hq-lib-retrier-go/backoff"
-	hqgourlextractor "github.com/hueristiq/hq-lib-url-go/extractor"
 
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/arquivo"
@@ -49,18 +44,9 @@ func (finder *Finder) Find(ctx context.Context, domain string) (results chan sou
 
 	domain = strings.ToLower(domain)
 
-	extractor, err := compileExtractor(domain)
-	if err != nil {
-		results <- sources.ErrorResult("xurlfind3r", err)
-
-		close(results)
-
-		return results
-	}
-
 	configuration := &sources.Configuration{
 		Client:    finder.client,
-		Extractor: extractor,
+		Extractor: sources.NewURLExtractor(domain),
 		Validator: func(target string) (URL string, valid bool) {
 			URL, valid = validateURL(target, domain, finder.includeSubdomains)
 
@@ -247,9 +233,8 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 	}
 
 	ofs := []hqgohttp.ClientOptionFunc{
-		hqgohttp.WithHTTPClient(hqgohttp.DefaultHTTPPooledClient()),
 		hqgohttp.WithTimeout(timeout),
-		hqgohttp.WithRetrier(newRetrier()),
+		hqgohttp.WithRetryMaxAttempts(4),
 		hqgohttp.WithResponseReadLimit(4096),
 	}
 
@@ -257,7 +242,12 @@ func New(cfg *Configuration) (finder *Finder, err error) {
 		ofs = append(ofs, hqgohttp.WithHeader(hqgohttpheader.UserAgent.String(), cfg.Client.UserAgent))
 	}
 
-	finder.client = hqgohttp.New(ofs...)
+	finder.client, err = hqgohttp.New(ofs...)
+	if err != nil {
+		err = fmt.Errorf("xurlfind3r.New: building client: %w", err)
+
+		return
+	}
 
 	sourcesToUse := cfg.SourcesToUse
 
@@ -316,27 +306,6 @@ func NewSource(name string) (source sources.Source, ok bool) {
 	}
 
 	return constructor(), true
-}
-
-func compileExtractor(domain string) (extractor *regexp.Regexp, err error) {
-	extractor, err = hqgourlextractor.New(
-		hqgourlextractor.WithHostPattern(hostPattern(domain)),
-		hqgourlextractor.WithoutEmail(),
-		hqgourlextractor.WithoutUserInfo(),
-	).CompileRegex()
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile URL extractor: %w", err)
-	}
-
-	return
-}
-
-func hostPattern(domain string) (pattern string) {
-	label := `[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?`
-
-	pattern = `(?i)(?:(?:` + label + `[.])*` + regexp.QuoteMeta(domain) + hqgourlextractor.PortOptionalPattern + `)`
-
-	return
 }
 
 func validateURL(target, domain string, includeSubdomains bool) (URL string, valid bool) {
@@ -438,33 +407,6 @@ func dedupHash(value string) (hash uint64) {
 	_, _ = hasher.Write([]byte(value))
 
 	hash = hasher.Sum64()
-
-	return
-}
-
-func newRetrier() (retrier hqgohttp.Retrier) {
-	retrier = hqgohttp.RetrierFunc(func(ctx context.Context, operation hqgohttp.RetryOperation, options hqgohttp.RetrierOptions) (*http.Response, error) {
-		return hqgoretrier.RetryWithData(ctx, operation,
-			hqgoretrier.WithMaxAttempts(4),
-			hqgoretrier.WithWaitMin(1*time.Second),
-			hqgoretrier.WithWaitMax(30*time.Second),
-			hqgoretrier.WithBackoff(func(minDelay, maxDelay time.Duration) hqgoretrierbackoff.Backoff {
-				base := hqgoretrierbackoff.ExponentialWithDecorrelatedJitter(minDelay, maxDelay)
-
-				return func(attempt int) time.Duration {
-					if wait, ok := options.RetryAfter(); ok {
-						return min(wait, maxDelay)
-					}
-
-					return base(attempt)
-				}
-			}),
-			hqgoretrier.WithRetryOn(options.RetryOn),
-			hqgoretrier.WithOnRetry(func(event hqgoretrier.RetryEvent) {
-				options.OnRetry(hqgohttp.RetrierEvent{Attempt: event.Attempt, Err: event.Err, Wait: event.Wait})
-			}),
-		)
-	})
 
 	return
 }

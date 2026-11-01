@@ -2,34 +2,24 @@ package ghostarchive
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"io"
-	"regexp"
-	"strings"
+	"net/http"
 
-	hqgolimiter "github.com/hueristiq/hq-lib-limiter-go"
-	"github.com/spf13/cast"
-
+	hqgosource "github.com/hueristiq/xurlfind3r/internal/source"
+	"github.com/hueristiq/xurlfind3r/internal/source/ghostarchive"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type Source struct{}
 
-func (s *Source) Name() (name string) {
-	name = sources.Ghostarchive
-
-	return
+func (s *Source) Name() string {
+	return sources.Ghostarchive
 }
 
-func (s *Source) NeedsKeys() (needs bool) {
-	needs = false
-
-	return
+func (s *Source) NeedsKeys() bool {
+	return false
 }
 
-func (s *Source) UseKeys(keys ...string) {
-}
+func (s *Source) UseKeys(...string) {}
 
 func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain string) <-chan sources.Result {
 	results := make(chan sources.Result)
@@ -37,102 +27,48 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	go func() {
 		defer close(results)
 
-		term := domain
-
-		if strings.Count(domain, ".") == 1 {
-			term = "." + domain
+		emit := func(result sources.Result) bool {
+			select {
+			case results <- result:
+				return true
+			case <-ctx.Done():
+				return false
+			}
 		}
 
-		var previousSrc string
+		client, err := ghostarchive.New(hqgosource.DoerFunc(func(request *http.Request) (*http.Response, error) {
+			return cfg.Client.Do(request)
+		}))
+		if err != nil {
+			emit(sources.ErrorResult(s.Name(), err))
 
-		for page := uint(0); ; page++ {
-			if err := limiter.Wait(ctx); err != nil {
-				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to wait on rate limiter: %w", err))
+			return
+		}
 
-				results <- result
-
-				break
-			}
-
-			getURLsReqURL := "https://ghostarchive.org/search"
-
-			getURLsRes, err := cfg.Client.Request().
-				URL(getURLsReqURL).
-				Param("term", term).
-				Param("page", cast.ToString(page)).
-				Context(ctx).Do()
-			if err != nil {
-				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
-
-				results <- result
-
-				break
-			}
-
-			if err = sources.CheckResponse(getURLsRes.Std()); err != nil {
-				_ = getURLsRes.Body.Close()
-
-				result := sources.ErrorResult(s.Name(), err)
-
-				results <- result
-
-				break
-			}
-
-			body, err := io.ReadAll(getURLsRes.Body)
-			if err != nil {
-				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to read response body: %w", err))
-
-				results <- result
-
-				_ = getURLsRes.Body.Close()
-
-				break
-			}
-
-			_ = getURLsRes.Body.Close()
-
-			src := string(body)
-
-			// The search API repeats the last available page for any
-			// out-of-range page number, so an unchanged page means the
-			// results are exhausted.
-			if src == previousSrc {
-				break
-			}
-
-			previousSrc = src
-
-			if strings.Contains(src, "The site is under maintenance") || strings.Contains(src, "No archives for that site") {
-				result := sources.ErrorResult(s.Name(), errors.New("no archives for that site"))
-
-				results <- result
-
-				break
-			}
-
-			matches := resultPattern.FindAllStringSubmatch(src, -1)
-
-			if len(matches) == 0 {
-				break
-			}
-
-			for _, match := range matches {
-				var URL string
-
-				var valid bool
-
-				if URL, valid = cfg.Validator(match[1]); !valid {
-					continue
+		for result := range client.Search(ctx, domain) {
+			if result.Err != nil {
+				if !emit(sources.ErrorResult(s.Name(), result.Err)) {
+					return
 				}
 
-				result := sources.URLResult(s.Name(), URL)
-
-				results <- result
+				continue
 			}
 
-			if !strings.Contains(src, "Next Page") && !strings.Contains(src, ">»</a>") {
-				break
+			if result.Warning != "" {
+				if !emit(sources.WarningResult(s.Name(), result.Warning)) {
+					return
+				}
+
+				continue
+			}
+
+			URL, valid := cfg.Validator(result.Value)
+			if !valid {
+				continue
+			}
+
+			if !emit(sources.URLResult(s.Name(), URL)) {
+				return
 			}
 		}
 	}()
@@ -140,16 +76,8 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	return results
 }
 
-var resultPattern = regexp.MustCompile(`<a href="/archive/[^"]*">([^<]+)</a>`)
-
-var limiter = hqgolimiter.New(
-	hqgolimiter.WithRequestsPerMinute(30),
-)
-
 var _ sources.Source = (*Source)(nil)
 
-func New() (source sources.Source) {
-	source = &Source{}
-
-	return
+func New() sources.Source {
+	return &Source{}
 }

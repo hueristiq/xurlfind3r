@@ -86,7 +86,12 @@ func TestSourceRegistry(t *testing.T) {
 func TestHostPattern(t *testing.T) {
 	t.Parallel()
 
-	extractor := regexp.MustCompile("^(?:" + hostPattern(exampleDomain) + ")$")
+	pattern, err := sources.NewURLExtractor(exampleDomain).Regexp()
+	if err != nil {
+		t.Fatalf("Regexp() error = %v", err)
+	}
+
+	extractor := regexp.MustCompile("^(?:" + pattern.String() + ")$")
 
 	tests := []struct {
 		name string

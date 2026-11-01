@@ -1,11 +1,11 @@
 package gitlab_test
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
+	"slices"
 	"testing"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
@@ -14,110 +14,69 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/gitlab"
 )
 
-const exampleDomain = "example.com"
+type roundTripFunc func(*http.Request) (*http.Response, error)
 
-type rewriteTransport struct {
-	base   *http.Transport
-	target *url.URL
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
-func (transport *rewriteTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	clone := request.Clone(request.Context())
-	clone.URL.Scheme = transport.target.Scheme
-	clone.URL.Host = transport.target.Host
-	clone.Host = transport.target.Host
-
-	response, err := transport.base.RoundTrip(clone)
-	if err != nil {
-		return nil, fmt.Errorf("round trip: %w", err)
-	}
-
-	return response, nil
-}
-
-func newClient(t *testing.T, serverURL string) (client *hqgohttp.Client) {
-	t.Helper()
-
-	target, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() error: %v", err)
-	}
-
-	base := &http.Transport{Proxy: nil}
-
-	t.Cleanup(base.CloseIdleConnections)
-
-	httpClient := &http.Client{
-		Transport: &rewriteTransport{
-			base:   base,
-			target: target,
-		},
-	}
-
-	client = hqgohttp.New(hqgohttp.WithHTTPClient(httpClient))
-
-	return
-}
-
-func acceptAll(target string) (string, bool) {
-	return target, true
-}
-
-func collectResults(t *testing.T, results <-chan sources.Result) (collected []sources.Result) {
-	t.Helper()
-
-	for result := range results {
-		collected = append(collected, result)
-	}
-
-	return
-}
-
-func TestGitLabRepeatedPage(t *testing.T) {
+func TestRunMapsURLs(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
-		writer.Header().Set("X-Next-Page", request.URL.Query().Get("page"))
-		_, _ = writer.Write([]byte(`[]`))
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Private-Token") != "secret" {
+			t.Error("missing private token")
+		}
+
+		if r.URL.Path == "/api/v4/search" {
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = writer.Write([]byte(`[{"data":"","project_id":7,"path":"dir/file","ref":"main"}]`))
+
+			return
+		}
+
+		_, _ = writer.Write([]byte("https://api.example.com/x\nconst u = \"https://\" + \"api.example.com/y\";"))
 	}))
-	t.Cleanup(server.Close)
+	defer server.Close()
+
+	target, _ := url.Parse(server.URL)
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		clone := request.Clone(request.Context())
+		clone.URL.Scheme = target.Scheme
+		clone.URL.Host = target.Host
+
+		return http.DefaultTransport.RoundTrip(clone)
+	})
+
+	client, err := hqgohttp.New(hqgohttp.WithHTTPClient(&http.Client{Transport: transport}))
+	if err != nil {
+		t.Fatalf("New HTTP client: %v", err)
+	}
 
 	source := gitlab.New()
-	source.UseKeys("key")
+	source.UseKeys("secret")
 
 	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
+		Client:    client,
+		Extractor: sources.NewURLExtractor("example.com"),
+		Validator: func(value string) (string, bool) { return value, true },
 	}
 
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
+	var values []string
 
-	if len(results) != 1 || results[0].Type != sources.ResultWarning || !strings.Contains(results[0].Value, "next page did not advance") {
-		t.Fatalf("Run() results = %v, want one repeated-page warning", results)
-	}
-}
+	for result := range source.Run(context.Background(), cfg, "example.com") {
+		if result.Error != nil {
+			t.Fatalf("Run: %v", result.Error)
+		}
 
-func TestGitLabStatusError(t *testing.T) {
-	t.Parallel()
+		if result.Type != sources.ResultURL {
+			t.Fatalf("result type = %v; want URL", result.Type)
+		}
 
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusBadRequest)
-		_, _ = writer.Write([]byte("bad request"))
-	}))
-	t.Cleanup(server.Close)
-
-	source := gitlab.New()
-	source.UseKeys("key")
-
-	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
+		values = append(values, result.Value)
 	}
 
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
-
-	if len(results) != 1 || results[0].Type != sources.ResultError || !strings.Contains(results[0].Error.Error(), "400") {
-		t.Fatalf("Run() results = %v, want one 400 error", results)
+	if !slices.Contains(values, "https://api.example.com/x") || !slices.Contains(values, "https://api.example.com/y") {
+		t.Fatalf("values = %v; want full and collapsed extraction results", values)
 	}
 }

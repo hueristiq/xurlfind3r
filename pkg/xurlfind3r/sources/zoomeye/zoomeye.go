@@ -2,43 +2,24 @@ package zoomeye
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	"net/http"
 
-	hqgohttpmethod "github.com/hueristiq/hq-lib-http-go/method"
-
+	hqgosource "github.com/hueristiq/xurlfind3r/internal/source"
+	"github.com/hueristiq/xurlfind3r/internal/source/zoomeye"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
-
-type searchRequest struct {
-	Query    string `json:"qbase64"`
-	Page     uint   `json:"page"`
-	PageSize uint   `json:"pagesize"`
-	SubType  string `json:"sub_type"`
-}
-
-type searchResponse struct {
-	Total int `json:"total"`
-	Data  []struct {
-		URL string `json:"url"`
-	} `json:"data"`
-}
 
 type Source struct {
 	keys sources.Keys
 }
 
-func (s *Source) Name() (name string) {
-	name = sources.Zoomeye
-
-	return
+func (s *Source) Name() string {
+	return sources.Zoomeye
 }
 
-func (s *Source) NeedsKeys() (needs bool) {
-	needs = true
-
-	return
+func (s *Source) NeedsKeys() bool {
+	return true
 }
 
 func (s *Source) UseKeys(keys ...string) {
@@ -51,92 +32,55 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	go func() {
 		defer close(results)
 
+		emit := func(result sources.Result) bool {
+			select {
+			case results <- result:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
+
 		key, err := s.keys.PickRandom()
 		if err != nil {
-			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to select key: %w", err))
-
-			results <- result
+			emit(sources.ErrorResult(s.Name(), fmt.Errorf("failed to select key: %w", err)))
 
 			return
 		}
 
-		getURLsReqURL := "https://api.zoomeye.ai/v2/search"
+		client, err := zoomeye.New(hqgosource.DoerFunc(func(request *http.Request) (*http.Response, error) {
+			return cfg.Client.Do(request)
+		}), key)
+		if err != nil {
+			emit(sources.ErrorResult(s.Name(), err))
 
-		processed := 0
+			return
+		}
 
-		for page := uint(1); ; page++ {
-			searchReqBody, err := json.Marshal(searchRequest{
-				Query:    base64.StdEncoding.EncodeToString([]byte("*." + domain)),
-				Page:     page,
-				PageSize: 100,
-				SubType:  "web",
-			})
-			if err != nil {
-				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to marshal search request: %w", err))
-
-				results <- result
-
-				return
-			}
-
-			getURLsRes, err := cfg.Client.Request().
-				Method(hqgohttpmethod.POST).
-				URL(getURLsReqURL).
-				SetHeader("API-KEY", key).
-				SetHeader("Content-Type", "application/json").
-				Body(searchReqBody).
-				Context(ctx).Do()
-			if err != nil {
-				result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
-
-				results <- result
-
-				return
-			}
-
-			if err = sources.CheckResponse(getURLsRes.Std(), key); err != nil {
-				_ = getURLsRes.Body.Close()
-
-				result := sources.ErrorResult(s.Name(), err)
-
-				results <- result
-
-				return
-			}
-
-			var getURLsResData searchResponse
-
-			if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
-				result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
-
-				results <- result
-
-				_ = getURLsRes.Body.Close()
-
-				return
-			}
-
-			_ = getURLsRes.Body.Close()
-
-			if len(getURLsResData.Data) == 0 {
-				break
-			}
-
-			for _, record := range getURLsResData.Data {
-				URL, valid := cfg.Validator(record.URL)
-				if !valid {
-					continue
+		for result := range client.Search(ctx, domain, zoomeye.URLs) {
+			if result.Err != nil {
+				if !emit(sources.ErrorResult(s.Name(), result.Err)) {
+					return
 				}
 
-				result := sources.URLResult(s.Name(), URL)
-
-				results <- result
-
-				processed++
+				continue
 			}
 
-			if processed >= getURLsResData.Total {
-				break
+			if result.Warning != "" {
+				if !emit(sources.WarningResult(s.Name(), result.Warning)) {
+					return
+				}
+
+				continue
+			}
+
+			URL, valid := cfg.Validator(result.Value)
+			if !valid {
+				continue
+			}
+
+			if !emit(sources.URLResult(s.Name(), URL)) {
+				return
 			}
 		}
 	}()
@@ -146,10 +90,6 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 var _ sources.Source = (*Source)(nil)
 
-func New() (source sources.Source) {
-	source = &Source{
-		keys: make(sources.Keys, 0),
-	}
-
-	return
+func New() sources.Source {
+	return &Source{keys: make(sources.Keys, 0)}
 }

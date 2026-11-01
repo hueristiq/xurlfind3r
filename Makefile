@@ -40,7 +40,7 @@ endef
 
 BIN_DIR = $(CURDIR)/.bin
 
-GOLANGCI_LINT_BIN_VER = 2.12.0
+GOLANGCI_LINT_BIN_VER = 2.15.0
 GOLANGCI_LINT_BIN_DIR = $(BIN_DIR)/golangci-lint/$(GOLANGCI_LINT_BIN_VER)
 
 GOLANGCI_LINT_BIN = $(GOLANGCI_LINT_BIN_DIR)/golangci-lint
@@ -101,7 +101,7 @@ lefthook-initialize:
 	fi
 	@$(call log_success,Initializing lefthook...done!)
 
-.PHONY: go-mod-clean go-mod-tidy go-mod-update go-fmt go-lint go-test go-build go-install
+.PHONY: go-mod-clean go-mod-tidy go-mod-update go-fmt-check go-fmt go-lint go-test go-build go-install
 
 go-mod-clean:
 	@$(call log_header,Cleaning Go module cache...)
@@ -119,12 +119,17 @@ go-mod-update:
 	@go get -f -u ./... || ( $(call log_error,Failed Updating Go modules (step 2)!) && exit 1 )
 	@$(call log_success,Updating Go modules...done!)
 
+go-fmt-check: install-golangci-lint
+	@$(call log_header,Checking Go formatting...)
+	@$(GOLANGCI_LINT_BIN) fmt --diff ./... || ( $(call log_error,Go formatting check failed!) && exit 1 )
+	@$(call log_success,Checking Go formatting...done!)
+
 go-fmt: install-golangci-lint
 	@$(call log_header,Formatting Go code...)
 	@$(GOLANGCI_LINT_BIN) fmt ./... || ( $(call log_error,Failed Formatting Go code!) && exit 1 )
 	@$(call log_success,Formatting Go code...done!)
 
-go-lint: go-fmt
+go-lint:
 	@$(call log_header,Linting Go code...)
 	@$(GOLANGCI_LINT_BIN) run ./... || ( $(call log_error,Failed Linting Go code!) && exit 1 )
 	@$(call log_success,Linting Go code...done!)
@@ -176,6 +181,7 @@ help:
 	@echo "   $(COLOR_GREEN)go-mod-clean$(COLOR_RESET) ................ Clean Go module cache."
 	@echo "   $(COLOR_GREEN)go-mod-tidy$(COLOR_RESET) ................. Tidy Go modules."
 	@echo "   $(COLOR_GREEN)go-mod-update$(COLOR_RESET) ............... Update Go modules."
+	@echo "   $(COLOR_GREEN)go-fmt-check$(COLOR_RESET) ................ Check Go formatting."
 	@echo "   $(COLOR_GREEN)go-fmt$(COLOR_RESET) ...................... Format Go code."
 	@echo "   $(COLOR_GREEN)go-lint$(COLOR_RESET) ..................... Lint Go code."
 	@echo "   $(COLOR_GREEN)go-test$(COLOR_RESET) ..................... Run Go tests."

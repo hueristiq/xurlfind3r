@@ -1,0 +1,42 @@
+name: 🛡️ Vulnerability Scan (govulncheck)
+
+on:
+    push:
+        branches:
+            - "main"
+            - "dev"
+        paths:
+            - '**.go'
+            - '**.mod'
+            - '**.sum'
+            - '.golangci.yaml'
+            - '.github/workflows/**'
+    pull_request:
+        branches:
+          - "main"
+          - "dev"
+        paths:
+            - '**.go'
+            - '**.mod'
+            - '**.sum'
+            - '.golangci.yaml'
+            - '.github/workflows/**'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    govulncheck:
+        name: Vulnerability Scan (govulncheck)
+        runs-on: ubuntu-latest
+        steps:
+            -
+                name: Code Checkout
+                uses: actions/checkout@v7
+            -
+                name: Run govulncheck
+                uses: golang/govulncheck-action@v1
+                with:
+                    repo-checkout: false
+                    go-package: ./...

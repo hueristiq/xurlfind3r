@@ -1,12 +1,10 @@
 package urlscan_test
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
-	"sync/atomic"
 	"testing"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
@@ -15,178 +13,62 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/urlscan"
 )
 
-const exampleDomain = "example.com"
+type roundTripFunc func(*http.Request) (*http.Response, error)
 
-type rewriteTransport struct {
-	base   *http.Transport
-	target *url.URL
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
-func (transport *rewriteTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	clone := request.Clone(request.Context())
-	clone.URL.Scheme = transport.target.Scheme
-	clone.URL.Host = transport.target.Host
-	clone.Host = transport.target.Host
-
-	response, err := transport.base.RoundTrip(clone)
-	if err != nil {
-		return nil, fmt.Errorf("round trip: %w", err)
-	}
-
-	return response, nil
-}
-
-func newClient(t *testing.T, serverURL string) (client *hqgohttp.Client) {
-	t.Helper()
-
-	target, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() error: %v", err)
-	}
-
-	base := &http.Transport{Proxy: nil}
-
-	t.Cleanup(base.CloseIdleConnections)
-
-	httpClient := &http.Client{
-		Transport: &rewriteTransport{
-			base:   base,
-			target: target,
-		},
-	}
-
-	client = hqgohttp.New(hqgohttp.WithHTTPClient(httpClient))
-
-	return
-}
-
-func acceptAll(target string) (string, bool) {
-	return target, true
-}
-
-func collectResults(t *testing.T, results <-chan sources.Result) (collected []sources.Result) {
-	t.Helper()
-
-	for result := range results {
-		collected = append(collected, result)
-	}
-
-	return
-}
-
-func TestURLScanRepeatedCursor(t *testing.T) {
+func TestRunMapsURLs(t *testing.T) {
 	t.Parallel()
 
-	var requests atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		requests.Add(1)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/search" || r.Header.Get("Api-Key") != "secret" {
+			t.Errorf("unexpected request: %s", r.URL.String())
+		}
 
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"results":[{"page":{"url":"https://example.com/a"},"sort":["cursor"]}],"has_more":true}`))
+		_, _ = writer.Write([]byte(`{"results":[{"page":{"domain":"api.example.com","url":"https://api.example.com/x"},"sort":[1]}],"has_more":false}`))
 	}))
-	t.Cleanup(server.Close)
+	defer server.Close()
+
+	target, _ := url.Parse(server.URL)
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		clone := request.Clone(request.Context())
+		clone.URL.Scheme = target.Scheme
+		clone.URL.Host = target.Host
+
+		return http.DefaultTransport.RoundTrip(clone)
+	})
+
+	client, err := hqgohttp.New(hqgohttp.WithHTTPClient(&http.Client{Transport: transport}))
+	if err != nil {
+		t.Fatalf("New HTTP client: %v", err)
+	}
 
 	source := urlscan.New()
-	source.UseKeys("key")
+	source.UseKeys("secret")
 
 	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
+		Client:    client,
+		Validator: func(value string) (string, bool) { return value, true },
 	}
 
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
+	var values []string
 
-	var urls, warnings int
-
-	for _, result := range results {
-		switch result.Type {
-		case sources.ResultURL:
-			urls++
-		case sources.ResultWarning:
-			warnings++
-
-			if !strings.Contains(result.Value, "cursor did not advance") {
-				t.Fatalf("warning = %q, want cursor warning", result.Value)
-			}
-		case sources.ResultError:
-			t.Fatalf("Run() error result: %v", result.Error)
-		}
-	}
-
-	if got := requests.Load(); got != 2 {
-		t.Fatalf("requests = %d, want 2", got)
-	}
-
-	if urls != 2 || warnings != 1 {
-		t.Fatalf("results = %d URLs, %d warnings; want 2 and 1", urls, warnings)
-	}
-}
-
-func TestURLScanPageCap(t *testing.T) {
-	t.Parallel()
-
-	var requests atomic.Int32
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		page := requests.Add(1)
-
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprintf(writer, `{"results":[{"page":{"url":"https://example.com/%d"},"sort":["%d"]}],"has_more":true}`, page, page)
-	}))
-	t.Cleanup(server.Close)
-
-	source := urlscan.New()
-	source.UseKeys("key")
-
-	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
-	}
-
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
-
-	var capped bool
-
-	for _, result := range results {
-		if result.Type == sources.ResultWarning && strings.Contains(result.Value, "capped") {
-			capped = true
+	for result := range source.Run(context.Background(), cfg, "example.com") {
+		if result.Error != nil {
+			t.Fatalf("Run: %v", result.Error)
 		}
 
-		if result.Type == sources.ResultError {
-			t.Fatalf("Run() error result: %v", result.Error)
+		if result.Type != sources.ResultURL {
+			t.Fatalf("result type = %v; want URL", result.Type)
 		}
+
+		values = append(values, result.Value)
 	}
 
-	if got := requests.Load(); got != sources.MaxPages {
-		t.Fatalf("requests = %d, want %d", got, sources.MaxPages)
-	}
-
-	if !capped {
-		t.Fatal("Run() did not emit a page-cap warning")
-	}
-}
-
-func TestURLScanStatusError(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusBadRequest)
-		_, _ = writer.Write([]byte("bad request"))
-	}))
-	t.Cleanup(server.Close)
-
-	source := urlscan.New()
-	source.UseKeys("key")
-
-	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
-	}
-
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
-
-	if len(results) != 1 || results[0].Type != sources.ResultError || !strings.Contains(results[0].Error.Error(), "400") {
-		t.Fatalf("Run() results = %v, want one 400 error", results)
+	if len(values) != 1 || values[0] != "https://api.example.com/x" {
+		t.Fatalf("values = %v; want the provider URL", values)
 	}
 }

@@ -9,16 +9,39 @@ import (
 	"path/filepath"
 	"strings"
 
+	hqgotuiansi "github.com/hueristiq/hq-lib-tui-go/ansi"
+
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
 type Writer struct {
-	format  format
-	writers map[io.Writer]*bufio.Writer
+	format        format
+	writers       map[io.Writer]*bufio.Writer
+	sourceProfile hqgotuiansi.Profile
 }
 
 func (w *Writer) SetFormatToJSONL() {
 	w.format = formatJSONL
+}
+
+// SetSourceProfile enables or disables color for the [source] prefix written
+// by [Writer.WriteWithSource]. The zero value [hqgotuiansi.ProfileNone] keeps the
+// prefix plain.
+//
+// Parameters:
+//   - profile (hqgotuiansi.Profile): the ANSI capability of the destination.
+func (w *Writer) SetSourceProfile(profile hqgotuiansi.Profile) {
+	w.sourceProfile = profile
+}
+
+func (w *Writer) sourcePrefix(source string) (prefix string) {
+	if w.sourceProfile != hqgotuiansi.ProfileNone {
+		source = hqgotuiansi.Style{Fg: hqgotuiansi.BrightCyan}.Render(w.sourceProfile, source)
+	}
+
+	prefix = "[" + source + "]"
+
+	return
 }
 
 func (w *Writer) CreateFile(path string) (file *os.File, err error) {
@@ -90,7 +113,7 @@ func (w *Writer) WriteWithSource(writer io.Writer, domain string, result sources
 	case formatTXT:
 		bw := w.bufferedWriter(writer)
 
-		if _, err = bw.WriteString("[" + result.Source + "] " + result.Value + "\n"); err != nil {
+		if _, err = bw.WriteString(w.sourcePrefix(result.Source) + " " + result.Value + "\n"); err != nil {
 			return
 		}
 	case formatJSONL:

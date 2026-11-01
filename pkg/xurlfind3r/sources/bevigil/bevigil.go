@@ -2,31 +2,24 @@ package bevigil
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"net/http"
 
+	hqgosource "github.com/hueristiq/xurlfind3r/internal/source"
+	"github.com/hueristiq/xurlfind3r/internal/source/bevigil"
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
-
-type getURLsResponse struct {
-	Domain string   `json:"domain"`
-	URLs   []string `json:"urls"`
-}
 
 type Source struct {
 	keys sources.Keys
 }
 
-func (s *Source) Name() (name string) {
-	name = sources.Bevigil
-
-	return
+func (s *Source) Name() string {
+	return sources.Bevigil
 }
 
-func (s *Source) NeedsKeys() (needs bool) {
-	needs = true
-
-	return
+func (s *Source) NeedsKeys() bool {
+	return true
 }
 
 func (s *Source) UseKeys(keys ...string) {
@@ -39,62 +32,48 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 	go func() {
 		defer close(results)
 
+		emit := func(result sources.Result) bool {
+			select {
+			case results <- result:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
+
 		key, err := s.keys.PickRandom()
 		if err != nil {
-			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to select key: %w", err))
-
-			results <- result
+			emit(sources.ErrorResult(s.Name(), fmt.Errorf("failed to select key: %w", err)))
 
 			return
 		}
 
-		getURLsReqURL := fmt.Sprintf("https://osint.bevigil.com/api/%s/urls/", domain)
-
-		getURLsRes, err := cfg.Client.Request().
-			URL(getURLsReqURL).
-			SetHeader("X-Access-Token", key).
-			Context(ctx).Do()
+		client, err := bevigil.New(hqgosource.DoerFunc(func(request *http.Request) (*http.Response, error) {
+			return cfg.Client.Do(request)
+		}), key)
 		if err != nil {
-			result := sources.ErrorResult(s.Name(), fmt.Errorf("request failed: %w", err))
-
-			results <- result
+			emit(sources.ErrorResult(s.Name(), err))
 
 			return
 		}
 
-		if err = sources.CheckResponse(getURLsRes.Std(), key); err != nil {
-			_ = getURLsRes.Body.Close()
+		for result := range client.Search(ctx, domain, bevigil.URLs) {
+			if result.Err != nil {
+				if !emit(sources.ErrorResult(s.Name(), result.Err)) {
+					return
+				}
 
-			result := sources.ErrorResult(s.Name(), err)
+				continue
+			}
 
-			results <- result
-
-			return
-		}
-
-		var getURLsResData getURLsResponse
-
-		if err = json.NewDecoder(getURLsRes.Body).Decode(&getURLsResData); err != nil {
-			result := sources.ErrorResult(s.Name(), fmt.Errorf("failed to parse JSON response: %w", err))
-
-			results <- result
-
-			_ = getURLsRes.Body.Close()
-
-			return
-		}
-
-		_ = getURLsRes.Body.Close()
-
-		for _, URL := range getURLsResData.URLs {
-			URL, valid := cfg.Validator(URL)
+			URL, valid := cfg.Validator(result.Value)
 			if !valid {
 				continue
 			}
 
-			result := sources.URLResult(s.Name(), URL)
-
-			results <- result
+			if !emit(sources.URLResult(s.Name(), URL)) {
+				return
+			}
 		}
 	}()
 
@@ -103,10 +82,6 @@ func (s *Source) Run(ctx context.Context, cfg *sources.Configuration, domain str
 
 var _ sources.Source = (*Source)(nil)
 
-func New() (source sources.Source) {
-	source = &Source{
-		keys: make(sources.Keys, 0),
-	}
-
-	return
+func New() sources.Source {
+	return &Source{keys: make(sources.Keys, 0)}
 }

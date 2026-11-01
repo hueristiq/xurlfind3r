@@ -225,7 +225,7 @@ func TestSendURLs(t *testing.T) {
 func TestExtractURLsBoundary(t *testing.T) {
 	t.Parallel()
 
-	extractor := regexp.MustCompile(`https://example\.com`)
+	extractor := sources.NewURLExtractorFromRegexp(regexp.MustCompile(`https://example\.com`))
 
 	tests := []struct {
 		name string
@@ -256,7 +256,7 @@ func TestExtractURLsBoundary(t *testing.T) {
 func TestExtractURLsEncodedSlashPrefix(t *testing.T) {
 	t.Parallel()
 
-	extractor := regexp.MustCompile(`(?i)(?:[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?\.)*example\.com`)
+	extractor := sources.NewURLExtractorFromRegexp(regexp.MustCompile(`(?i)(?:[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?\.)*example\.com`))
 
 	tests := []struct {
 		name string
@@ -287,7 +287,7 @@ func TestExtractURLsTrimsCodeGlue(t *testing.T) {
 
 	const reportPDFURL = "https://example.com/report.pdf"
 
-	extractor := regexp.MustCompile(`https?://\S*`)
+	extractor := sources.NewURLExtractorFromRegexp(regexp.MustCompile(`https?://\S*`))
 
 	tests := []struct {
 		name string

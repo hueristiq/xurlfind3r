@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,7 +16,9 @@ import (
 
 	hqgologger "github.com/hueristiq/hq-lib-logger-go"
 	hqgologgerformatter "github.com/hueristiq/hq-lib-logger-go/formatter"
-	hqgologgerlevels "github.com/hueristiq/hq-lib-logger-go/levels"
+	hqgologgerlevel "github.com/hueristiq/hq-lib-logger-go/level"
+	hqgologgerwriter "github.com/hueristiq/hq-lib-logger-go/writer"
+	hqgotuiansi "github.com/hueristiq/hq-lib-tui-go/ansi"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
@@ -42,6 +45,10 @@ var (
 	verbose               bool
 )
 
+var logger = slog.New(hqgologger.New().SlogHandler())
+
+var profile = hqgotuiansi.DetectProfile(os.Stderr)
+
 func init() {
 	pflag.StringVarP(&configurationFilePath, "configuration", "c", configuration.DefaultConfigurationFilePath(), "")
 	pflag.StringSliceVarP(&domains, "domain", "d", []string{}, "")
@@ -64,7 +71,7 @@ func configure() {
 	pflag.Parse()
 
 	if err := configuration.CreateOrUpdate(configurationFilePath); err != nil {
-		hqgologger.Fatal("failed creating or updating Configuration!", hqgologger.WithError(err))
+		fatal(logger, "failed creating or updating Configuration!", slog.Any("error", err))
 	}
 
 	viper.SetConfigFile(configurationFilePath)
@@ -75,31 +82,34 @@ func configure() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
-		hqgologger.Fatal("failed reading in Configuration!", hqgologger.WithError(err))
+		fatal(logger, "failed reading in Configuration!", slog.Any("error", err))
 	}
 
-	hqgologger.DefaultLogger.SetFormatter(
-		hqgologgerformatter.NewConsoleFormatter(&hqgologgerformatter.ConsoleFormatterConfiguration{
-			Colorize:     !monochrome,
-			IncludeLabel: true,
-		}),
-	)
+	level := hqgologgerlevel.LevelInfo
 
 	if silent {
-		if err := hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelSilent); err != nil {
-			hqgologger.Fatal("failed setting logger level!", hqgologger.WithError(err))
-		}
+		level = hqgologgerlevel.LevelFatal
 	}
 
 	if verbose {
-		if err := hqgologger.DefaultLogger.SetLevel(hqgologgerlevels.LevelDebug); err != nil {
-			hqgologger.Fatal("failed setting logger level!", hqgologger.WithError(err))
-		}
+		level = hqgologgerlevel.LevelDebug
 	}
+
+	logger = slog.New(hqgologger.New(
+		hqgologger.WithFormatter(hqgologgerformatter.NewConsole(&hqgologgerformatter.ConsoleConfig{
+			Label:    true,
+			Colorize: !monochrome,
+			Colorizer: hqgologgerformatter.ColorizerFunc(func(text string, lvl hqgologgerlevel.Level) string {
+				return levelStyle(lvl).Render(profile, text)
+			}),
+		})),
+		hqgologger.WithWriter(hqgologgerwriter.NewStream(os.Stderr)),
+		hqgologger.WithLevel(level),
+	).SlogHandler())
 }
 
 func usage() {
-	hqgologger.Info(configuration.Banner, hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+	fmt.Fprintln(os.Stderr, configuration.Banner)
 
 	h := "USAGE:\n"
 	h += fmt.Sprintf(" %s [OPTIONS]\n", configuration.Name)
@@ -137,19 +147,21 @@ func usage() {
 	h += " -s, --silent bool                    stdout in silent mode\n"
 	h += " -v, --verbose bool                   stdout in verbose mode\n"
 
-	hqgologger.Info(h, hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
-	hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+	fmt.Fprint(os.Stderr, h)
+	fmt.Fprintln(os.Stdout) //nolint:errcheck // blank separator write errors are non-fatal.
 }
 
 func main() {
 	configure()
 
-	hqgologger.Info(configuration.Banner, hqgologger.WithoutLabel())
+	if !silent {
+		fmt.Fprintln(os.Stderr, configuration.Banner)
+	}
 
 	var cfg *configuration.Configuration
 
 	if err := viper.Unmarshal(&cfg); err != nil {
-		hqgologger.Fatal("failed unmarshalling Configuration!", hqgologger.WithError(err))
+		fatal(logger, "failed unmarshalling Configuration!", slog.Any("error", err))
 	}
 
 	if listSupportedSources {
@@ -164,13 +176,17 @@ func main() {
 	domains = normalizeDomains(domains)
 
 	if len(domains) == 0 {
-		hqgologger.Fatal("no domains provided! specify at least one with --domain, --list or stdin.")
+		fatal(logger, "no domains provided! specify at least one with --domain, --list or stdin.")
 	}
 
 	writer := output.NewWriter()
 
 	if outputInJSONL {
 		writer.SetFormatToJSONL()
+	}
+
+	if !monochrome {
+		writer.SetSourceProfile(hqgotuiansi.DetectProfile(os.Stdout))
 	}
 
 	ignoreBrokenPipe()
@@ -197,7 +213,7 @@ func main() {
 		IncludeSubdomains: includeSubdomains,
 	})
 	if err != nil {
-		hqgologger.Fatal("failed creating finder!", hqgologger.WithError(err))
+		fatal(logger, "failed creating finder!", slog.Any("error", err))
 	}
 
 	outputs := []io.Writer{
@@ -209,7 +225,7 @@ func main() {
 	if outputFilePath != "" {
 		file, err = writer.CreateFile(outputFilePath)
 		if err != nil {
-			hqgologger.Fatal("failed to create output file!", hqgologger.WithString("file", outputFilePath), hqgologger.WithError(err))
+			fatal(logger, "failed to create output file!", slog.String("file", outputFilePath), slog.Any("error", err))
 		}
 
 		outputs = append(outputs, file)
@@ -227,10 +243,10 @@ func main() {
 			break
 		}
 
-		hqgologger.Info(fmt.Sprintf("Finding URLs for %v...", domain), hqgologger.WithoutTimestamp())
+		logger.Info(fmt.Sprintf("Finding URLs for %v...", domain))
 
 		if !silent {
-			hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+			fmt.Fprintln(os.Stdout) //nolint:errcheck // blank separator write errors are non-fatal.
 		}
 
 		domainOutputs := outputs
@@ -242,7 +258,7 @@ func main() {
 
 			domainFile, err = writer.CreateFile(domainOutputFilePath)
 			if err != nil {
-				hqgologger.Fatal("failed to create output file!", hqgologger.WithString("file", domainOutputFilePath), hqgologger.WithError(err))
+				fatal(logger, "failed to create output file!", slog.String("file", domainOutputFilePath), slog.Any("error", err))
 			}
 
 			domainOutputs = append(domainOutputs, domainFile)
@@ -279,26 +295,26 @@ func main() {
 
 		if domainFile != nil {
 			if err := writer.Release(domainFile); err != nil {
-				hqgologger.Fatal("failed flushing output file!", hqgologger.WithError(err))
+				fatal(logger, "failed flushing output file!", slog.Any("error", err))
 			}
 
 			if err := domainFile.Close(); err != nil {
-				hqgologger.Fatal("failed closing output file!", hqgologger.WithError(err))
+				fatal(logger, "failed closing output file!", slog.Any("error", err))
 			}
 		}
 
 		if !silent {
-			hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+			fmt.Fprintln(os.Stdout) //nolint:errcheck // blank separator write errors are non-fatal.
 		}
 	}
 
 	if file != nil {
 		if err := writer.Release(file); err != nil {
-			hqgologger.Fatal("failed flushing output file!", hqgologger.WithError(err))
+			fatal(logger, "failed flushing output file!", slog.Any("error", err))
 		}
 
 		if err := file.Close(); err != nil {
-			hqgologger.Fatal("failed closing output file!", hqgologger.WithError(err))
+			fatal(logger, "failed closing output file!", slog.Any("error", err))
 		}
 	}
 
@@ -318,9 +334,9 @@ func main() {
 }
 
 func printSources() {
-	hqgologger.Info(fmt.Sprintf("listing, %v, current supported sources.", strconv.Itoa(len(sources.List))), hqgologger.WithoutTimestamp())
-	hqgologger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", "*"), hqgologger.WithoutTimestamp())
-	hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+	logger.Info(fmt.Sprintf("listing, %v, current supported sources.", strconv.Itoa(len(sources.List))))
+	logger.Info(fmt.Sprintf("sources marked with %v take in key(s) or token(s).", "*"))
+	fmt.Fprintln(os.Stdout) //nolint:errcheck // blank separator write errors are non-fatal.
 
 	for i := range sources.List {
 		name := sources.List[i]
@@ -331,13 +347,13 @@ func printSources() {
 		}
 
 		if source.NeedsKeys() {
-			hqgologger.Print("> "+name+" *", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+			fmt.Fprintln(os.Stdout, "> "+name+" *") //nolint:errcheck // source listing write errors are non-fatal.
 		} else {
-			hqgologger.Print("> "+name, hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+			fmt.Fprintln(os.Stdout, "> "+name) //nolint:errcheck // source listing write errors are non-fatal.
 		}
 	}
 
-	hqgologger.Print("", hqgologger.WithoutTimestamp(), hqgologger.WithoutLabel())
+	fmt.Fprintln(os.Stdout) //nolint:errcheck // blank separator write errors are non-fatal.
 }
 
 func collectDomainsFromFile() {
@@ -347,7 +363,7 @@ func collectDomainsFromFile() {
 
 	file, err := os.Open(domainsFilePath) //nolint:gosec // path is the user-specified domains file location.
 	if err != nil {
-		hqgologger.Fatal("failed opening input file", hqgologger.WithError(err))
+		fatal(logger, "failed opening input file", slog.Any("error", err))
 	}
 
 	scanner := bufio.NewScanner(file)
@@ -357,11 +373,11 @@ func collectDomainsFromFile() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		hqgologger.Fatal("failed reading input file!", hqgologger.WithError(err))
+		fatal(logger, "failed reading input file!", slog.Any("error", err))
 	}
 
 	if err := file.Close(); err != nil {
-		hqgologger.Fatal("failed closing input file!", hqgologger.WithError(err))
+		fatal(logger, "failed closing input file!", slog.Any("error", err))
 	}
 }
 
@@ -377,7 +393,7 @@ func collectDomainsFromStdin() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		hqgologger.Fatal("failed reading stdin!", hqgologger.WithError(err))
+		fatal(logger, "failed reading stdin!", slog.Any("error", err))
 	}
 }
 
@@ -394,7 +410,7 @@ func normalizeDomains(rawDomains []string) (normalized []string) {
 
 		normalizedDomain, err := input.NormalizeDomain(domain)
 		if err != nil {
-			hqgologger.Fatal("invalid domain!", hqgologger.WithString("domain", domain), hqgologger.WithError(err))
+			fatal(logger, "invalid domain!", slog.String("domain", domain), slog.Any("error", err))
 		}
 
 		if _, exists := seen[normalizedDomain]; exists {
@@ -411,12 +427,24 @@ func normalizeDomains(rawDomains []string) (normalized []string) {
 
 func logResult(result sources.Result) {
 	if result.Type == sources.ResultError && verbose && result.Error != nil {
-		hqgologger.Error(result.Error.Error(), hqgologger.WithString("source", result.Source))
+		logger.Error(result.Error.Error(), sourceField(result.Source))
 	}
 
 	if result.Type == sources.ResultWarning {
-		hqgologger.Warn(result.Value, hqgologger.WithString("source", result.Source))
+		logger.Warn(result.Value, sourceField(result.Source))
 	}
+}
+
+func sourceField(source string) (field slog.Attr) {
+	value := source
+
+	if !monochrome {
+		value = hqgotuiansi.Style{Fg: hqgotuiansi.BrightCyan}.Render(profile, source)
+	}
+
+	field = slog.String("source", value)
+
+	return
 }
 
 func writeResult(writer *output.Writer, outputs []io.Writer, domain string, result sources.Result, silentMode bool) (remaining []io.Writer) {
@@ -425,7 +453,7 @@ func writeResult(writer *output.Writer, outputs []io.Writer, domain string, resu
 	for _, destination := range outputs {
 		write := writer.Write
 
-		if destination == os.Stdout && !silentMode {
+		if destination == os.Stdout && verbose && !silentMode {
 			write = writer.WriteWithSource
 		}
 
@@ -433,10 +461,10 @@ func writeResult(writer *output.Writer, outputs []io.Writer, domain string, resu
 			if destination != os.Stdout {
 				_ = writer.Flush(os.Stdout)
 
-				hqgologger.Fatal("failed to write result to output file!", hqgologger.WithError(err))
+				fatal(logger, "failed to write result to output file!", slog.Any("error", err))
 			}
 
-			hqgologger.Error("failed to write result to stdout; dropping stdout output!", hqgologger.WithError(err))
+			logger.Error("failed to write result to stdout; dropping stdout output!", slog.Any("error", err))
 
 			remaining = dropOutput(remaining, destination)
 		}
@@ -453,10 +481,10 @@ func flushOutputs(writer *output.Writer, outputs []io.Writer) (remaining []io.Wr
 			if destination != os.Stdout {
 				_ = writer.Flush(os.Stdout)
 
-				hqgologger.Fatal("failed to flush output file!", hqgologger.WithError(err))
+				fatal(logger, "failed to flush output file!", slog.Any("error", err))
 			}
 
-			hqgologger.Error("failed to flush stdout; dropping stdout output!", hqgologger.WithError(err))
+			logger.Error("failed to flush stdout; dropping stdout output!", slog.Any("error", err))
 
 			remaining = dropOutput(remaining, destination)
 		}
@@ -493,6 +521,23 @@ func terminationSignals() (signals []os.Signal) {
 	}
 
 	signals = []os.Signal{os.Interrupt, syscall.SIGTERM}
+
+	return
+}
+
+func levelStyle(level hqgologgerlevel.Level) (style hqgotuiansi.Style) {
+	switch level {
+	case hqgologgerlevel.LevelFatal, hqgologgerlevel.LevelError:
+		style = hqgotuiansi.Style{Fg: hqgotuiansi.BrightRed, Attributes: hqgotuiansi.Bold}
+	case hqgologgerlevel.LevelWarn:
+		style = hqgotuiansi.Style{Fg: hqgotuiansi.BrightYellow, Attributes: hqgotuiansi.Bold}
+	case hqgologgerlevel.LevelInfo:
+		style = hqgotuiansi.Style{Fg: hqgotuiansi.BrightBlue, Attributes: hqgotuiansi.Bold}
+	case hqgologgerlevel.LevelDebug:
+		style = hqgotuiansi.Style{Fg: hqgotuiansi.BrightMagenta, Attributes: hqgotuiansi.Bold}
+	case hqgologgerlevel.LevelTrace:
+		style = hqgotuiansi.Style{Attributes: hqgotuiansi.Faint}
+	}
 
 	return
 }

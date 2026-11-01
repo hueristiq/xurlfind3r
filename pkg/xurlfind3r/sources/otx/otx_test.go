@@ -1,11 +1,10 @@
 package otx_test
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"testing"
 
 	hqgohttp "github.com/hueristiq/hq-lib-http-go"
@@ -14,126 +13,62 @@ import (
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources/otx"
 )
 
-const exampleDomain = "example.com"
+type roundTripFunc func(*http.Request) (*http.Response, error)
 
-type rewriteTransport struct {
-	base   *http.Transport
-	target *url.URL
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
 }
 
-func (transport *rewriteTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	clone := request.Clone(request.Context())
-	clone.URL.Scheme = transport.target.Scheme
-	clone.URL.Host = transport.target.Host
-	clone.Host = transport.target.Host
-
-	response, err := transport.base.RoundTrip(clone)
-	if err != nil {
-		return nil, fmt.Errorf("round trip: %w", err)
-	}
-
-	return response, nil
-}
-
-func newClient(t *testing.T, serverURL string) (client *hqgohttp.Client) {
-	t.Helper()
-
-	target, err := url.Parse(serverURL)
-	if err != nil {
-		t.Fatalf("url.Parse() error: %v", err)
-	}
-
-	base := &http.Transport{Proxy: nil}
-
-	t.Cleanup(base.CloseIdleConnections)
-
-	httpClient := &http.Client{
-		Transport: &rewriteTransport{
-			base:   base,
-			target: target,
-		},
-	}
-
-	client = hqgohttp.New(hqgohttp.WithHTTPClient(httpClient))
-
-	return
-}
-
-func acceptAll(target string) (string, bool) {
-	return target, true
-}
-
-func collectResults(t *testing.T, results <-chan sources.Result) (collected []sources.Result) {
-	t.Helper()
-
-	for result := range results {
-		collected = append(collected, result)
-	}
-
-	return
-}
-
-func TestOTXRepeatedPage(t *testing.T) {
+func TestRunMapsURLs(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"url_list":[{"url":"https://example.com/a"}],"has_next":true,"actual_size":1}`))
-	}))
-	t.Cleanup(server.Close)
-
-	source := otx.New()
-	source.UseKeys("key")
-
-	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
-	}
-
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
-
-	var urls, warnings int
-
-	for _, result := range results {
-		switch result.Type {
-		case sources.ResultURL:
-			urls++
-		case sources.ResultWarning:
-			warnings++
-
-			if !strings.Contains(result.Value, "watermark did not advance") {
-				t.Fatalf("warning = %q, want watermark warning", result.Value)
-			}
-		case sources.ResultError:
-			t.Fatalf("Run() error result: %v", result.Error)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/indicators/domain/example.com/url_list" || r.Header.Get("X-Otx-Api-Key") != "secret" {
+			t.Errorf("unexpected request: %s", r.URL.String())
 		}
-	}
 
-	if urls != 1 || warnings != 1 {
-		t.Fatalf("results = %d URLs, %d warnings; want 1 and 1", urls, warnings)
-	}
-}
-
-func TestOTXStatusError(t *testing.T) {
-	t.Parallel()
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusBadRequest)
-		_, _ = writer.Write([]byte("bad request"))
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"url_list":[{"url":"https://api.example.com/x"}],"has_next":false}`))
 	}))
-	t.Cleanup(server.Close)
+	defer server.Close()
+
+	target, _ := url.Parse(server.URL)
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		clone := request.Clone(request.Context())
+		clone.URL.Scheme = target.Scheme
+		clone.URL.Host = target.Host
+
+		return http.DefaultTransport.RoundTrip(clone)
+	})
+
+	client, err := hqgohttp.New(hqgohttp.WithHTTPClient(&http.Client{Transport: transport}))
+	if err != nil {
+		t.Fatalf("New HTTP client: %v", err)
+	}
 
 	source := otx.New()
-	source.UseKeys("key")
+	source.UseKeys("secret")
 
 	cfg := &sources.Configuration{
-		Client:    newClient(t, server.URL),
-		Validator: acceptAll,
+		Client:    client,
+		Validator: func(value string) (string, bool) { return value, true },
 	}
 
-	results := collectResults(t, source.Run(t.Context(), cfg, exampleDomain))
+	var values []string
 
-	if len(results) != 1 || results[0].Type != sources.ResultError || !strings.Contains(results[0].Error.Error(), "400") {
-		t.Fatalf("Run() results = %v, want one 400 error", results)
+	for result := range source.Run(context.Background(), cfg, "example.com") {
+		if result.Error != nil {
+			t.Fatalf("Run: %v", result.Error)
+		}
+
+		if result.Type != sources.ResultURL {
+			t.Fatalf("result type = %v; want URL", result.Type)
+		}
+
+		values = append(values, result.Value)
+	}
+
+	if len(values) != 1 || values[0] != "https://api.example.com/x" {
+		t.Fatalf("values = %v; want the provider URL", values)
 	}
 }

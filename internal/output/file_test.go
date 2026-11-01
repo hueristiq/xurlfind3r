@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	hqgotuiansi "github.com/hueristiq/hq-lib-tui-go/ansi"
+
 	"github.com/hueristiq/xurlfind3r/pkg/xurlfind3r/sources"
 )
 
@@ -131,6 +133,44 @@ func TestWriteTXT(t *testing.T) {
 
 	if got, want := buffer.String(), "[wayback] https://"+exampleDomain+"/a\n"; got != want {
 		t.Fatalf("TXT output with source = %q, want %q", got, want)
+	}
+}
+
+func TestWriteWithSourceProfile(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		profile hqgotuiansi.Profile
+		want    string
+	}{
+		{name: "none", profile: hqgotuiansi.ProfileNone, want: "[wayback] https://" + exampleDomain + "/a\n"},
+		{name: "ansi", profile: hqgotuiansi.ProfileANSI, want: "[\x1b[96mwayback\x1b[0m] https://" + exampleDomain + "/a\n"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var buffer bytes.Buffer
+
+			writer := NewWriter()
+			writer.SetSourceProfile(test.profile)
+
+			result := sources.URLResult(sources.Wayback, "https://"+exampleDomain+"/a")
+
+			if err := writer.WriteWithSource(&buffer, exampleDomain, result); err != nil {
+				t.Fatalf("WriteWithSource() error: %v", err)
+			}
+
+			if err := writer.Flush(&buffer); err != nil {
+				t.Fatalf("Flush() error: %v", err)
+			}
+
+			if got := buffer.String(); got != test.want {
+				t.Fatalf("output = %q, want %q", got, test.want)
+			}
+		})
 	}
 }
 
