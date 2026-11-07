@@ -8,8 +8,8 @@ github.com/go-viper/mapstructure/v2 v2.5.0 h1:vM5IJoUAy3d7zRSVtIwQgBj7BiWtMPfmPE
 github.com/go-viper/mapstructure/v2 v2.5.0/go.mod h1:oJDH3BJKyqBA2TXFhDsKDGDTlndYOZ6rGS0BRZIxGhM=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/hueristiq/hq-lib-http-go v0.0.0-20261107134343-0887a6789fc6 h1:gEvgWdqd3z3CEDqk7CS+kqvRtM17WOe/tLmJGkhxlRc=
-github.com/hueristiq/hq-lib-http-go v0.0.0-20261107134343-0887a6789fc6/go.mod h1:50rUu/gdVWlf1xghw7xj9fpzgym8kyTCja5YVJ+Ul94=
+github.com/hueristiq/hq-lib-http-go v0.0.0-20261107141333-1c04748bcf2c h1:DPyXlpxbZEE33iKW36ZOannqa62vFOoLhby+Dof3f64=
+github.com/hueristiq/hq-lib-http-go v0.0.0-20261107141333-1c04748bcf2c/go.mod h1:50rUu/gdVWlf1xghw7xj9fpzgym8kyTCja5YVJ+Ul94=
 github.com/hueristiq/hq-lib-limiter-go v0.0.0-20261103131929-e14c2cf4eee5 h1:dhkx/oDiXxeNKq0pDBS6+WDgGRCe7n+//CgOvVUVDkQ=
 github.com/hueristiq/hq-lib-limiter-go v0.0.0-20261103131929-e14c2cf4eee5/go.mod h1:CBeb5InGvX2fZp/ErOVbRP2i3XwgxNPXGeSzKYCiKu4=
 github.com/hueristiq/hq-lib-logger-go v0.0.0-20261107133826-25661ab923c5 h1:4RMQvbekXbUr//cxwxxuEmgD4g+/LdWLcfDbSzh/Rbw=
